@@ -1,0 +1,12 @@
+{
+  "config_files": {
+    "contest_geometry": "../common/contest_geometry.json",
+    "screen_coordinate_system": "../common/screen_coordinate_system.json",
+    "task_requirements": "../common/task_requirements.json",
+    "camera": "camera.json",
+    "calibration": "calibration.json",
+    "vision": "vision.json",
+    "control": "control.json",
+    "runtime": "runtime.json"
+  }
+}

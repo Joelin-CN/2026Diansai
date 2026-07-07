@@ -1,0 +1,34 @@
+{
+  "basic_tasks": {
+    "reset_red_to_origin": {
+      "target": {
+        "x_mm": 0,
+        "y_mm": 0
+      },
+      "max_center_error_mm": 20
+    },
+    "red_follow_task_square": {
+      "max_duration_s": 30,
+      "max_center_distance_to_edge_mm": 20,
+      "direction": "clockwise"
+    },
+    "red_follow_a4_tape_fixed": {
+      "max_duration_s": 30,
+      "direction": "clockwise"
+    },
+    "red_follow_a4_tape_rotated": {
+      "max_duration_s": 30,
+      "direction": "clockwise"
+    }
+  },
+  "advanced_tasks": {
+    "green_track_red_after_reset": {
+      "max_lock_time_s": 2,
+      "success_center_distance_mm": 30
+    },
+    "green_track_red_during_a4_path": {
+      "max_initial_lock_time_s": 2,
+      "failure_center_distance_mm": 30
+    }
+  }
+}

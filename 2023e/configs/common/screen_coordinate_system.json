@@ -1,0 +1,29 @@
+{
+  "axes": {
+    "x_positive": "right",
+    "y_positive": "up"
+  },
+  "task_square_corners": {
+    "bottom_left": {
+      "x_mm": 0,
+      "y_mm": 0
+    },
+    "bottom_right": {
+      "x_mm": 500,
+      "y_mm": 0
+    },
+    "top_right": {
+      "x_mm": 500,
+      "y_mm": 500
+    },
+    "top_left": {
+      "x_mm": 0,
+      "y_mm": 500
+    }
+  },
+  "task_square_center": {
+    "x_mm": 250,
+    "y_mm": 250
+  },
+  "path_direction": "clockwise"
+}

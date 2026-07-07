@@ -1,0 +1,14 @@
+{
+  "frame": {
+    "width_px": 1280,
+    "height_px": 720,
+    "fps": 30
+  },
+  "exposure": {
+    "mode": "manual",
+    "value": null,
+    "gain": null,
+    "white_balance": "fixed"
+  },
+  "intrinsics_file": "../../calibration/green_camera_intrinsics.json"
+}

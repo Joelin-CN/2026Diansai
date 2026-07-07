@@ -1,0 +1,32 @@
+{
+  "manual_input_allowed": false,
+  "default_task": "reset_red_to_origin",
+  "available_tasks": [
+    "reset_red_to_origin",
+    "red_follow_task_square",
+    "red_follow_a4_tape_fixed",
+    "red_follow_a4_tape_rotated"
+  ],
+  "path_generation": {
+    "task_square_path_source": "common_screen_coordinate_system.task_square_corners",
+    "a4_path_source": "a4_black_tape_quad_detection",
+    "direction": "clockwise",
+    "target_spacing_mm": 5
+  },
+  "reset_success_criteria": {
+    "target_source": "common_task_requirements.basic_tasks.reset_red_to_origin.target",
+    "max_center_error_mm": 20,
+    "success_hold_time_s": 0.2,
+    "timeout_s": null
+  },
+  "motor_port": {
+    "type": "serial",
+    "port": null,
+    "baudrate": 115200,
+    "protocol": "delta_steps"
+  },
+  "logging": {
+    "enabled": true,
+    "directory": "../../logs/red"
+  }
+}

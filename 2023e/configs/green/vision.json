@@ -1,0 +1,42 @@
+{
+  "detections": {
+    "red_laser": {
+      "enabled": true,
+      "color_space": "HSV",
+      "hue_ranges_deg": [
+        {
+          "min": 0,
+          "max": 10
+        },
+        {
+          "min": 170,
+          "max": 180
+        }
+      ],
+      "saturation_min": 80,
+      "value_min": 120,
+      "area_px_min": 3,
+      "area_px_max": 2000,
+      "confidence_min": 0.6
+    },
+    "green_laser": {
+      "enabled": true,
+      "color_space": "HSV",
+      "hue_ranges_deg": [
+        {
+          "min": 45,
+          "max": 85
+        }
+      ],
+      "saturation_min": 80,
+      "value_min": 120,
+      "area_px_min": 3,
+      "area_px_max": 2000,
+      "confidence_min": 0.6
+    }
+  },
+  "lost_target_policy": {
+    "max_missing_frames": 5,
+    "action": "pause_motor_output"
+  }
+}

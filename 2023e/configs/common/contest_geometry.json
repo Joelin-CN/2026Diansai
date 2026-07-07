@@ -1,0 +1,13 @@
+{
+  "screen": {
+    "task_square_width_mm": 500,
+    "task_square_height_mm": 500,
+    "task_square_marked_center": {
+      "x_mm": 250,
+      "y_mm": 250
+    }
+  },
+  "laser": {
+    "screen_distance_nominal_mm": 1000
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "runtime_human_input_allowed": false,
+  "outputs": {
+    "camera_intrinsics": "../../calibration/green_camera_intrinsics.json",
+    "distortion_coefficients": "../../calibration/green_camera_intrinsics.json",
+    "homography_img_to_screen": "../../calibration/green_homography_img_to_screen.json",
+    "screen_roi": "../../calibration/green_screen_roi.json",
+    "motor_coarse_map": "../../calibration/green_motor_coarse_map.json",
+    "red_laser_detection_params": "vision.json",
+    "green_laser_detection_params": "vision.json"
+  },
+  "short_calibration": {
+    "screen_corner_method": "manual_or_auto_confirmed",
+    "motor_sample_grid": {
+      "columns": 3,
+      "rows": 3
+    },
+    "lock_after_calibration": true
+  }
+}

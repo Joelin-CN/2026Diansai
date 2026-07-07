@@ -1,0 +1,23 @@
+{
+  "controller": "visual_servo_delta_steps",
+  "command_type": "MotorCommand",
+  "error_input": "red_laser_screen_point_minus_green_laser_screen_point",
+  "gains": {
+    "yaw_kp_steps_per_mm": 1.0,
+    "yaw_kd_steps_per_mm_per_frame": 0.0,
+    "pitch_kp_steps_per_mm": 1.0,
+    "pitch_kd_steps_per_mm_per_frame": 0.0
+  },
+  "limits": {
+    "deadband_mm": 3,
+    "success_distance_mm": 30,
+    "max_yaw_delta_steps_per_frame": 100,
+    "max_pitch_delta_steps_per_frame": 100,
+    "max_speed_steps_per_s": 1500
+  },
+  "safety": {
+    "pause_on_red_detection_loss": true,
+    "pause_on_green_detection_loss": true,
+    "pause_on_out_of_screen": true
+  }
+}

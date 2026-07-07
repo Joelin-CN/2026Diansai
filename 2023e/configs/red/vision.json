@@ -1,0 +1,40 @@
+{
+  "detections": {
+    "red_laser": {
+      "enabled": true,
+      "color_space": "HSV",
+      "hue_ranges_deg": [
+        {
+          "min": 0,
+          "max": 10
+        },
+        {
+          "min": 170,
+          "max": 180
+        }
+      ],
+      "saturation_min": 80,
+      "value_min": 120,
+      "area_px_min": 3,
+      "area_px_max": 2000,
+      "confidence_min": 0.6
+    },
+    "a4_black_tape_quad": {
+      "enabled": true,
+      "color_space": "gray",
+      "threshold_mode": "adaptive_or_otsu",
+      "expected_sides": 4,
+      "polygon_approx_epsilon_ratio": 0.03,
+      "min_contour_area_px": 1000,
+      "corner_order": "clockwise"
+    },
+    "task_square": {
+      "enabled": true,
+      "source": "calibrated_screen_coordinate_system"
+    }
+  },
+  "lost_target_policy": {
+    "max_missing_frames": 5,
+    "action": "pause_motor_output"
+  }
+}
