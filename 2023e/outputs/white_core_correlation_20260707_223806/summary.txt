@@ -1,0 +1,12 @@
+Video: E:\B306\Visual\openCV\project\videos\2023e.mp4
+Start frame: 41
+Requested sample count: 30
+Seed: 7
+Actual sampled frames: [80, 91, 101, 102, 113, 116, 130, 134, 138, 168, 196, 261, 270, 288, 373, 416, 446, 470, 476, 486, 561, 590, 606, 621, 638, 684, 687, 708, 882, 888]
+Output directory: E:\B306\2026\电赛\2023e\outputs\white_core_correlation_20260707_223806
+Failed frames: []
+Label counts:
+red: 53
+green: 1
+uncertain: 9
+white/no-color: 5

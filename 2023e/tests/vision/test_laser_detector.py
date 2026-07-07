@@ -324,3 +324,50 @@ def test_white_core_diagnostics_score_red_support_above_green():
     assert abs(best["center"][1] - 50) <= 2.0
     assert best["local_red_score"] > best["local_green_score"]
     assert best["local_red_score"] > 0.0
+
+
+def test_white_core_diagnostics_score_green_support_above_red():
+    detector = LaserDetector(LaserColor.GREEN, _green_params())
+    image = _blank(value=5)
+    cv2.circle(image, (65, 45), 6, (0, 180, 0), -1, lineType=cv2.LINE_AA)
+    cv2.circle(image, (65, 45), 3, (245, 245, 245), -1, lineType=cv2.LINE_AA)
+    previous = LaserDetection.measured(
+        LaserColor.GREEN,
+        ImagePoint(66, 45),
+        image_radius_px=5,
+        area_px=40,
+        brightness=255,
+        confidence=0.9,
+    )
+
+    detection = detector.detect(image, previous_detection=previous)
+
+    candidates = detection.diagnostics["white_core_candidates"]
+    assert detection.diagnostics["white_core_candidate_count"] >= 1
+    best = candidates[0]
+    assert abs(best["center"][0] - 65) <= 2.0
+    assert abs(best["center"][1] - 45) <= 2.0
+    assert best["local_green_score"] > best["local_red_score"]
+    assert best["local_green_score"] > 0.0
+
+
+def test_white_core_diagnostics_keep_pure_white_color_scores_low():
+    detector = LaserDetector(LaserColor.RED, _red_params())
+    image = _blank(value=5)
+    cv2.circle(image, (60, 50), 4, (245, 245, 245), -1, lineType=cv2.LINE_AA)
+    previous = LaserDetection.measured(
+        LaserColor.RED,
+        ImagePoint(60, 50),
+        image_radius_px=5,
+        area_px=40,
+        brightness=255,
+        confidence=0.9,
+    )
+
+    detection = detector.detect(image, previous_detection=previous)
+
+    candidates = detection.diagnostics["white_core_candidates"]
+    assert detection.diagnostics["white_core_candidate_count"] >= 1
+    best = candidates[0]
+    assert best["local_red_score"] < 0.05
+    assert best["local_green_score"] < 0.05

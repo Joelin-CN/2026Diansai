@@ -334,10 +334,16 @@ def build_summary(
     parts = [f"frame={frame_index}", "path=debug", f"time_ms={elapsed_ms:.1f}"]
     parts.append(format_detection("red", strict_red))
     parts.append(format_detection("green", strict_green))
+    parts.append(format_white_core_summary("red", strict_red))
+    parts.append(format_white_core_summary("green", strict_green))
     if relaxed_red is not None:
         parts.append(format_detection("red_relaxed", relaxed_red))
     if relaxed_green is not None:
         parts.append(format_detection("green_relaxed", relaxed_green))
+    if relaxed_red is not None:
+        parts.append(format_white_core_summary("red_relaxed", relaxed_red))
+    if relaxed_green is not None:
+        parts.append(format_white_core_summary("green_relaxed", relaxed_green))
     if screen_square is None:
         parts.append("screen_square=lost:not_run")
     else:
@@ -360,6 +366,23 @@ def format_detection(label: str, detection: LaserDetection) -> str:
         return f"{label}=({detection.image_center.u_px:.1f},{detection.image_center.v_px:.1f},conf={detection.confidence:.2f})"
     reason = detection.failure_reason.value if detection.failure_reason else "unknown"
     return f"{label}=lost:{reason}"
+
+
+def format_white_core_summary(label: str, detection: LaserDetection) -> str:
+    diagnostics = detection.diagnostics or {}
+    count = diagnostics.get("white_core_candidate_count")
+    candidates = diagnostics.get("white_core_candidates") or []
+    if count is None:
+        return f"{label}_wc=na"
+    if not candidates:
+        return f"{label}_wc={count}:top=none"
+    top = candidates[0]
+    center = top.get("center") or (0.0, 0.0)
+    return (
+        f"{label}_wc={count}:top=({center[0]:.1f},{center[1]:.1f})"
+        f":r={top.get('local_red_score', 0.0):.2f}"
+        f":g={top.get('local_green_score', 0.0):.2f}"
+    )
 
 
 if __name__ == "__main__":
