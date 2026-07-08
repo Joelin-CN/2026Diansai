@@ -1,0 +1,9 @@
+Video: E:\B306\Visual\openCV\project\videos\2023e.mp4
+Profile: green
+Mode: runtime_track_red_green
+Start frame: 41
+Requested sample count: 20
+Seed: 7
+Actual sampled frames: [80, 91, 101, 113, 116, 130, 138, 196, 261, 288, 373, 416, 446, 470, 486, 561, 590, 638, 708, 882]
+Output directory: outputs\vision_runtime_eval_core1_v1
+Failed frames: []

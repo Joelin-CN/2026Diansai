@@ -1,0 +1,15 @@
+Video: E:\B306\Visual\openCV\project\videos\2023e.mp4
+Start frame: 41
+Requested sample count: 20
+Seed: 7
+Actual sampled frames: [80, 91, 101, 113, 116, 130, 138, 196, 261, 288, 373, 416, 446, 470, 486, 561, 590, 638, 708, 882]
+Output directory: outputs\white_core_blob_v3
+Failed frames: []
+
+Pathway HIGH: V>=180, S<=80
+Pathway LOW:  V>=120, S<=100
+Merge radius: 8 px
+
+Candidates from HIGH: 72
+Candidates from LOW:  404
+Total merged candidates: 476

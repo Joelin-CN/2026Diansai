@@ -1,0 +1,18 @@
+Video: E:\B306\Visual\openCV\project\videos\2023e.mp4
+Start frame: 41
+Requested sample count: 20
+Seed: 7
+Actual sampled frames: [80, 91, 101, 113, 116, 130, 138, 196, 261, 288, 373, 416, 446, 470, 486, 561, 590, 638, 708, 882]
+Output directory: outputs\white_core_blob_v1
+Failed frames: []
+
+GT hit radius: 20 px
+Frames with RED  GT hit: 0/20  -> []
+Frames with GREEN GT hit: 0/20  -> []
+Frames with BOTH  GT hit: 0/20  -> []
+
+Label counts:
+  both_gt_hit: 0
+  red_gt_hit: 0
+  green_gt_hit: 0
+  no_gt_hit: 68

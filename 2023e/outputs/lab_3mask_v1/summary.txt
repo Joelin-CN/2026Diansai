@@ -1,0 +1,26 @@
+Video: E:\B306\Visual\openCV\project\videos\2023e.mp4
+Start frame: 41
+Requested sample count: 40
+Seed: 7
+Actual sampled frames: [80, 89, 91, 92, 101, 102, 105, 113, 116, 130, 134, 138, 168, 178, 196, 261, 268, 270, 288, 373, 416, 446, 448, 470, 476, 486, 561, 590, 606, 612, 621, 632, 638, 641, 684, 687, 708, 882, 888, 921]
+Output directory: outputs\lab_3mask_v1
+Failed frames: []
+
+LAB 3-mask parameters:
+L peak radius: 5
+L peak floor: 80
+L AB neutral max: 10
+A red threshold: > 15
+A green threshold: < -15
+Halo blob area: [2.0, 300.0]
+Association radius: 25.0
+
+Counts:
+Frames written: 40
+White peaks: 2497
+Red halos: 29
+Green halos: 23
+Red candidates: 54
+Green candidates: 46
+Unknown white cores: 2397
+Orphan halos: 6

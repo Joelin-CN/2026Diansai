@@ -1,0 +1,27 @@
+Video: E:\B306\Visual\openCV\project\videos\2023e.mp4
+Start frame: 41
+Requested sample count: 40
+Seed: 7
+Actual sampled frames: [80, 89, 91, 92, 101, 102, 105, 113, 116, 130, 134, 138, 168, 178, 196, 261, 268, 270, 288, 373, 416, 446, 448, 470, 476, 486, 561, 590, 606, 612, 621, 632, 638, 641, 684, 687, 708, 882, 888, 921]
+Output directory: outputs\lab_halo_guided_core_v1
+Failed frames: []
+
+LAB halo-guided core parameters:
+A red threshold: > 15
+A green threshold: < -15
+Halo blob area: [2.0, 300.0]
+Core search radius: 20
+Core diameter: [3.0, 15.0]
+Core L floor: 80
+Core AB neutral max: 15
+Core B neutral max: 15
+Distance penalty: 1.0
+
+Counts:
+Frames written: 40
+Red halos: 29
+Green halos: 23
+Red candidates: 29
+Green candidates: 23
+Core found: 6
+Fallback halo center: 46
