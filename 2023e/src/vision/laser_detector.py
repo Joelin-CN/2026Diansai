@@ -17,23 +17,10 @@ class _Candidate:
     radius_px: float
     area_px: float
     brightness: float
-    circularity: float
     score: float
-    color_area_px: float
-    bright_core_area_px: float
-    combined_area_px: float
+    halo_area_px: float
+    core_area_px: float | None
     core_found: bool
-
-
-@dataclass(frozen=True)
-class _WhiteCoreCandidate:
-    center: ImagePoint
-    core_area_px: float
-    brightness: float
-    distance_to_previous: float | None
-    local_red_score: float
-    local_green_score: float
-    rank_score: float
 
 
 class LaserDetector:
@@ -59,24 +46,19 @@ class LaserDetector:
             "second_best_score": None,
             "candidate_scores": [],
             "failure_reason": None,
-            "white_core_candidate_count": 0,
-            "white_core_candidates": [],
+            "color_space": self.params.color_space,
         }
         if crop.size == 0:
             diagnostics["failure_reason"] = FailureReason.NOT_FOUND.value
             return LaserDetection.lost(self.color, FailureReason.NOT_FOUND, diagnostics)
 
-        mask, low_value_mask, bright_core_mask, hsv = self._build_mask(crop)
-        white_core_candidates = self._analyze_white_core_candidates(
-            bright_core_mask,
-            hsv,
-            offset_x,
-            offset_y,
-            previous_detection,
-        )
-        diagnostics["white_core_candidate_count"] = len(white_core_candidates)
-        diagnostics["white_core_candidates"] = self._white_core_candidate_diagnostics(white_core_candidates)
-        candidates, rejected = self._extract_candidates(mask, low_value_mask, bright_core_mask, hsv, offset_x, offset_y, previous_detection)
+        # Branch on color_space
+        if self.params.color_space == "LAB_HALO_GUIDED":
+            candidates, rejected = self._extract_candidates_lab(crop, offset_x, offset_y, previous_detection)
+        else:
+            # Legacy HSV fallback
+            candidates, rejected = self._extract_candidates_hsv(crop, offset_x, offset_y, previous_detection)
+
         diagnostics["candidate_count"] = len(candidates)
         diagnostics["rejected_candidates"] = rejected
 
@@ -113,196 +95,257 @@ class LaserDetector:
             diagnostics=diagnostics,
         )
 
-    def _build_mask(self, image: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-        hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-        mask = np.zeros(hsv.shape[:2], dtype=np.uint8)
-        low_value_mask = np.zeros(hsv.shape[:2], dtype=np.uint8)
-        for hue_range in self.params.hue_ranges_deg:
-            low_h = max(0, min(179, int(hue_range.min)))
-            high_h = max(0, min(179, int(hue_range.max)))
-            lower = np.array([low_h, self.params.saturation_min, self.params.value_min], dtype=np.uint8)
-            upper = np.array([high_h, 255, 255], dtype=np.uint8)
-            mask = cv2.bitwise_or(mask, cv2.inRange(hsv, lower, upper))
-            low_value_lower = np.array([low_h, self.params.saturation_min, 1], dtype=np.uint8)
-            low_value_upper = np.array([high_h, 255, max(0, self.params.value_min - 1)], dtype=np.uint8)
-            low_value_mask = cv2.bitwise_or(low_value_mask, cv2.inRange(hsv, low_value_lower, low_value_upper))
+    # ────────────────────────────────────────────────────────────────────
+    # LAB halo-guided core detection (v3)
+    # ────────────────────────────────────────────────────────────────────
 
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
-        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
-        low_value_mask = cv2.morphologyEx(low_value_mask, cv2.MORPH_OPEN, kernel)
-        low_value_mask = cv2.morphologyEx(low_value_mask, cv2.MORPH_CLOSE, kernel)
-        bright_core_lower = np.array([0, 0, max(self.params.value_min, 180)], dtype=np.uint8)
-        bright_core_upper = np.array([179, 80, 255], dtype=np.uint8)
-        bright_core_mask = cv2.inRange(hsv, bright_core_lower, bright_core_upper)
-        bright_core_mask = cv2.morphologyEx(bright_core_mask, cv2.MORPH_OPEN, kernel)
-        bright_core_mask = cv2.morphologyEx(bright_core_mask, cv2.MORPH_CLOSE, kernel)
-        return mask, low_value_mask, bright_core_mask, hsv
-
-    def _analyze_white_core_candidates(
+    def _extract_candidates_lab(
         self,
-        bright_core_mask: np.ndarray,
-        hsv: np.ndarray,
-        offset_x: int,
-        offset_y: int,
-        previous_detection: LaserDetection | None,
-    ) -> list[_WhiteCoreCandidate]:
-        contours, _ = cv2.findContours(bright_core_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        candidates: list[_WhiteCoreCandidate] = []
-        value_channel = hsv[:, :, 2]
-        for contour in contours:
-            area = float(cv2.contourArea(contour))
-            if area < 2.0 or area > 300.0:
-                continue
-            contour_mask = np.zeros(bright_core_mask.shape, dtype=np.uint8)
-            cv2.drawContours(contour_mask, [contour], -1, 255, -1)
-            center = self._brightness_weighted_center(contour_mask, value_channel, offset_x, offset_y)
-            brightness_values = value_channel[contour_mask > 0]
-            brightness = float(brightness_values.max() if brightness_values.size else 0.0)
-            local_red_score = self._local_color_score(hsv, center, offset_x, offset_y, LaserColor.RED)
-            local_green_score = self._local_color_score(hsv, center, offset_x, offset_y, LaserColor.GREEN)
-            distance = None
-            temporal_score = 0.5
-            if previous_detection and previous_detection.found and previous_detection.image_center:
-                distance = math.hypot(center.u_px - previous_detection.image_center.u_px, center.v_px - previous_detection.image_center.v_px)
-                temporal_score = max(0.0, 1.0 - distance / 100.0)
-            color_score = local_red_score if self.color == LaserColor.RED else local_green_score
-            brightness_score = min(1.0, brightness / 255.0)
-            area_score = min(1.0, area / 30.0)
-            rank_score = 0.35 * color_score + 0.30 * temporal_score + 0.20 * brightness_score + 0.15 * area_score
-            candidates.append(
-                _WhiteCoreCandidate(
-                    center=center,
-                    core_area_px=area,
-                    brightness=brightness,
-                    distance_to_previous=distance,
-                    local_red_score=local_red_score,
-                    local_green_score=local_green_score,
-                    rank_score=rank_score,
-                )
-            )
-        candidates.sort(key=lambda candidate: candidate.rank_score, reverse=True)
-        return candidates
-
-    def _local_color_score(
-        self,
-        hsv: np.ndarray,
-        center: ImagePoint,
-        offset_x: int,
-        offset_y: int,
-        color: LaserColor,
-    ) -> float:
-        radius = 9
-        center_x = int(round(center.u_px - offset_x))
-        center_y = int(round(center.v_px - offset_y))
-        x1 = max(0, center_x - radius)
-        y1 = max(0, center_y - radius)
-        x2 = min(hsv.shape[1], center_x + radius + 1)
-        y2 = min(hsv.shape[0], center_y + radius + 1)
-        if x1 >= x2 or y1 >= y2:
-            return 0.0
-
-        patch = hsv[y1:y2, x1:x2]
-        hue = patch[:, :, 0]
-        saturation = patch[:, :, 1].astype(np.float32) / 255.0
-        value = patch[:, :, 2].astype(np.float32) / 255.0
-        if color == LaserColor.RED:
-            hue_mask = (hue <= 10) | (hue >= 170)
-        else:
-            hue_mask = (hue >= 45) & (hue <= 85)
-
-        yy, xx = np.indices(hue.shape)
-        local_center_x = center_x - x1
-        local_center_y = center_y - y1
-        distance = np.hypot(xx - local_center_x, yy - local_center_y)
-        spatial_weight = np.clip(1.0 - distance / float(radius + 1), 0.0, 1.0)
-        weighted_support = hue_mask.astype(np.float32) * saturation * value * spatial_weight
-        return float(min(1.0, weighted_support.sum() / 6.0))
-
-    def _white_core_candidate_diagnostics(self, candidates: list[_WhiteCoreCandidate]) -> list[dict[str, Any]]:
-        return [
-            {
-                "center": (candidate.center.u_px, candidate.center.v_px),
-                "core_area_px": candidate.core_area_px,
-                "brightness": candidate.brightness,
-                "distance_to_previous": candidate.distance_to_previous,
-                "local_red_score": candidate.local_red_score,
-                "local_green_score": candidate.local_green_score,
-                "rank_score": candidate.rank_score,
-            }
-            for candidate in candidates[:10]
-        ]
-
-    def _extract_candidates(
-        self,
-        mask: np.ndarray,
-        low_value_mask: np.ndarray,
-        bright_core_mask: np.ndarray,
-        hsv: np.ndarray,
+        image: np.ndarray,
         offset_x: int,
         offset_y: int,
         previous_detection: LaserDetection | None,
     ) -> tuple[list[_Candidate], list[str]]:
-        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        """LAB halo-guided core extraction (v3 validated algorithm)."""
+        lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
+        l_channel = lab[:, :, 0]
+        a_delta = lab[:, :, 1].astype(np.int16) - 128
+
+        # Build A-channel halo mask
+        a_thresh = self.params.a_threshold
+        if self.color == LaserColor.RED:
+            halo_mask = np.where(a_delta > a_thresh, 255, 0).astype(np.uint8)
+        else:
+            halo_mask = np.where(a_delta < -a_thresh, 255, 0).astype(np.uint8)
+
+        # Find halo contours (connected components)
+        contours, _ = cv2.findContours(halo_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
         candidates: list[_Candidate] = []
         rejected: list[str] = []
-        value_channel = hsv[:, :, 2]
 
-        if not contours and cv2.countNonZero(low_value_mask) > 0:
-            rejected.append(FailureReason.LOW_BRIGHTNESS.value)
-
-        for contour in contours:
-            color_area = float(cv2.contourArea(contour))
-            contour_mask = np.zeros(mask.shape, dtype=np.uint8)
-            cv2.drawContours(contour_mask, [contour], -1, 255, -1)
-            core_mask = self._associated_core_mask(contour_mask, bright_core_mask)
-            bright_core_area = float(cv2.countNonZero(core_mask))
-            core_found = bright_core_area > 0.0
-            combined_area = color_area + bright_core_area
-
-            if combined_area < self.params.area_px_min:
+        for cnt in contours:
+            halo_area = float(cv2.contourArea(cnt))
+            if halo_area < self.params.halo_blob_min_area_px:
                 rejected.append(FailureReason.TOO_SMALL.value)
                 continue
-            if combined_area > self.params.area_px_max:
+            if halo_area > self.params.halo_blob_max_area_px:
                 rejected.append(FailureReason.TOO_LARGE.value)
                 continue
 
-            values = value_channel[contour_mask > 0]
-            core_values = value_channel[core_mask > 0]
-            brightness = float(max(values.max() if values.size else 0.0, core_values.max() if core_values.size else 0.0))
-            if brightness < self.params.value_min:
-                rejected.append(FailureReason.LOW_BRIGHTNESS.value)
-                continue
+            # Build per-halo binary mask
+            halo_mask_single = np.zeros(halo_mask.shape, dtype=np.uint8)
+            cv2.drawContours(halo_mask_single, [cnt], -1, 255, -1)
 
-            center = (
-                self._brightness_weighted_center(core_mask, value_channel, offset_x, offset_y)
-                if core_found
-                else self._brightness_weighted_center(contour_mask, value_channel, offset_x, offset_y)
-            )
-            (_, _), radius = cv2.minEnclosingCircle(contour)
-            perimeter = float(cv2.arcLength(contour, True))
-            circularity = 0.0 if perimeter == 0 else min(1.0, 4.0 * math.pi * color_area / (perimeter * perimeter))
-            score = self._score_candidate(combined_area, brightness, circularity, center, previous_detection, core_found)
+            # Compute A-weighted halo centroid
+            ys, xs = np.where(halo_mask_single > 0)
+            if len(xs) == 0:
+                continue
+            weights = np.abs(a_delta[ys, xs]).astype(np.float32)
+            ws = float(weights.sum())
+            if ws > 0:
+                halo_cx = float((xs * weights).sum() / ws)
+                halo_cy = float((ys * weights).sum() / ws)
+            else:
+                halo_cx = float(xs.mean())
+                halo_cy = float(ys.mean())
+            halo_center = (halo_cx, halo_cy)
+
+            # Search for white core in dilated halo region
+            core_result = self._find_core_in_halo(lab, halo_mask_single, halo_center)
+
+            if core_result is not None:
+                center, core_area, mean_l, max_l = core_result
+                core_found = True
+            else:
+                center = halo_center
+                core_area = None
+                mean_l = float(l_channel[ys, xs].mean()) if len(xs) > 0 else 0.0
+                max_l = float(l_channel[ys, xs].max()) if len(xs) > 0 else 0.0
+                core_found = False
+
+            # Convert to full image coordinates
+            center_full = ImagePoint(center[0] + offset_x, center[1] + offset_y)
+
+            # Estimate radius from halo area
+            radius = math.sqrt(halo_area / math.pi)
+
+            # Score
+            brightness_score = min(1.0, max_l / 255.0)
+            area_mid = (self.params.area_px_min + self.params.area_px_max) / 2.0
+            area_score = 1.0 - min(1.0, abs(halo_area - area_mid) / max(area_mid, 1.0))
+            temporal_score = 0.5
+            if previous_detection and previous_detection.found and previous_detection.image_center:
+                distance = math.hypot(
+                    center_full.u_px - previous_detection.image_center.u_px,
+                    center_full.v_px - previous_detection.image_center.v_px,
+                )
+                temporal_score = max(0.0, 1.0 - distance / 100.0)
+            core_score = 1.0 if core_found else 0.5
+            score = 0.35 * brightness_score + 0.15 * area_score + 0.15 * temporal_score + 0.35 * core_score
+
             candidates.append(
                 _Candidate(
-                    center=center,
-                    radius_px=float(max(radius, math.sqrt(combined_area / math.pi))),
-                    area_px=combined_area,
-                    brightness=brightness,
-                    circularity=circularity,
+                    center=center_full,
+                    radius_px=float(radius),
+                    area_px=float(halo_area),
+                    brightness=float(max_l),
                     score=score,
-                    color_area_px=color_area,
-                    bright_core_area_px=bright_core_area,
-                    combined_area_px=combined_area,
+                    halo_area_px=float(halo_area),
+                    core_area_px=core_area,
                     core_found=core_found,
                 )
             )
 
         return candidates, rejected
 
-    def _associated_core_mask(self, contour_mask: np.ndarray, bright_core_mask: np.ndarray) -> np.ndarray:
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
-        local_mask = cv2.dilate(contour_mask, kernel, iterations=1)
-        return cv2.bitwise_and(bright_core_mask, local_mask)
+    def _find_core_in_halo(
+        self,
+        lab: np.ndarray,
+        halo_mask: np.ndarray,
+        halo_center: tuple[float, float],
+    ) -> tuple[tuple[float, float], float, float, float] | None:
+        """Find white core inside the dilated halo blob region.
+        Returns (center, area, mean_l, max_l) or None if no valid core found.
+        """
+        # Dilate the halo mask to include edge/core pixels
+        kernel_size = self.params.core_dilate_kernel_size
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (kernel_size, kernel_size))
+        search_mask = cv2.dilate(halo_mask, kernel, iterations=1)
+
+        # Find bright L pixels within the dilated region
+        l_channel = lab[:, :, 0].astype(np.float32)
+        region = search_mask > 0
+        if not np.any(region):
+            return None
+
+        l_region = l_channel[region]
+        if l_region.size == 0:
+            return None
+
+        # Top L-percentile threshold
+        thresh = float(np.percentile(l_region, self.params.core_l_percentile))
+        bright_mask = np.zeros_like(l_channel, dtype=np.uint8)
+        bright_mask[region] = (l_region >= thresh).astype(np.uint8)
+
+        # Find connected components
+        component_count, labels, stats, _ = cv2.connectedComponentsWithStats(bright_mask, 8)
+        best_label = -1
+        best_area = -1.0
+        for li in range(1, component_count):
+            area = float(stats[li, cv2.CC_STAT_AREA])
+            diameter = math.sqrt(4.0 * area / math.pi)
+            if area < self.params.core_area_min_px or area > self.params.core_area_max_px:
+                continue
+            if diameter < self.params.core_diameter_min_px or diameter > self.params.core_diameter_max_px:
+                continue
+            if area > best_area:
+                best_area = area
+                best_label = li
+
+        if best_label < 0:
+            return None
+
+        # L-brightness-weighted centroid
+        component = labels == best_label
+        comp_y, comp_x = np.where(component)
+        if len(comp_x) == 0:
+            return None
+
+        weights = l_channel[comp_y, comp_x].astype(np.float32)
+        ws = float(weights.sum())
+        if ws <= 0:
+            return None
+
+        center_x = float((comp_x * weights).sum() / ws)
+        center_y = float((comp_y * weights).sum() / ws)
+        center = (center_x, center_y)
+
+        comp_l = l_channel[comp_y, comp_x]
+        mean_l = float(comp_l.mean())
+        max_l = float(comp_l.max())
+
+        return (center, best_area, mean_l, max_l)
+
+    # ────────────────────────────────────────────────────────────────────
+    # Legacy HSV detection (kept for backward compatibility)
+    # ────────────────────────────────────────────────────────────────────
+
+    def _extract_candidates_hsv(
+        self,
+        image: np.ndarray,
+        offset_x: int,
+        offset_y: int,
+        previous_detection: LaserDetection | None,
+    ) -> tuple[list[_Candidate], list[str]]:
+        """Legacy HSV-based detection (kept for reference/fallback)."""
+        hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+        mask = np.zeros(hsv.shape[:2], dtype=np.uint8)
+
+        for hue_range in self.params.hue_ranges_deg:
+            low_h = max(0, min(179, int(hue_range.min)))
+            high_h = max(0, min(179, int(hue_range.max)))
+            lower = np.array([low_h, self.params.saturation_min, self.params.value_min], dtype=np.uint8)
+            upper = np.array([high_h, 255, 255], dtype=np.uint8)
+            mask = cv2.bitwise_or(mask, cv2.inRange(hsv, lower, upper))
+
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        candidates: list[_Candidate] = []
+        rejected: list[str] = []
+        value_channel = hsv[:, :, 2]
+
+        for contour in contours:
+            area = float(cv2.contourArea(contour))
+            if area < self.params.area_px_min:
+                rejected.append(FailureReason.TOO_SMALL.value)
+                continue
+            if area > self.params.area_px_max:
+                rejected.append(FailureReason.TOO_LARGE.value)
+                continue
+
+            contour_mask = np.zeros(mask.shape, dtype=np.uint8)
+            cv2.drawContours(contour_mask, [contour], -1, 255, -1)
+            values = value_channel[contour_mask > 0]
+            brightness = float(values.max() if values.size else 0.0)
+            if brightness < self.params.value_min:
+                rejected.append(FailureReason.LOW_BRIGHTNESS.value)
+                continue
+
+            center = self._brightness_weighted_center(contour_mask, value_channel, offset_x, offset_y)
+            (_, _), radius = cv2.minEnclosingCircle(contour)
+            perimeter = float(cv2.arcLength(contour, True))
+            circularity = 0.0 if perimeter == 0 else min(1.0, 4.0 * math.pi * area / (perimeter * perimeter))
+
+            brightness_score = min(1.0, brightness / 255.0)
+            area_mid = (self.params.area_px_min + self.params.area_px_max) / 2.0
+            area_score = 1.0 - min(1.0, abs(area - area_mid) / area_mid)
+            temporal_score = 0.5
+            if previous_detection and previous_detection.found and previous_detection.image_center:
+                distance = math.hypot(center.u_px - previous_detection.image_center.u_px, center.v_px - previous_detection.image_center.v_px)
+                temporal_score = max(0.0, 1.0 - distance / 100.0)
+            score = 0.40 * brightness_score + 0.25 * circularity + 0.15 * area_score + 0.20 * temporal_score
+
+            candidates.append(
+                _Candidate(
+                    center=center,
+                    radius_px=float(radius),
+                    area_px=area,
+                    brightness=brightness,
+                    score=score,
+                    halo_area_px=area,
+                    core_area_px=None,
+                    core_found=False,
+                )
+            )
+
+        return candidates, rejected
+
+    # ────────────────────────────────────────────────────────────────────
+    # Utilities
+    # ────────────────────────────────────────────────────────────────────
 
     def _brightness_weighted_center(
         self,
@@ -324,38 +367,18 @@ class LaserDetector:
             return ImagePoint(float(moments["m10"] / moments["m00"]) + offset_x, float(moments["m01"] / moments["m00"]) + offset_y)
         return ImagePoint(float(offset_x), float(offset_y))
 
-    def _score_candidate(
-        self,
-        area: float,
-        brightness: float,
-        circularity: float,
-        center: ImagePoint,
-        previous_detection: LaserDetection | None,
-        core_found: bool,
-    ) -> float:
-        brightness_score = min(1.0, brightness / 255.0)
-        area_mid = (self.params.area_px_min + self.params.area_px_max) / 2.0
-        area_score = 1.0 - min(1.0, abs(area - area_mid) / area_mid)
-        temporal_score = 0.5
-        if previous_detection and previous_detection.found and previous_detection.image_center:
-            distance = math.hypot(center.u_px - previous_detection.image_center.u_px, center.v_px - previous_detection.image_center.v_px)
-            temporal_score = max(0.0, 1.0 - distance / 100.0)
-        core_score = 1.0 if core_found else 0.5
-        return 0.38 * brightness_score + 0.22 * circularity + 0.15 * area_score + 0.15 * temporal_score + 0.10 * core_score
-
     def _candidate_diagnostics(self, candidates: list[_Candidate]) -> list[dict[str, Any]]:
         return [
             {
-                "center": (candidate.center.u_px, candidate.center.v_px),
-                "score": candidate.score,
-                "area_px": candidate.area_px,
-                "color_area_px": candidate.color_area_px,
-                "bright_core_area_px": candidate.bright_core_area_px,
-                "combined_area_px": candidate.combined_area_px,
-                "core_found": candidate.core_found,
-                "brightness": candidate.brightness,
+                "center": (c.center.u_px, c.center.v_px),
+                "score": c.score,
+                "area_px": c.area_px,
+                "halo_area_px": c.halo_area_px,
+                "core_area_px": c.core_area_px,
+                "core_found": c.core_found,
+                "brightness": c.brightness,
             }
-            for candidate in candidates
+            for c in candidates
         ]
 
     def _crop(self, image: np.ndarray, roi: ImageRoi | None) -> tuple[np.ndarray, int, int]:

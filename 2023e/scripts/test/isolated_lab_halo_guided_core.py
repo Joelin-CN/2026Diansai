@@ -1,9 +1,13 @@
 """
-Isolated LAB halo-guided white-core localization prototype.
-
-This keeps the LAB red/green A-channel halo masks as the primary candidate
-source, then searches near each halo for a small white core with configurable
-diameter. It is intentionally isolated from the formal Vision Layer.
+Isolated LAB halo-guided white-core localization — v3.
+Changes from v2:
+- White core: L-channel bright pixels restricted to the HALO BLOB REGION (dilated 5px),
+  NOT the full 20px search circle. This ensures the core center is near the color region.
+- a_green_thresh: 10 -> 8
+- core_diameter_min: 2.0 -> 1.0
+- core_diameter_max: 20.0 -> 15.0 (tighter max)
+- core_l_percentile: 95 -> 90 (slightly more pixels in the restricted region)
+- When red+green halos overlap, same white core center is ok (explicitly allowed).
 """
 import argparse
 import csv
@@ -13,6 +17,7 @@ from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 import cv2
 import numpy as np
@@ -30,29 +35,34 @@ class HaloBlob:
     area: int
     mean_a_delta: float
     kind: str
+    mask: np.ndarray      # binary mask of THIS halo's connected component
+    contour_points: Any   # contour of this halo
+
+
+@dataclass(frozen=True)
+class CoreResult:
+    found: bool
+    center: tuple[float, float]
+    area_px: float | None
+    diameter_px: float | None
+    offset_px: float | None
+    mean_l: float | None
+    max_l: float | None
 
 
 @dataclass(frozen=True)
 class Candidate:
     kind: str
     center: tuple[float, float]
-    refine_status: str
     halo_center: tuple[float, float]
     halo_area: int
     halo_mean_a_delta: float
-    core_center: tuple[float, float] | None
-    core_area: int | None
-    core_diameter: float | None
-    core_mean_l: float | None
-    core_max_l: int | None
-    core_a_delta: int | None
-    core_b_delta: int | None
-    core_offset: float | None
-    core_score: float | None
+    core: CoreResult
 
 
 @dataclass(frozen=True)
 class FrameAnalysis:
+    lab: np.ndarray
     l_channel: np.ndarray
     a_delta: np.ndarray
     b_delta: np.ndarray
@@ -62,6 +72,8 @@ class FrameAnalysis:
     green_halos: list[HaloBlob]
     candidates: list[Candidate]
 
+
+# ─── blob detector ───
 
 def _build_blob_detector(min_area: float, max_area: float) -> cv2.SimpleBlobDetector:
     params = cv2.SimpleBlobDetector_Params()
@@ -79,20 +91,161 @@ def _build_blob_detector(min_area: float, max_area: float) -> cv2.SimpleBlobDete
     return cv2.SimpleBlobDetector_create(params)
 
 
+# ─── halo extraction (updated: returns mask + contour per halo) ───
+
+def _detect_halos(
+    detector: cv2.SimpleBlobDetector,
+    mask: np.ndarray,
+    a_delta: np.ndarray,
+    kind: str,
+) -> list[HaloBlob]:
+    """Detect halos with per-halo binary mask (connected component)."""
+    # Find all connected components in the A-threshold mask
+    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    halos: list[HaloBlob] = []
+
+    for cnt in contours:
+        area_px = float(cv2.contourArea(cnt))
+        if area_px < 2.0 or area_px > 500.0:
+            continue
+
+        # Build per-halo binary mask
+        halo_mask = np.zeros(mask.shape, dtype=np.uint8)
+        cv2.drawContours(halo_mask, [cnt], -1, 255, -1)
+
+        # A-weighted centroid within this contour
+        ys, xs = np.where(halo_mask > 0)
+        if len(xs) == 0:
+            continue
+        weights = np.abs(a_delta[ys, xs]).astype(np.float32)
+        ws = float(weights.sum())
+        if ws > 0:
+            cx = float((xs * weights).sum() / ws)
+            cy = float((ys * weights).sum() / ws)
+        else:
+            cx = float(xs.mean())
+            cy = float(ys.mean())
+        center = (cx, cy)
+
+        mean_a = float(a_delta[ys, xs].mean())
+        area = int(len(xs))
+        # Estimate blob size from area
+        blob_size = math.sqrt(4.0 * area / math.pi)
+
+        halos.append(HaloBlob(
+            center=center,
+            blob_size=blob_size,
+            response=abs(mean_a),
+            area=area,
+            mean_a_delta=mean_a,
+            kind=kind,
+            mask=halo_mask,
+            contour_points=cnt,
+        ))
+
+    halos.sort(key=lambda h: abs(h.mean_a_delta), reverse=True)
+    return halos
+
+
+# ─── white core v3: halo-blob-restricted L-bright pixel search ───
+
+def _find_core_in_halo(
+    frame_lab: np.ndarray,
+    halo: HaloBlob,
+    dilate_kernel_size: int,
+    l_percentile: int,
+    area_min: float,
+    area_max: float,
+    diameter_min: float,
+    diameter_max: float,
+) -> CoreResult:
+    """Find white core INSIDE the halo blob region (dilated to include edge white pixels).
+    
+    Strategy:
+    1. Dilate the halo mask by dilate_kernel_size px to include pixels just outside
+       the A-channel color blob (where the white core typically sits)
+    2. Within this restricted region, find L-channel bright pixels (top l_percentile)
+    3. Find connected components in [area_min, area_max] & [diameter_min, diameter_max]
+    4. Pick the largest component by area
+    5. L-brightness-weighted centroid
+    """
+    h, w = frame_lab.shape[:2]
+    
+    # Step 1: dilate the halo mask to capture edge/core pixels
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (dilate_kernel_size, dilate_kernel_size))
+    search_mask = cv2.dilate(halo.mask, kernel, iterations=1)
+
+    # Step 2: find bright L pixels within the dilated halo region
+    l_channel = frame_lab[:, :, 0].astype(np.float32)
+    bright_mask = np.zeros(search_mask.shape, dtype=np.uint8)
+    region = search_mask > 0
+    if not np.any(region):
+        return CoreResult(False, halo.center, None, None, None, None, None)
+
+    l_region = l_channel[region]
+    if l_region.size == 0:
+        return CoreResult(False, halo.center, None, None, None, None, None)
+
+    thresh = float(np.percentile(l_region, l_percentile))
+    bright_mask[region] = (l_region >= thresh).astype(np.uint8)
+
+    # Step 3&4: connected components, filter by area/diameter, pick largest
+    component_count, labels, stats, _ = cv2.connectedComponentsWithStats(bright_mask, 8)
+    best_label = -1
+    best_area = -1.0
+    for li in range(1, component_count):
+        area = float(stats[li, cv2.CC_STAT_AREA])
+        diameter = math.sqrt(4.0 * area / math.pi)
+        if area < area_min or area > area_max:
+            continue
+        if diameter < diameter_min or diameter > diameter_max:
+            continue
+        if area > best_area:
+            best_area = area
+            best_label = li
+
+    if best_label < 0:
+        return CoreResult(False, halo.center, None, None, None, None, None)
+
+    # Step 5: L-brightness-weighted centroid
+    component = labels == best_label
+    comp_y, comp_x = np.where(component)
+    if len(comp_x) == 0:
+        return CoreResult(False, halo.center, None, None, None, None, None)
+
+    weights = l_channel[comp_y, comp_x].astype(np.float32)
+    ws = float(weights.sum())
+    if ws <= 0:
+        return CoreResult(False, halo.center, None, None, None, None, None)
+
+    center_x = float((comp_x * weights).sum() / ws)
+    center_y = float((comp_y * weights).sum() / ws)
+    center = (center_x, center_y)
+
+    offset = float(math.hypot(center_x - halo.center[0], center_y - halo.center[1]))
+    comp_l = l_channel[comp_y, comp_x]
+    mean_l = float(comp_l.mean())
+    max_l = float(comp_l.max())
+    diameter = math.sqrt(4.0 * best_area / math.pi)
+
+    return CoreResult(True, center, float(best_area), float(diameter), offset, mean_l, max_l)
+
+
+# ─── main analysis ───
+
 def analyze_frame(
-    frame: np.ndarray,
+    frame_bgr: np.ndarray,
     detector: cv2.SimpleBlobDetector,
     a_red_thresh: int,
     a_green_thresh: int,
-    core_search_radius: int,
+    core_dilate_kernel: int,
+    core_l_percentile: int,
+    core_area_min: float,
+    core_area_max: float,
     core_diameter_min: float,
     core_diameter_max: float,
-    core_l_floor: int,
-    core_ab_neutral: int,
-    core_b_neutral: int,
-    distance_penalty: float,
 ) -> FrameAnalysis:
-    lab = cv2.cvtColor(frame, cv2.COLOR_BGR2LAB)
+    lab = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2LAB)
     l_channel = lab[:, :, 0]
     a_delta = lab[:, :, 1].astype(np.int16) - 128
     b_delta = lab[:, :, 2].astype(np.int16) - 128
@@ -101,182 +254,69 @@ def analyze_frame(
     green_mask = np.where(a_delta < -a_green_thresh, 255, 0).astype(np.uint8)
     red_halos = _detect_halos(detector, red_mask, a_delta, "red")
     green_halos = _detect_halos(detector, green_mask, a_delta, "green")
-    candidates = [
-        _candidate_from_halo(
-            halo, l_channel, a_delta, b_delta,
-            core_search_radius, core_diameter_min, core_diameter_max,
-            core_l_floor, core_ab_neutral, core_b_neutral, distance_penalty,
+
+    candidates: list[Candidate] = []
+    for halo in red_halos + green_halos:
+        core = _find_core_in_halo(
+            lab, halo,
+            dilate_kernel_size=core_dilate_kernel,
+            l_percentile=core_l_percentile,
+            area_min=core_area_min,
+            area_max=core_area_max,
+            diameter_min=core_diameter_min,
+            diameter_max=core_diameter_max,
         )
-        for halo in red_halos + green_halos
-    ]
-    candidates.sort(key=lambda c: (c.kind, c.refine_status != "core_found", -(c.core_score or 0.0)))
-    return FrameAnalysis(l_channel, a_delta, b_delta, red_mask, green_mask, red_halos, green_halos, candidates)
+        candidates.append(Candidate(
+            kind=halo.kind,
+            center=core.center if core.found else halo.center,
+            halo_center=halo.center,
+            halo_area=halo.area,
+            halo_mean_a_delta=halo.mean_a_delta,
+            core=core,
+        ))
+    candidates.sort(key=lambda c: (c.kind, not c.core.found))
+    return FrameAnalysis(lab, l_channel, a_delta, b_delta, red_mask, green_mask, red_halos, green_halos, candidates)
 
 
-def _detect_halos(
-    detector: cv2.SimpleBlobDetector,
-    mask: np.ndarray,
-    a_delta: np.ndarray,
-    kind: str,
-) -> list[HaloBlob]:
-    halos: list[HaloBlob] = []
-    for kp in detector.detect(mask):
-        cx, cy = kp.pt[0], kp.pt[1]
-        r = max(2, int(math.ceil(kp.size / 2.0)))
-        x1, y1 = max(0, int(cx) - r), max(0, int(cy) - r)
-        x2 = min(mask.shape[1] - 1, int(cx) + r)
-        y2 = min(mask.shape[0] - 1, int(cy) + r)
-        patch = mask[y1:y2 + 1, x1:x2 + 1] > 0
-        if np.any(patch):
-            yy, xx = np.mgrid[y1:y2 + 1, x1:x2 + 1]
-            ys, xs = yy[patch], xx[patch]
-            area = int(len(xs))
-            weights = np.abs(a_delta[ys, xs]).astype(np.float32)
-            ws = float(weights.sum())
-            center = (
-                (float((xs * weights).sum() / ws), float((ys * weights).sum() / ws))
-                if ws > 0
-                else (cx, cy)
-            )
-            mean_a_delta = float(a_delta[ys, xs].mean())
-        else:
-            px = max(0, min(mask.shape[1] - 1, int(round(cx))))
-            py = max(0, min(mask.shape[0] - 1, int(round(cy))))
-            area = 0
-            center = (cx, cy)
-            mean_a_delta = float(a_delta[py, px])
-        halos.append(HaloBlob(center, kp.size, kp.response, area, mean_a_delta, kind))
-    halos.sort(key=lambda h: abs(h.mean_a_delta), reverse=True)
-    return halos
-
-
-def _candidate_from_halo(
-    halo: HaloBlob,
-    l_channel: np.ndarray,
-    a_delta: np.ndarray,
-    b_delta: np.ndarray,
-    search_radius: int,
-    diameter_min: float,
-    diameter_max: float,
-    l_floor: int,
-    ab_neutral: int,
-    b_neutral: int,
-    distance_penalty: float,
-) -> Candidate:
-    core = _find_core_near_halo(
-        halo.center, l_channel, a_delta, b_delta,
-        search_radius, diameter_min, diameter_max,
-        l_floor, ab_neutral, b_neutral, distance_penalty,
-    )
-    if core is None:
-        return Candidate(
-            halo.kind, halo.center, "fallback_halo_center", halo.center,
-            halo.area, halo.mean_a_delta, None, None, None, None, None,
-            None, None, None, None,
-        )
-
-    center, area, diameter, mean_l, max_l, core_a, core_b, offset, score = core
-    return Candidate(
-        halo.kind, center, "core_found", halo.center,
-        halo.area, halo.mean_a_delta, center, area, diameter,
-        mean_l, max_l, core_a, core_b, offset, score,
-    )
-
-
-def _find_core_near_halo(
-    halo_center: tuple[float, float],
-    l_channel: np.ndarray,
-    a_delta: np.ndarray,
-    b_delta: np.ndarray,
-    search_radius: int,
-    diameter_min: float,
-    diameter_max: float,
-    l_floor: int,
-    ab_neutral: int,
-    b_neutral: int,
-    distance_penalty: float,
-) -> tuple[tuple[float, float], int, float, float, int, int, int, float, float] | None:
-    cx, cy = halo_center
-    x1 = max(0, int(math.floor(cx - search_radius)))
-    y1 = max(0, int(math.floor(cy - search_radius)))
-    x2 = min(l_channel.shape[1] - 1, int(math.ceil(cx + search_radius)))
-    y2 = min(l_channel.shape[0] - 1, int(math.ceil(cy + search_radius)))
-    if x2 < x1 or y2 < y1:
-        return None
-
-    l_roi = l_channel[y1:y2 + 1, x1:x2 + 1]
-    a_roi = a_delta[y1:y2 + 1, x1:x2 + 1]
-    b_roi = b_delta[y1:y2 + 1, x1:x2 + 1]
-    yy, xx = np.mgrid[y1:y2 + 1, x1:x2 + 1]
-    dist = np.hypot(xx.astype(np.float32) - cx, yy.astype(np.float32) - cy)
-    core_mask = (
-        (dist <= float(search_radius))
-        & (l_roi >= l_floor)
-        & (np.abs(a_roi) <= ab_neutral)
-        & (np.abs(b_roi) <= b_neutral)
-    ).astype(np.uint8)
-
-    component_count, labels, stats, _ = cv2.connectedComponentsWithStats(core_mask, 8)
-    best = None
-    best_score = None
-    for label in range(1, component_count):
-        area = int(stats[label, cv2.CC_STAT_AREA])
-        diameter = math.sqrt(4.0 * area / math.pi)
-        if diameter < diameter_min or diameter > diameter_max:
-            continue
-
-        component = labels == label
-        comp_l = l_roi[component]
-        comp_a = a_roi[component]
-        comp_b = b_roi[component]
-        comp_y = yy[component]
-        comp_x = xx[component]
-        weights = comp_l.astype(np.float32)
-        ws = float(weights.sum())
-        if ws <= 0:
-            continue
-
-        center = (float((comp_x * weights).sum() / ws), float((comp_y * weights).sum() / ws))
-        offset = math.hypot(center[0] - cx, center[1] - cy)
-        mean_l = float(comp_l.mean())
-        max_l = int(comp_l.max())
-        score = mean_l - distance_penalty * offset
-        candidate = (
-            center, area, float(diameter), mean_l, max_l,
-            int(round(float(comp_a.mean()))), int(round(float(comp_b.mean()))),
-            float(offset), float(score),
-        )
-        if best_score is None or score > best_score:
-            best = candidate
-            best_score = score
-    return best
-
+# ─── drawing ───
 
 CANDIDATE_COLORS = {"red": (0, 0, 255), "green": (0, 255, 0)}
+WHITE = (255, 255, 255)
 
 
-def draw_candidates(frame: np.ndarray, analysis: FrameAnalysis, search_radius: int) -> np.ndarray:
-    annotated = frame.copy()
+def draw_candidates(frame_bgr: np.ndarray, analysis: FrameAnalysis, search_radius: int) -> np.ndarray:
+    """Annotated frame with halo circles (A-channel detections) and core crosses."""
+    annotated = frame_bgr.copy()
     for idx, cand in enumerate(analysis.candidates):
-        halo = (int(round(cand.halo_center[0])), int(round(cand.halo_center[1])))
-        center = (int(round(cand.center[0])), int(round(cand.center[1])))
+        halo_uv = (int(round(cand.halo_center[0])), int(round(cand.halo_center[1])))
+        center_uv = (int(round(cand.center[0])), int(round(cand.center[1])))
         color = CANDIDATE_COLORS.get(cand.kind, (200, 200, 200))
-        cv2.circle(annotated, halo, search_radius, color, 1)
-        cv2.circle(annotated, halo, 6, color, 2)
-        if cand.refine_status == "core_found":
-            _draw_cross(annotated, center, (255, 255, 255), 5)
-            cv2.circle(annotated, center, 4, (255, 255, 255), 1)
-            cv2.line(annotated, halo, center, color, 1)
-            text = f"{idx} {cand.kind} d={cand.core_diameter:.1f} off={cand.core_offset:.1f}"
+
+        # Draw halo: small circle at A-weighted center + 10px search indicator
+        cv2.circle(annotated, halo_uv, 10, color, 1)
+        cv2.circle(annotated, halo_uv, 5, color, 2)
+
+        if cand.core.found:
+            # White core found: white cross + line from halo to core
+            _draw_cross(annotated, center_uv, WHITE, 4)
+            cv2.circle(annotated, center_uv, 3, WHITE, 1)
+            cv2.line(annotated, halo_uv, center_uv, color, 1)
+            text = (
+                f"#{idx} {cand.kind} CORE dia={cand.core.diameter_px:.1f} "
+                f"off={cand.core.offset_px:.1f}"
+            )
         else:
-            cv2.circle(annotated, center, 3, color, -1)
-            text = f"{idx} {cand.kind} fallback"
-        cv2.putText(annotated, text, (center[0] + 8, center[1] - 5),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.35, color, 1)
+            # Fallback: filled dot at halo A-weighted center
+            cv2.circle(annotated, center_uv, 3, color, -1)
+            text = f"#{idx} {cand.kind} fallback (halo A-centroid)"
+
+        cv2.putText(annotated, text, (center_uv[0] + 8, center_uv[1] - 5),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.33, color, 1)
     return annotated
 
 
-def draw_masks_panorama(analysis: FrameAnalysis, search_radius: int) -> np.ndarray:
+def draw_masks_panorama(analysis: FrameAnalysis) -> np.ndarray:
+    """Three-panel: L with cores, A with halos, B diagnostic."""
     l_vis = cv2.cvtColor(analysis.l_channel, cv2.COLOR_GRAY2BGR)
     a_vis = _signed_channel_vis(analysis.a_delta)
     b_vis = _signed_channel_vis(analysis.b_delta)
@@ -284,15 +324,17 @@ def draw_masks_panorama(analysis: FrameAnalysis, search_radius: int) -> np.ndarr
     _draw_halo_contours(a_vis, analysis.green_mask, (0, 255, 0))
     for cand in analysis.candidates:
         color = CANDIDATE_COLORS.get(cand.kind, (200, 200, 200))
-        halo = (int(round(cand.halo_center[0])), int(round(cand.halo_center[1])))
-        center = (int(round(cand.center[0])), int(round(cand.center[1])))
-        cv2.circle(a_vis, halo, 5, color, 1)
-        cv2.circle(l_vis, halo, search_radius, color, 1)
-        if cand.refine_status == "core_found":
-            _draw_cross(l_vis, center, (255, 255, 255), 4)
-    _label_panel(l_vis, "L + halo-guided core")
-    _label_panel(a_vis, "A delta + halo masks")
-    _label_panel(b_vis, "B delta diagnostic")
+        halo_uv = (int(round(cand.halo_center[0])), int(round(cand.halo_center[1])))
+        center_uv = (int(round(cand.center[0])), int(round(cand.center[1])))
+        cv2.circle(a_vis, halo_uv, 5, color, 1)
+        cv2.circle(l_vis, halo_uv, 10, color, 1)
+        if cand.core.found:
+            _draw_cross(l_vis, center_uv, WHITE, 4)
+        else:
+            cv2.circle(l_vis, center_uv, 3, color, -1)
+    _label_panel(l_vis, "L channel + halo-restricted core")
+    _label_panel(a_vis, "A delta + halo contours (red A>15, green A<-8)")
+    _label_panel(b_vis, "B delta (diagnostic)")
     return np.hstack([l_vis, a_vis, b_vis])
 
 
@@ -314,9 +356,11 @@ def _draw_cross(image: np.ndarray, center: tuple[int, int], color: tuple[int, in
 
 
 def _label_panel(image: np.ndarray, text: str) -> None:
-    cv2.rectangle(image, (0, 0), (300, 24), (0, 0, 0), -1)
-    cv2.putText(image, text, (6, 17), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+    cv2.rectangle(image, (0, 0), (400, 24), (0, 0, 0), -1)
+    cv2.putText(image, text, (6, 17), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1)
 
+
+# ─── main pipeline ───
 
 def sample_frame_indices(total_frames: int, start_frame: int, sample_count: int, seed: int) -> list[int]:
     available = list(range(start_frame + 1, total_frames + 1))
@@ -339,22 +383,24 @@ def process_video(
     a_green_thresh: int,
     halo_blob_min: float,
     halo_blob_max: float,
-    core_search_radius: int,
+    core_dilate_kernel: int,
+    core_l_percentile: int,
+    core_area_min: float,
+    core_area_max: float,
     core_diameter_min: float,
     core_diameter_max: float,
-    core_l_floor: int,
-    core_ab_neutral: int,
-    core_b_neutral: int,
-    distance_penalty: float,
 ) -> int:
     cap = cv2.VideoCapture(str(video))
     if not cap.isOpened():
-        print(f"Failed to open video: {video}")
+        print(f"Cannot open: {video}")
         return 1
 
+    # BlobDetector is only used for mask generation (red_mask, green_mask by A threshold)
+    # Actual halo extraction now uses findContours on the mask directly
     detector = _build_blob_detector(halo_blob_min, halo_blob_max)
-    print(f"A halos: red>{a_red_thresh}, green<-{a_green_thresh}, area=[{halo_blob_min}, {halo_blob_max}]")
-    print(f"Core search: radius={core_search_radius}, diameter=[{core_diameter_min}, {core_diameter_max}], L>={core_l_floor}")
+    print(f"A halos: red>{a_red_thresh}, green<-{a_green_thresh}")
+    print(f"Core: dilate={core_dilate_kernel}px, L={core_l_percentile}%, "
+          f"area=[{core_area_min},{core_area_max}], dia=[{core_diameter_min},{core_diameter_max}]")
 
     try:
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -364,93 +410,90 @@ def process_video(
         rows: list[dict] = []
         failed_frames: list[int] = []
         counts: Counter[str] = Counter()
-        for frame_index in sampled_frames:
-            cap.set(cv2.CAP_PROP_POS_FRAMES, frame_index - 1)
+        for fid in sampled_frames:
+            cap.set(cv2.CAP_PROP_POS_FRAMES, fid - 1)
             ok, frame = cap.read()
             if not ok:
-                failed_frames.append(frame_index)
+                failed_frames.append(fid)
                 continue
 
             analysis = analyze_frame(
-                frame, detector, a_red_thresh, a_green_thresh,
-                core_search_radius, core_diameter_min, core_diameter_max,
-                core_l_floor, core_ab_neutral, core_b_neutral, distance_penalty,
+                frame, detector,
+                a_red_thresh, a_green_thresh,
+                core_dilate_kernel, core_l_percentile,
+                core_area_min, core_area_max,
+                core_diameter_min, core_diameter_max,
             )
-            annotated = draw_candidates(frame, analysis, core_search_radius)
-            masks = draw_masks_panorama(analysis, core_search_radius)
-            if not _write_image(output_dir / f"frame_{frame_index:04d}_orig.png", frame):
-                failed_frames.append(frame_index)
-                continue
-            if not _write_image(output_dir / f"frame_{frame_index:04d}_annot.png", annotated):
-                failed_frames.append(frame_index)
-                continue
-            if not _write_image(output_dir / f"frame_{frame_index:04d}_masks.png", masks):
-                failed_frames.append(frame_index)
-                continue
-
             counts["frames_written"] += 1
             counts["red_halos"] += len(analysis.red_halos)
             counts["green_halos"] += len(analysis.green_halos)
+
+            annotated = draw_candidates(frame, analysis, 10)
+            masks = draw_masks_panorama(analysis)
+
+            if not _write_image(output_dir / f"frame_{fid:04d}_orig.png", frame):
+                failed_frames.append(fid)
+                continue
+            if not _write_image(output_dir / f"frame_{fid:04d}_annot.png", annotated):
+                failed_frames.append(fid)
+                continue
+            if not _write_image(output_dir / f"frame_{fid:04d}_masks.png", masks):
+                failed_frames.append(fid)
+                continue
+
             for ci, cand in enumerate(analysis.candidates):
                 counts[f"candidate_{cand.kind}"] += 1
-                counts[cand.refine_status] += 1
-                rows.append(_candidate_row(frame_index, ci, cand))
+                counts["core_found" if cand.core.found else "core_fallback"] += 1
+                rows.append(_candidate_row(fid, ci, cand))
 
         _write_summary_csv(output_dir / "summary.csv", rows)
         _write_summary_txt(
             output_dir / "summary.txt", video, start_frame, sample_count, seed,
             sampled_frames, output_dir, failed_frames, counts,
-            a_red_thresh, a_green_thresh, halo_blob_min, halo_blob_max,
-            core_search_radius, core_diameter_min, core_diameter_max,
-            core_l_floor, core_ab_neutral, core_b_neutral, distance_penalty,
+            a_red_thresh, a_green_thresh,
+            core_dilate_kernel, core_l_percentile,
+            core_area_min, core_area_max,
+            core_diameter_min, core_diameter_max,
         )
+        total_cand = counts.get("candidate_red", 0) + counts.get("candidate_green", 0)
+        found = counts.get("core_found", 0)
+        fallback = counts.get("core_fallback", 0)
         print(f"Output: {output_dir}")
         print(f"Sampled: {len(sampled_frames)}  Failed: {len(failed_frames)}")
-        print(
-            "Candidates red: {red}  green: {green}  core_found: {found}  fallback: {fallback}".format(
-                red=counts.get("candidate_red", 0),
-                green=counts.get("candidate_green", 0),
-                found=counts.get("core_found", 0),
-                fallback=counts.get("fallback_halo_center", 0),
-            )
-        )
+        print(f"Red: {counts.get('candidate_red',0)}  Green: {counts.get('candidate_green',0)}  "
+              f"CoreFound: {found}/{total_cand} ({found/max(total_cand,1)*100:.0f}%)  "
+              f"Fallback: {fallback}/{total_cand} ({fallback/max(total_cand,1)*100:.0f}%)")
         return 0
     finally:
         cap.release()
 
 
-def _candidate_row(frame_index: int, candidate_index: int, cand: Candidate) -> dict:
+def _candidate_row(frame_index: int, candidate_index: int, cand: Candidate) -> dict[str, Any]:
+    c = cand.core
     return {
         "frame": frame_index,
         "candidate_index": candidate_index,
         "kind": cand.kind,
-        "refine_status": cand.refine_status,
-        "u_px": cand.center[0],
-        "v_px": cand.center[1],
-        "halo_u_px": cand.halo_center[0],
-        "halo_v_px": cand.halo_center[1],
+        "core_found": c.found,
+        "u_px": f"{cand.center[0]:.2f}",
+        "v_px": f"{cand.center[1]:.2f}",
+        "halo_u_px": f"{cand.halo_center[0]:.2f}",
+        "halo_v_px": f"{cand.halo_center[1]:.2f}",
         "halo_area": cand.halo_area,
-        "halo_mean_a_delta": cand.halo_mean_a_delta,
-        "core_u_px": "" if cand.core_center is None else cand.core_center[0],
-        "core_v_px": "" if cand.core_center is None else cand.core_center[1],
-        "core_area_px": "" if cand.core_area is None else cand.core_area,
-        "core_diameter_px": "" if cand.core_diameter is None else cand.core_diameter,
-        "core_mean_l": "" if cand.core_mean_l is None else cand.core_mean_l,
-        "core_max_l": "" if cand.core_max_l is None else cand.core_max_l,
-        "core_a_delta": "" if cand.core_a_delta is None else cand.core_a_delta,
-        "core_b_delta": "" if cand.core_b_delta is None else cand.core_b_delta,
-        "core_offset_px": "" if cand.core_offset is None else cand.core_offset,
-        "core_score": "" if cand.core_score is None else cand.core_score,
+        "halo_mean_a_delta": f"{cand.halo_mean_a_delta:.1f}",
+        "core_area_px": f"{c.area_px:.1f}" if c.area_px is not None else "",
+        "core_diameter_px": f"{c.diameter_px:.1f}" if c.diameter_px is not None else "",
+        "core_mean_l": f"{c.mean_l:.1f}" if c.mean_l is not None else "",
+        "core_max_l": f"{c.max_l:.0f}" if c.max_l is not None else "",
+        "core_offset_px": f"{c.offset_px:.1f}" if c.offset_px is not None else "",
     }
 
 
 def _write_summary_csv(path: Path, rows: list[dict]) -> None:
     fieldnames = [
-        "frame", "candidate_index", "kind", "refine_status", "u_px", "v_px",
+        "frame", "candidate_index", "kind", "core_found", "u_px", "v_px",
         "halo_u_px", "halo_v_px", "halo_area", "halo_mean_a_delta",
-        "core_u_px", "core_v_px", "core_area_px", "core_diameter_px",
-        "core_mean_l", "core_max_l", "core_a_delta", "core_b_delta",
-        "core_offset_px", "core_score",
+        "core_area_px", "core_diameter_px", "core_mean_l", "core_max_l", "core_offset_px",
     ]
     with path.open("w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
@@ -470,15 +513,12 @@ def _write_summary_txt(
     counts: Counter[str],
     a_red_thresh: int,
     a_green_thresh: int,
-    halo_blob_min: float,
-    halo_blob_max: float,
-    core_search_radius: int,
+    core_dilate_kernel: int,
+    core_l_percentile: int,
+    core_area_min: float,
+    core_area_max: float,
     core_diameter_min: float,
     core_diameter_max: float,
-    core_l_floor: int,
-    core_ab_neutral: int,
-    core_b_neutral: int,
-    distance_penalty: float,
 ) -> None:
     with path.open("w", encoding="utf-8") as f:
         f.write(f"Video: {video}\n")
@@ -488,24 +528,24 @@ def _write_summary_txt(
         f.write(f"Actual sampled frames: {sampled_frames}\n")
         f.write(f"Output directory: {output_dir}\n")
         f.write(f"Failed frames: {failed_frames}\n")
-        f.write("\nLAB halo-guided core parameters:\n")
+        f.write("\nLAB halo-guided core v3 parameters:\n")
         f.write(f"A red threshold: > {a_red_thresh}\n")
         f.write(f"A green threshold: < -{a_green_thresh}\n")
-        f.write(f"Halo blob area: [{halo_blob_min}, {halo_blob_max}]\n")
-        f.write(f"Core search radius: {core_search_radius}\n")
+        f.write(f"Core dilate kernel: {core_dilate_kernel}px\n")
+        f.write(f"Core L percentile: {core_l_percentile}%\n")
+        f.write(f"Core area: [{core_area_min}, {core_area_max}]\n")
         f.write(f"Core diameter: [{core_diameter_min}, {core_diameter_max}]\n")
-        f.write(f"Core L floor: {core_l_floor}\n")
-        f.write(f"Core AB neutral max: {core_ab_neutral}\n")
-        f.write(f"Core B neutral max: {core_b_neutral}\n")
-        f.write(f"Distance penalty: {distance_penalty}\n")
         f.write("\nCounts:\n")
+        total_cand = counts.get("candidate_red", 0) + counts.get("candidate_green", 0)
         f.write(f"Frames written: {counts.get('frames_written', 0)}\n")
-        f.write(f"Red halos: {counts.get('red_halos', 0)}\n")
-        f.write(f"Green halos: {counts.get('green_halos', 0)}\n")
-        f.write(f"Red candidates: {counts.get('candidate_red', 0)}\n")
-        f.write(f"Green candidates: {counts.get('candidate_green', 0)}\n")
-        f.write(f"Core found: {counts.get('core_found', 0)}\n")
-        f.write(f"Fallback halo center: {counts.get('fallback_halo_center', 0)}\n")
+        r = counts.get("red_halos", 0);
+        g = counts.get("green_halos", 0)
+        cr = counts.get("candidate_red", 0);
+        cg = counts.get("candidate_green", 0)
+        cf = counts.get("core_found", 0);
+        cb = counts.get("core_fallback", 0)
+        f.write(f"Red halos/cand: {r}/{cr}  Green halos/cand: {g}/{cg}\n")
+        f.write(f"Core found: {cf}/{total_cand}  Fallback: {cb}/{total_cand}\n")
 
 
 def _write_image(path: Path, image: np.ndarray) -> bool:
@@ -518,23 +558,24 @@ def _write_image(path: Path, image: np.ndarray) -> bool:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Isolated LAB halo-guided white-core localization.")
+    parser = argparse.ArgumentParser(description="LAB halo-guided white-core localization v3.")
     parser.add_argument("--video", type=Path, default=DEFAULT_VIDEO)
     parser.add_argument("--start-frame", type=int, default=41)
-    parser.add_argument("--sample-count", type=int, default=40)
+    parser.add_argument("--sample-count", type=int, default=30)
     parser.add_argument("--seed", type=int, default=7)
     parser.add_argument("--output-dir", type=Path, default=None)
+    # halo
     parser.add_argument("--a-red-thresh", type=int, default=15)
-    parser.add_argument("--a-green-thresh", type=int, default=15)
+    parser.add_argument("--a-green-thresh", type=int, default=8)
     parser.add_argument("--halo-blob-min", type=float, default=2.0)
-    parser.add_argument("--halo-blob-max", type=float, default=300.0)
-    parser.add_argument("--core-search-radius", type=int, default=20)
-    parser.add_argument("--core-diameter-min", type=float, default=3.0)
+    parser.add_argument("--halo-blob-max", type=float, default=500.0)
+    # core
+    parser.add_argument("--core-dilate-kernel", type=int, default=5)
+    parser.add_argument("--core-l-percentile", type=int, default=90)
+    parser.add_argument("--core-area-min", type=float, default=1.0)
+    parser.add_argument("--core-area-max", type=float, default=200.0)
+    parser.add_argument("--core-diameter-min", type=float, default=1.0)
     parser.add_argument("--core-diameter-max", type=float, default=15.0)
-    parser.add_argument("--core-l-floor", type=int, default=80)
-    parser.add_argument("--core-ab-neutral", type=int, default=15)
-    parser.add_argument("--core-b-neutral", type=int, default=15)
-    parser.add_argument("--distance-penalty", type=float, default=1.0)
     args = parser.parse_args(argv)
 
     output_dir = args.output_dir if args.output_dir is not None else default_output_dir()
@@ -542,9 +583,9 @@ def main(argv: list[str] | None = None) -> int:
         args.video, args.start_frame, args.sample_count, args.seed, output_dir,
         args.a_red_thresh, args.a_green_thresh,
         args.halo_blob_min, args.halo_blob_max,
-        args.core_search_radius, args.core_diameter_min, args.core_diameter_max,
-        args.core_l_floor, args.core_ab_neutral, args.core_b_neutral,
-        args.distance_penalty,
+        args.core_dilate_kernel, args.core_l_percentile,
+        args.core_area_min, args.core_area_max,
+        args.core_diameter_min, args.core_diameter_max,
     )
 
 

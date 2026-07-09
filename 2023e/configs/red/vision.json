@@ -2,22 +2,19 @@
   "detections": {
     "red_laser": {
       "enabled": true,
-      "color_space": "HSV",
-      "hue_ranges_deg": [
-        {
-          "min": 0,
-          "max": 10
-        },
-        {
-          "min": 170,
-          "max": 180
-        }
-      ],
-      "saturation_min": 80,
-      "value_min": 120,
-      "area_px_min": 3,
+      "color_space": "LAB_HALO_GUIDED",
+      "a_threshold": 15,
+      "halo_blob_min_area_px": 2.0,
+      "halo_blob_max_area_px": 500.0,
+      "core_dilate_kernel_size": 5,
+      "core_l_percentile": 90,
+      "core_area_min_px": 1.0,
+      "core_area_max_px": 200.0,
+      "core_diameter_min_px": 1.0,
+      "core_diameter_max_px": 15.0,
+      "area_px_min": 1.0,
       "area_px_max": 2000,
-      "confidence_min": 0.6
+      "confidence_min": 0.5
     },
     "a4_black_tape_quad": {
       "enabled": true,
