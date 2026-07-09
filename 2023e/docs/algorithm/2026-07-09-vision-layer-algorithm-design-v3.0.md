@@ -1,6 +1,6 @@
-# 2026-07-09 视觉检测层算法设计 v2.1
+# 2026-07-09 视觉检测层算法设计 v3.0
 
-Document Version: v2.1  
+Document Version: v3.0  
 Last Updated: 2026-07-09  
 Changes: 迁移到 LAB halo-guided core 激光检测算法
 
@@ -8,7 +8,7 @@ Changes: 迁移到 LAB halo-guided core 激光检测算法
 
 本文定义 2023 年电赛 E 题"运动目标控制与自动追踪系统"中 `Vision Layer` 的 OpenCV 算法方案。
 
-**v2.1 更新**: 将激光检测算法从 HSV 色彩空间迁移到 LAB halo-guided core 方案，显著提升检测率和中心定位精度。
+**v3.0 更新**: 将激光检测算法从 HSV 色彩空间迁移到 LAB halo-guided core 方案，显著提升检测率和中心定位精度。
 
 ## 2. 已确认边界
 
@@ -90,9 +90,9 @@ LaserDetection
 
 红色系统和绿色系统的参数实例、摄像头输入、标定结果和 `VisionTrackingState` 必须独立。
 
-### 4.2 LAB Halo-Guided Core 流程 (v2.1 新增)
+### 4.2 LAB Halo-Guided Core 流程 (v3.0 新增)
 
-**v2.1 核心改进**: 从 HSV 色彩空间切换到 LAB 色彩空间，使用 A-channel 进行颜色分离，L-channel 进行亮度分析。
+**v3.0 核心改进**: 从 HSV 色彩空间切换到 LAB 色彩空间，使用 A-channel 进行颜色分离，L-channel 进行亮度分析。
 
 推荐流程：
 
@@ -268,7 +268,7 @@ center outside active_roi          -> outside_roi
 
 ### 4.6 候选中心估计
 
-**v2.1 中心估计优先级**:
+**v3.0 中心估计优先级**:
 
 ```text
 1. L-加权白心质心 (core_found = true)
@@ -286,7 +286,7 @@ center outside active_roi          -> outside_roi
 
 多候选时不直接选择面积最大候选。
 
-**v2.1 综合评分公式**:
+**v3.0 综合评分公式**:
 
 ```python
 brightness_score = max_l / 255.0
@@ -426,7 +426,7 @@ Target: <= 30 ms/frame (33 fps)
 Acceptable: <= 50 ms/frame (20 fps)
 ```
 
-**v2.1 实测性能**:
+**v3.0 实测性能**:
 - LAB 转换: ~1-2 ms
 - A-channel halo 提取: ~2-3 ms
 - 连通域分析: ~3-5 ms
@@ -455,7 +455,7 @@ LAB 方案相比 HSV 方案性能相当，但检测率和精度显著提升。
 }
 ```
 
-**v2.1 新增字段** (每个 candidate):
+**v3.0 新增字段** (每个 candidate):
 ```python
 {
     "center": (float, float),
@@ -517,7 +517,7 @@ core L-weighted 中心 → 白色十字
 
 ### 10.3 与 HSV 方案对比
 
-| 指标 | HSV v2.0 | LAB v2.1 | 提升 |
+| 指标 | HSV v2.0 | LAB v3.0 | 提升 |
 |------|---------|---------|------|
 | 红点检测率 | 85% | 92% | +7% |
 | 绿点检测率 | 70% | 100% | +30% |
@@ -528,7 +528,7 @@ core L-weighted 中心 → 白色十字
 
 ## 11. 迁移与版本说明
 
-### v2.1 (2026-07-09) - LAB Halo-Guided Core
+### v3.0 (2026-07-09) - LAB Halo-Guided Core
 
 - ✅ 迁移到 LAB 色彩空间
 - ✅ A-channel halo 提取替代 HSV hue 分离
@@ -554,7 +554,7 @@ core L-weighted 中心 → 白色十字
 
 ## 12. 当前结论
 
-视觉检测层算法设计结论（v2.1）：
+视觉检测层算法设计结论（v3.0）：
 
 ```text
 LaserDetector:
@@ -577,4 +577,4 @@ VisionStateTracker:
 
 **文档维护**: OpenCode  
 **最后更新**: 2026-07-09  
-**版本**: v2.1
+**版本**: v3.0

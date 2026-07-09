@@ -1,8 +1,8 @@
 # 2026-07-09 Vision Layer 结构设计
 
-Document Version: v2.1
+Document Version: v3.0
 
-**v2.1 更新 (2026-07-09)**:
+**v3.0 更新 (2026-07-09)**:
 - 激光检测算法迁移到 LAB halo-guided core
 - 更新 `LaserDetectionParams` 参数结构
 - 更新性能和检测率指标
@@ -11,7 +11,7 @@ Document Version: v2.1
 
 本文定义 2023 年电赛 E 题 OpenCV 方案中 `Vision Layer` 的正式结构边界、输入输出、运行模式、内部模块职责和调试/运行分离原则。
 
-本版本基于 v2.1 LAB halo-guided core 迁移更新，目标是让 `Vision Layer` 的 formal runtime path 朝 `<= 30 ms/frame` 收敛，同时提升激光检测率和精度。
+本版本基于 v3.0 LAB halo-guided core 迁移更新，目标是让 `Vision Layer` 的 formal runtime path 朝 `<= 30 ms/frame` 收敛，同时提升激光检测率和精度。
 
 本文只讨论视觉层，不讨论：
 
@@ -669,7 +669,7 @@ lost_target_policy.action
 
 ## 15. 当前结构结论
 
-当前 v2.1 结构结论如下：
+当前 v3.0 结构结论如下：
 
 ```text
 Vision Layer:
@@ -691,7 +691,7 @@ DEBUG:
   保留为非实时分析路径
 ```
 
-## 16. v2.1 更新说明 (2026-07-09)
+## 16. v3.0 更新说明 (2026-07-09)
 
 ### 16.1 激光检测算法迁移
 
@@ -720,7 +720,7 @@ core_diameter_max_px: float        # 白心最大直径
 
 ### 16.3 性能提升
 
-| 指标 | v2.0 (HSV) | v2.1 (LAB) | 提升 |
+| 指标 | v2.0 (HSV) | v3.0 (LAB) | 提升 |
 |------|-----------|-----------|------|
 | 红点检测率 | 85% | 92% | +7% |
 | 绿点检测率 | 70% | 100% | +30% |
@@ -736,11 +736,11 @@ core_diameter_max_px: float        # 白心最大直径
 
 ### 16.5 相关文档
 
-- 算法设计: `docs/algorithm/2026-07-09-vision-layer-algorithm-design-v2.1.md`
+- 算法设计: `docs/algorithm/2026-07-09-vision-layer-algorithm-design-v3.0.md`
 - 迁移文档: `docs/hands-off/2026-07-09-lab-halo-migration.md`
 
 ---
 
 **文档维护**: OpenCode  
 **最后更新**: 2026-07-09  
-**版本**: v2.1
+**版本**: v3.0

@@ -30,7 +30,7 @@ class VisionPipeline:
         self._green_detector = LaserDetector(LaserColor.GREEN, config.green_laser) if config.green_laser and config.green_laser.enabled else None
         self._tape_detector = TapeQuadDetector()
         self._screen_detector = ScreenDetector()
-        self._runtime_support_refresh_interval = 10
+        self._runtime_support_refresh_interval = 20
         self._last_tape_quad: TapeQuadDetection | None = None
         self._last_tape_refresh_frame_id: int | None = None
         self._last_screen_detection: ScreenDetection | None = None
@@ -169,4 +169,7 @@ class VisionPipeline:
         }
 
     def _should_run_screen(self, mode: VisionMode) -> bool:
-        return mode == VisionMode.DEBUG
+        return mode in {
+            VisionMode.DEBUG,
+            VisionMode.RUNTIME_SCREEN_RED,
+        }

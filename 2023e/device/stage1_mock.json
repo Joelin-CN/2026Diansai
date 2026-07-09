@@ -1,0 +1,10 @@
+{
+  "camera": {
+    "type": "video_file",
+    "video_path": "test_data/red_laser_video.mp4"
+  },
+  "motor": {
+    "type": "mock",
+    "log_dir": "outputs/mock_test"
+  }
+}

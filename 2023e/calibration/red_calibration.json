@@ -1,0 +1,14 @@
+{
+  "H_img_to_screen": [
+    [1.0, 0.0, 0.0],
+    [0.0, 1.0, 0.0],
+    [0.0, 0.0, 1.0]
+  ],
+  "servo_config": {
+    "yaw_kp_steps_per_mm": 1.0,
+    "pitch_kp_steps_per_mm": 1.0,
+    "deadband_mm": 3.0,
+    "max_yaw_delta_steps": 80,
+    "max_pitch_delta_steps": 80
+  }
+}
