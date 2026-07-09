@@ -35,6 +35,8 @@ class VisionPipeline:
         self._last_tape_refresh_frame_id: int | None = None
         self._last_screen_detection: ScreenDetection | None = None
         self._last_screen_refresh_frame_id: int | None = None
+        self._tape_roi: ImageRoi | None = None  # Track A4 ROI
+        self._frame_width, self._frame_height = frame_size
 
     def process(self, frame: CameraFrame, mode: VisionMode = VisionMode.DEBUG) -> VisionFrameResult:
         start = time.perf_counter()
@@ -103,13 +105,21 @@ class VisionPipeline:
         if not self._should_refresh_runtime_support(mode, frame.frame_id, self._last_tape_refresh_frame_id):
             return self._last_tape_quad
 
-        tape_quad = self._tape_detector.detect(frame.image) if self._tape_detector else None
+        # Use ROI if we have a previous successful detection
+        roi = self._tape_roi
+        tape_quad = self._tape_detector.detect(frame.image, roi=roi) if self._tape_detector else None
+        
         if tape_quad is not None:
             diagnostics.add_detector("a4_tape", tape_quad.diagnostics)
             self._last_tape_refresh_frame_id = frame.frame_id
             if tape_quad.found:
                 self._last_tape_quad = tape_quad
+                # Update ROI based on outer quad for next detection
+                self._tape_roi = self._compute_tape_roi(tape_quad)
                 return tape_quad
+            else:
+                # Lost the quad - reset ROI to search full frame next time
+                self._tape_roi = None
         return self._last_tape_quad if mode != VisionMode.DEBUG else tape_quad
 
     def _run_screen_support(
@@ -138,6 +148,35 @@ class VisionPipeline:
         if last_refresh_frame_id is None:
             return True
         return (frame_id - last_refresh_frame_id) >= self._runtime_support_refresh_interval
+    
+    def _compute_tape_roi(self, tape_quad: TapeQuadDetection) -> ImageRoi | None:
+        """Compute ROI around the detected tape quad with margin."""
+        if not tape_quad.found or not tape_quad.outer_quad:
+            return None
+        
+        # Find bounding box of outer quad
+        points = tape_quad.outer_quad.points
+        u_coords = [pt.u_px for pt in points]
+        v_coords = [pt.v_px for pt in points]
+        
+        min_u = min(u_coords)
+        max_u = max(u_coords)
+        min_v = min(v_coords)
+        max_v = max(v_coords)
+        
+        # Add margin (30% on each side)
+        width = max_u - min_u
+        height = max_v - min_v
+        margin_u = int(width * 0.3)
+        margin_v = int(height * 0.3)
+        
+        # Clip to frame bounds
+        x = max(0, int(min_u) - margin_u)
+        y = max(0, int(min_v) - margin_v)
+        w = min(self._frame_width - x, int(max_u - min_u) + 2 * margin_u)
+        h = min(self._frame_height - y, int(max_v - min_v) + 2 * margin_v)
+        
+        return ImageRoi(x, y, w, h)
 
     def _should_run_red(self, mode: VisionMode) -> bool:
         if self._red_detector is None:
