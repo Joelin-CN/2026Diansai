@@ -1,0 +1,51 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "MSPM0G3507 Debug",
+      "type": "cppdbg",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/build/Debug/NewProject1.axf",
+      "cwd": "${workspaceFolder}",
+      "MIMode": "gdb",
+      "miDebuggerPath": "C:/Users/35336/.eide/tools/gcc_arm/bin/arm-none-eabi-gdb.exe",
+      "miDebuggerServerAddress": "localhost:50000",
+      "debugServerPath": "C:/Users/35336/Desktop/desk/2026diansai/openocd_1.3.1.50/openocd_1.3.1.50/bin/openocd.exe",
+      "debugServerArgs": "-c \"gdb_port 50000\" -c \"tcl_port 50001\" -c \"telnet_port 50002\" -s \"${workspaceFolder}\" -s \"C:/Users/35336/Desktop/desk/2026diansai/openocd_1.3.1.50/openocd_1.3.1.50/share/openocd/scripts\" -f \"${workspaceFolder}/.vscode/openocd_mspm0g3507.cfg\"",
+      "serverStarted": "Listening on port 50000 for gdb connections",
+      "serverLaunchTimeout": 20000,
+      "filterStdout": true,
+      "filterStderr": true,
+      "stopAtEntry": false,
+      "launchCompleteCommand": "None",
+      "setupCommands": [
+        {
+          "text": "set mem inaccessible-by-default off",
+          "ignoreFailures": true
+        },
+        {
+          "text": "monitor reset halt",
+          "ignoreFailures": true
+        },
+        {
+          "text": "break main",
+          "ignoreFailures": true
+        }
+      ]
+    },
+    {
+      "name": "C/C++ Runner: Debug Session",
+      "presentation": {
+        "hidden": true
+      },
+      "type": "cppvsdbg",
+      "request": "launch",
+      "args": [],
+      "stopAtEntry": false,
+      "console": "externalTerminal",
+      "cwd": "c:/Users/35336/Desktop/desk/2026diansai/project/test/NewProject1",
+      "program": "c:/Users/35336/Desktop/desk/2026diansai/project/test/NewProject1/build/Debug/outDebug"
+    }
+  ]
+}

@@ -1,0 +1,82 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "sysconfig: open gui",
+            "type": "shell",
+            "command": "C:/ti/sysconfig_1.24.1/sysconfig_gui.bat",
+            "args": [
+                "--product",
+                "C:/ti/mspm0_sdk_2_05_01_00/.metadata/product.json",
+                "--device",
+                "MSPM0G3507",
+                "--package",
+                {
+                    "value": "LQFP-48(PT)",
+                    "quoting": "strong"
+                },
+                "--script",
+                "${workspaceFolder}/NewProject1.syscfg"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "sysconfig: generate",
+            "type": "shell",
+            "command": "C:/ti/sysconfig_1.24.1/sysconfig_cli.bat",
+            "args": [
+                "--product",
+                "C:/ti/mspm0_sdk_2_05_01_00/.metadata/product.json",
+                "--device",
+                "MSPM0G3507",
+                "--package",
+                {
+                    "value": "LQFP-48(PT)",
+                    "quoting": "strong"
+                },
+                "--script",
+                "${workspaceFolder}/NewProject1.syscfg",
+                "--output",
+                "${workspaceFolder}/Debug",
+                "--compiler",
+                "keil"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "build",
+            "type": "shell",
+            "command": "${command:eide.project.build}",
+            "group": "build",
+            "problemMatcher": []
+        },
+        {
+            "label": "flash",
+            "type": "shell",
+            "command": "${command:eide.project.uploadToDevice}",
+            "group": "build",
+            "problemMatcher": []
+        },
+        {
+            "label": "build and flash",
+            "type": "shell",
+            "command": "${command:eide.project.buildAndFlash}",
+            "group": "build",
+            "problemMatcher": []
+        },
+        {
+            "label": "rebuild",
+            "type": "shell",
+            "command": "${command:eide.project.rebuild}",
+            "group": "build",
+            "problemMatcher": []
+        },
+        {
+            "label": "clean",
+            "type": "shell",
+            "command": "${command:eide.project.clean}",
+            "group": "build",
+            "problemMatcher": []
+        }
+    ]
+}
