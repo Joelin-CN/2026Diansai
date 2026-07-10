@@ -11,4 +11,6 @@
 main/ ：2026年电赛仓库
 insights/ ：体会
 pictures/ ：公用的图片
+modules/ ：模块驱动及资料 
+pcb/ ：pcb设计
 ```
