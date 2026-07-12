@@ -16,6 +16,7 @@
 const GPIO = scripting.addModule("/ti/driverlib/GPIO", {}, false);
 const MOTOR_DIR = GPIO.addInstance();
 const ENCODER = GPIO.addInstance();
+const ICM42688 = GPIO.addInstance();
 const I2C = scripting.addModule("/ti/driverlib/I2C", {}, false);
 const I2C0 = I2C.addInstance();
 const PWM = scripting.addModule("/ti/driverlib/PWM", {}, false);
@@ -57,13 +58,14 @@ SPI0.DMA_CHANNEL_EVENT2.srcLength = "BYTE";
 SPI0.DMA_CHANNEL_EVENT2.dstLength = "BYTE";
 SPI0.DMA_CHANNEL_EVENT2.peripheral.$assign = "DMA_CH1";
 
-/* SPI1: PA16/PA17/PA18 + PB20, full-duplex DMA on CH2/CH3. */
+/* SPI1: PA16/PA17/PA18, software-controlled ICM42688 CS on PB20. */
 SPI1.$name = "SPI1";
 SPI1.mode = "CONTROLLER";
 SPI1.targetBitRate = 1000000;
 SPI1.dataSize = 8;
+SPI1.frameFormat = "MOTO3";
+SPI1.chipSelect = [];
 SPI1.peripheral.$assign = "SPI1";
-SPI1.peripheral.cs0Pin.$assign = "PB20";
 SPI1.peripheral.misoPin.$assign = "PA16";
 SPI1.peripheral.mosiPin.$assign = "PA18";
 SPI1.peripheral.sclkPin.$assign = "PA17";
@@ -81,6 +83,16 @@ SPI1.DMA_CHANNEL_EVENT2.addressMode = "b2f";
 SPI1.DMA_CHANNEL_EVENT2.srcLength = "BYTE";
 SPI1.DMA_CHANNEL_EVENT2.dstLength = "BYTE";
 SPI1.DMA_CHANNEL_EVENT2.peripheral.$assign = "DMA_CH3";
+
+/* ICM42688 software chip select. Keep high whenever no SPI transaction is active. */
+ICM42688.$name = "ICM42688";
+ICM42688.associatedPins.create(1);
+ICM42688.associatedPins[0].$name = "CS";
+ICM42688.associatedPins[0].direction = "OUTPUT";
+ICM42688.associatedPins[0].initialValue = "SET";
+ICM42688.associatedPins[0].assignedPort = "PORTB";
+ICM42688.associatedPins[0].assignedPin = "20";
+ICM42688.associatedPins[0].pin.$assign = "PB20";
 
 /* I2C0 controller on PA0/PA1. */
 I2C0.$name = "I2C0";

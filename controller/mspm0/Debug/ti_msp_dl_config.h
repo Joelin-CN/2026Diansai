@@ -238,10 +238,6 @@ extern "C" {
 #define GPIO_SPI1_SCLK_PIN                                       DL_GPIO_PIN_17
 #define GPIO_SPI1_IOMUX_SCLK                                    (IOMUX_PINCM39)
 #define GPIO_SPI1_IOMUX_SCLK_FUNC                    IOMUX_PINCM39_PF_SPI1_SCLK
-#define GPIO_SPI1_CS0_PORT                                                GPIOB
-#define GPIO_SPI1_CS0_PIN                                        DL_GPIO_PIN_20
-#define GPIO_SPI1_IOMUX_CS0                                     (IOMUX_PINCM48)
-#define GPIO_SPI1_IOMUX_CS0_FUNC                      IOMUX_PINCM48_PF_SPI1_CS0
 
 
 
@@ -259,6 +255,12 @@ extern "C" {
 #define SPI1_INST_DMA_TRIGGER_1                               (DMA_SPI1_TX_TRIG)
 
 
+/* Port definition for Pin Group ICM42688 */
+#define ICM42688_PORT                                                    (GPIOB)
+
+/* Defines for CS: GPIOB.20 with pinCMx 48 on package pin 41 */
+#define ICM42688_CS_PIN                                         (DL_GPIO_PIN_20)
+#define ICM42688_CS_IOMUX                                        (IOMUX_PINCM48)
 /* Defines for M1_IN1: GPIOB.6 with pinCMx 23 on package pin 20 */
 #define MOTOR_DIR_M1_IN1_PORT                                            (GPIOB)
 #define MOTOR_DIR_M1_IN1_PIN                                     (DL_GPIO_PIN_6)

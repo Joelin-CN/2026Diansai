@@ -190,8 +190,8 @@ SYSCONFIG_WEAK void SYSCFG_DL_GPIO_init(void)
         GPIO_SPI1_IOMUX_PICO, GPIO_SPI1_IOMUX_PICO_FUNC);
     DL_GPIO_initPeripheralInputFunction(
         GPIO_SPI1_IOMUX_POCI, GPIO_SPI1_IOMUX_POCI_FUNC);
-    DL_GPIO_initPeripheralOutputFunction(
-        GPIO_SPI1_IOMUX_CS0, GPIO_SPI1_IOMUX_CS0_FUNC);
+
+    DL_GPIO_initDigitalOutput(ICM42688_CS_IOMUX);
 
     DL_GPIO_initDigitalOutput(MOTOR_DIR_M1_IN1_IOMUX);
 
@@ -276,7 +276,9 @@ SYSCONFIG_WEAK void SYSCFG_DL_GPIO_init(void)
 		MOTOR_DIR_M3_IN2_PIN |
 		MOTOR_DIR_M4_IN1_PIN |
 		MOTOR_DIR_M4_IN2_PIN);
-    DL_GPIO_enableOutput(GPIOB, MOTOR_DIR_M1_IN1_PIN |
+    DL_GPIO_setPins(GPIOB, ICM42688_CS_PIN);
+    DL_GPIO_enableOutput(GPIOB, ICM42688_CS_PIN |
+		MOTOR_DIR_M1_IN1_PIN |
 		MOTOR_DIR_M1_IN2_PIN |
 		MOTOR_DIR_M2_IN1_PIN |
 		MOTOR_DIR_M3_IN2_PIN |
@@ -620,11 +622,10 @@ SYSCONFIG_WEAK void SYSCFG_DL_SPI0_init(void) {
 }
 static const DL_SPI_Config gSPI1_config = {
     .mode        = DL_SPI_MODE_CONTROLLER,
-    .frameFormat = DL_SPI_FRAME_FORMAT_MOTO4_POL0_PHA0,
+    .frameFormat = DL_SPI_FRAME_FORMAT_MOTO3_POL0_PHA0,
     .parity      = DL_SPI_PARITY_NONE,
     .dataSize    = DL_SPI_DATA_SIZE_8,
     .bitOrder    = DL_SPI_BIT_ORDER_MSB_FIRST,
-    .chipSelectPin = DL_SPI_CHIP_SELECT_0,
 };
 
 static const DL_SPI_ClockConfig gSPI1_clockConfig = {

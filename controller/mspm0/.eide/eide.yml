@@ -4,13 +4,15 @@ type: ARM
 deviceName: MSPM0G3507
 packDir: .pack/TexasInstruments/MSPM0G_DFP.1.2.1
 srcDirs:
-  - ../../MSPM0G3507_IIC_OLED-main/MSPM0G3507_IIC_OLED-main
+  - src
+  - Debug
+  - ../../modules/ICM42688/src
 virtualFolder:
   name: <virtual_root>
   files:
     - path: RTE_Components.h
-    - path: ../../../../../../../../ti/mspm0_sdk_2_05_01_00/source/ti/devices/msp/m0p/startup_system_files/keil/startup_mspm0g350x_uvision.s
-    - path: ../../../../../../../../ti/mspm0_sdk_2_05_01_00/source/ti/driverlib/lib/keil/m0p/mspm0g1x0x_g3x0x/driverlib.a
+    - path: C:/ti/mspm0_sdk_2_05_01_00/source/ti/devices/msp/m0p/startup_system_files/keil/startup_mspm0g350x_uvision.s
+    - path: C:/ti/mspm0_sdk_2_05_01_00/source/ti/driverlib/lib/keil/m0p/mspm0g1x0x_g3x0x/driverlib.a
   folders: []
 dependenceList: []
 outDir: build
@@ -23,11 +25,11 @@ targets:
         - __MSPM0G3507__
       incList:
         - .
-        - ../../MSPM0G3507_IIC_OLED-main/MSPM0G3507_IIC_OLED-main
-        - ../../MSPM0G3507_IIC_OLED-main/MSPM0G3507_IIC_OLED-main/oled
-        - ../../MSPM0G3507_IIC_OLED-main/MSPM0G3507_IIC_OLED-main/Debug
-        - ../../../../../../../../ti/mspm0_sdk_2_05_01_00/source
-        - ../../../../../../../../ti/mspm0_sdk_2_05_01_00/source/third_party/CMSIS/Core/Include
+        - inc
+        - Debug
+        - ../../modules/ICM42688/inc
+        - C:/ti/mspm0_sdk_2_05_01_00/source
+        - C:/ti/mspm0_sdk_2_05_01_00/source/third_party/CMSIS/Core/Include
       libList: []
     excludeList: []
     settings:
@@ -44,7 +46,17 @@ targets:
           asm-compiler:
             $use: asm-auto
             misc-controls: ""
-          beforeBuildTasks: []
+          beforeBuildTasks:
+            - name: Generate SysConfig
+              command: C:/ti/sysconfig_1.24.1/sysconfig_cli.bat
+              args: >-
+                --product C:/ti/mspm0_sdk_2_05_01_00/.metadata/product.json
+                --device MSPM0G3507
+                --package "LQFP-48(PT)"
+                --script "${WorkspaceRoot}/NewProject1.syscfg"
+                --output "${WorkspaceRoot}/Debug"
+                --compiler keil
+              stopBuildAfterFailed: true
           c/cpp-compiler:
             C_FLAGS:
               - -fshort-enums
@@ -61,7 +73,7 @@ targets:
               - .bin
             misc-controls: --diag_suppress=L6329
             output-format: elf
-        scatterFilePath: <YOUR_SCATTER_FILE>.sct
+        scatterFilePath: mspm0g3507.sct
         storageLayout:
           RAM:
             - id: 1
