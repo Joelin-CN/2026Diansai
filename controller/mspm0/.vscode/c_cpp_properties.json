@@ -1,0 +1,26 @@
+{
+  "configurations": [
+    {
+      "name": "windows-armclang",
+      "includePath": [
+        "${workspaceFolder}",
+        "${workspaceFolder}/../../MSPM0G3507_IIC_OLED-main/MSPM0G3507_IIC_OLED-main",
+        "${workspaceFolder}/../../MSPM0G3507_IIC_OLED-main/MSPM0G3507_IIC_OLED-main/oled",
+        "${workspaceFolder}/../../MSPM0G3507_IIC_OLED-main/MSPM0G3507_IIC_OLED-main/Debug",
+        "C:/ti/mspm0_sdk_2_05_01_00/source",
+        "C:/ti/mspm0_sdk_2_05_01_00/source/third_party/CMSIS/Core/Include"
+      ],
+      "defines": [
+        "__MSPM0G3507__"
+      ],
+      "compilerPath": "",
+      "cStandard": "c99",
+      "cppStandard": "c++11",
+      "intelliSenseMode": "windows-clang-arm",
+      "compilerArgs": [
+        ""
+      ]
+    }
+  ],
+  "version": 4
+}
