@@ -6,7 +6,7 @@ packDir: .pack/TexasInstruments/MSPM0G_DFP.1.2.1
 srcDirs:
   - src
   - Debug
-  - ../../modules/ICM42688/src
+  - ../../modules/MCP23017/src
 virtualFolder:
   name: <virtual_root>
   files:
@@ -27,7 +27,7 @@ targets:
         - .
         - inc
         - Debug
-        - ../../modules/ICM42688/inc
+        - ../../modules/MCP23017/inc
         - C:/ti/mspm0_sdk_2_05_01_00/source
         - C:/ti/mspm0_sdk_2_05_01_00/source/third_party/CMSIS/Core/Include
       libList: []

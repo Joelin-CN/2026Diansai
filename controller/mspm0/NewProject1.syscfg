@@ -8,6 +8,7 @@
  *   SPI1_SCLK: PA15 -> PA17
  *   SPI1_PICO: PA17 -> PA18
  *   M3_IN1: PA18 -> PA15
+ *   ENC2_A: PA14 -> PA2 (PA14 is wired to the on-board LED)
  *   ENC4_A: PB17 -> PA31 (PB17 is wired to the on-board Flash CS)
  */
 //@cliArgs --device "MSPM0G350X" --package "LQFP-48(PT)" --part "Default"
@@ -23,40 +24,13 @@ const PWM = scripting.addModule("/ti/driverlib/PWM", {}, false);
 const MOTOR_PWM_A = PWM.addInstance();
 const MOTOR_PWM_B = PWM.addInstance();
 const SPI = scripting.addModule("/ti/driverlib/SPI", {}, false);
-const SPI0 = SPI.addInstance();
 const SPI1 = SPI.addInstance();
 const UART = scripting.addModule("/ti/driverlib/UART", {}, false);
 const UART0 = UART.addInstance();
 const UART1 = UART.addInstance();
-const UART2 = UART.addInstance();
 const UART3 = UART.addInstance();
 const SYSCTL = scripting.addModule("/ti/driverlib/SYSCTL");
 const Board = scripting.addModule("/ti/driverlib/Board", {}, false);
-
-/* SPI0: PA2/PA4/PA5/PA6, full-duplex DMA on CH0/CH1. */
-SPI0.$name = "SPI0";
-SPI0.mode = "CONTROLLER";
-SPI0.targetBitRate = 1000000;
-SPI0.dataSize = 8;
-SPI0.peripheral.$assign = "SPI0";
-SPI0.peripheral.cs0Pin.$assign = "PA2";
-SPI0.peripheral.misoPin.$assign = "PA4";
-SPI0.peripheral.mosiPin.$assign = "PA5";
-SPI0.peripheral.sclkPin.$assign = "PA6";
-SPI0.enabledDMAEvent1Triggers = "DL_SPI_DMA_INTERRUPT_RX";
-SPI0.enableDMAEvent1 = true;
-SPI0.enabledDMAEvent2Triggers = "DL_SPI_DMA_INTERRUPT_TX";
-SPI0.enableDMAEvent2 = true;
-SPI0.DMA_CHANNEL_EVENT1.$name = "DMA_SPI0_RX";
-SPI0.DMA_CHANNEL_EVENT1.addressMode = "f2b";
-SPI0.DMA_CHANNEL_EVENT1.srcLength = "BYTE";
-SPI0.DMA_CHANNEL_EVENT1.dstLength = "BYTE";
-SPI0.DMA_CHANNEL_EVENT1.peripheral.$assign = "DMA_CH0";
-SPI0.DMA_CHANNEL_EVENT2.$name = "DMA_SPI0_TX";
-SPI0.DMA_CHANNEL_EVENT2.addressMode = "b2f";
-SPI0.DMA_CHANNEL_EVENT2.srcLength = "BYTE";
-SPI0.DMA_CHANNEL_EVENT2.dstLength = "BYTE";
-SPI0.DMA_CHANNEL_EVENT2.peripheral.$assign = "DMA_CH1";
 
 /* SPI1: PA16/PA17/PA18, software-controlled ICM42688 CS on PB20. */
 SPI1.$name = "SPI1";
@@ -103,11 +77,10 @@ I2C0.peripheral.sclPin.$assign = "PA1";
 I2C0.sdaPinConfig.enableConfig = true;
 I2C0.sclPinConfig.enableConfig = true;
 
-/* Four UART routes from the supplied pin plan. */
+/* UART3 is reserved for the ATK-BLE02 Bluetooth test connection. */
 const uartConfig = [
     [UART0, "UART0", "PA10", "PA11"],
     [UART1, "UART1", "PA8", "PA9"],
-    [UART2, "UART2", "PB15", "PB16"],
     [UART3, "UART3", "PB2", "PB3"],
 ];
 for (let i = 0; i < uartConfig.length; i++) {
@@ -150,9 +123,9 @@ MOTOR_PWM_B.peripheral.$assign = "TIMA1";
 MOTOR_PWM_B.peripheral.ccp1Pin.$assign = "PA24";
 MOTOR_PWM_B.PWM_CHANNEL_1.$name = "M3_PWM_CC1";
 
-/* Eight TB6612 direction outputs plus shared standby. */
+/* Eight TB6612 direction outputs. STBY is externally pulled up to 3.3 V. */
 MOTOR_DIR.$name = "MOTOR_DIR";
-MOTOR_DIR.associatedPins.create(9);
+MOTOR_DIR.associatedPins.create(8);
 const motorDirPins = [
     ["M1_IN1", "PORTB", "6", "PB6"],
     ["M1_IN2", "PORTB", "7", "PB7"],
@@ -162,7 +135,6 @@ const motorDirPins = [
     ["M3_IN2", "PORTB", "9", "PB9"],
     ["M4_IN1", "PORTB", "19", "PB19"],
     ["M4_IN2", "PORTB", "24", "PB24"],
-    ["STBY", "PORTA", "23", "PA23"],
 ];
 for (let i = 0; i < motorDirPins.length; i++) {
     MOTOR_DIR.associatedPins[i].$name = motorDirPins[i][0];
@@ -179,7 +151,7 @@ ENCODER.associatedPins.create(8);
 const encoderPins = [
     ["ENC1_A", "PORTA", "12", "PA12"],
     ["ENC1_B", "PORTA", "13", "PA13"],
-    ["ENC2_A", "PORTA", "14", "PA14"],
+    ["ENC2_A", "PORTA", "2", "PA2"],
     ["ENC2_B", "PORTA", "26", "PA26"],
     ["ENC3_A", "PORTA", "27", "PA27"],
     ["ENC3_B", "PORTA", "28", "PA28"],

@@ -1,4 +1,6 @@
+#include "encoder.h"
 #include "line_sensor.h"
+#include "mcp23017.h"
 #include "motor.h"
 #include "ti_msp_dl_config.h"
 
@@ -25,6 +27,8 @@ int main(void)
     uint16_t lostCount = LOST_STOP_COUNT;
 
     SYSCFG_DL_init();
+    Encoder_Init();
+    (void)MCP23017_Init();
     Motor_Init();
 
     while (1) {

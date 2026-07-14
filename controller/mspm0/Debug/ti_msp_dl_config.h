@@ -164,22 +164,6 @@ extern "C" {
 #define UART1_BAUD_RATE                                                 (115200)
 #define UART1_IBRD_32_MHZ_115200_BAUD                                       (17)
 #define UART1_FBRD_32_MHZ_115200_BAUD                                       (23)
-/* Defines for UART2 */
-#define UART2_INST                                                         UART2
-#define UART2_INST_FREQUENCY                                            32000000
-#define UART2_INST_IRQHandler                                   UART2_IRQHandler
-#define UART2_INST_INT_IRQN                                       UART2_INT_IRQn
-#define GPIO_UART2_RX_PORT                                                 GPIOB
-#define GPIO_UART2_TX_PORT                                                 GPIOB
-#define GPIO_UART2_RX_PIN                                         DL_GPIO_PIN_16
-#define GPIO_UART2_TX_PIN                                         DL_GPIO_PIN_15
-#define GPIO_UART2_IOMUX_RX                                      (IOMUX_PINCM33)
-#define GPIO_UART2_IOMUX_TX                                      (IOMUX_PINCM32)
-#define GPIO_UART2_IOMUX_RX_FUNC                       IOMUX_PINCM33_PF_UART2_RX
-#define GPIO_UART2_IOMUX_TX_FUNC                       IOMUX_PINCM32_PF_UART2_TX
-#define UART2_BAUD_RATE                                                 (115200)
-#define UART2_IBRD_32_MHZ_115200_BAUD                                       (17)
-#define UART2_FBRD_32_MHZ_115200_BAUD                                       (23)
 /* Defines for UART3 */
 #define UART3_INST                                                         UART3
 #define UART3_INST_FREQUENCY                                            32000000
@@ -200,27 +184,6 @@ extern "C" {
 
 
 
-/* Defines for SPI0 */
-#define SPI0_INST                                                          SPI0
-#define SPI0_INST_IRQHandler                                    SPI0_IRQHandler
-#define SPI0_INST_INT_IRQN                                        SPI0_INT_IRQn
-#define GPIO_SPI0_PICO_PORT                                               GPIOA
-#define GPIO_SPI0_PICO_PIN                                        DL_GPIO_PIN_5
-#define GPIO_SPI0_IOMUX_PICO                                    (IOMUX_PINCM10)
-#define GPIO_SPI0_IOMUX_PICO_FUNC                    IOMUX_PINCM10_PF_SPI0_PICO
-#define GPIO_SPI0_POCI_PORT                                               GPIOA
-#define GPIO_SPI0_POCI_PIN                                        DL_GPIO_PIN_4
-#define GPIO_SPI0_IOMUX_POCI                                     (IOMUX_PINCM9)
-#define GPIO_SPI0_IOMUX_POCI_FUNC                     IOMUX_PINCM9_PF_SPI0_POCI
-/* GPIO configuration for SPI0 */
-#define GPIO_SPI0_SCLK_PORT                                               GPIOA
-#define GPIO_SPI0_SCLK_PIN                                        DL_GPIO_PIN_6
-#define GPIO_SPI0_IOMUX_SCLK                                    (IOMUX_PINCM11)
-#define GPIO_SPI0_IOMUX_SCLK_FUNC                    IOMUX_PINCM11_PF_SPI0_SCLK
-#define GPIO_SPI0_CS0_PORT                                                GPIOA
-#define GPIO_SPI0_CS0_PIN                                         DL_GPIO_PIN_2
-#define GPIO_SPI0_IOMUX_CS0                                      (IOMUX_PINCM7)
-#define GPIO_SPI0_IOMUX_CS0_FUNC                       IOMUX_PINCM7_PF_SPI0_CS0
 /* Defines for SPI1 */
 #define SPI1_INST                                                          SPI1
 #define SPI1_INST_IRQHandler                                    SPI1_IRQHandler
@@ -241,12 +204,6 @@ extern "C" {
 
 
 
-/* Defines for DMA_SPI0_RX */
-#define DMA_SPI0_RX_CHAN_ID                                                  (0)
-#define SPI0_INST_DMA_TRIGGER_0                               (DMA_SPI0_RX_TRIG)
-/* Defines for DMA_SPI0_TX */
-#define DMA_SPI0_TX_CHAN_ID                                                  (1)
-#define SPI0_INST_DMA_TRIGGER_1                               (DMA_SPI0_TX_TRIG)
 /* Defines for DMA_SPI1_RX */
 #define DMA_SPI1_RX_CHAN_ID                                                  (2)
 #define SPI1_INST_DMA_TRIGGER_0                               (DMA_SPI1_RX_TRIG)
@@ -293,10 +250,6 @@ extern "C" {
 #define MOTOR_DIR_M4_IN2_PORT                                            (GPIOB)
 #define MOTOR_DIR_M4_IN2_PIN                                    (DL_GPIO_PIN_24)
 #define MOTOR_DIR_M4_IN2_IOMUX                                   (IOMUX_PINCM52)
-/* Defines for STBY: GPIOA.23 with pinCMx 53 on package pin 43 */
-#define MOTOR_DIR_STBY_PORT                                              (GPIOA)
-#define MOTOR_DIR_STBY_PIN                                      (DL_GPIO_PIN_23)
-#define MOTOR_DIR_STBY_IOMUX                                     (IOMUX_PINCM53)
 /* Defines for ENC1_A: GPIOA.12 with pinCMx 34 on package pin 27 */
 #define ENCODER_ENC1_A_PORT                                              (GPIOA)
 // pins affected by this interrupt request:["ENC1_A","ENC1_B","ENC2_A","ENC2_B","ENC3_A","ENC3_B","ENC4_A"]
@@ -310,11 +263,11 @@ extern "C" {
 #define ENCODER_ENC1_B_IIDX                                 (DL_GPIO_IIDX_DIO13)
 #define ENCODER_ENC1_B_PIN                                      (DL_GPIO_PIN_13)
 #define ENCODER_ENC1_B_IOMUX                                     (IOMUX_PINCM35)
-/* Defines for ENC2_A: GPIOA.14 with pinCMx 36 on package pin 29 */
+/* Defines for ENC2_A: GPIOA.2 with pinCMx 7 on package pin 8 */
 #define ENCODER_ENC2_A_PORT                                              (GPIOA)
-#define ENCODER_ENC2_A_IIDX                                 (DL_GPIO_IIDX_DIO14)
-#define ENCODER_ENC2_A_PIN                                      (DL_GPIO_PIN_14)
-#define ENCODER_ENC2_A_IOMUX                                     (IOMUX_PINCM36)
+#define ENCODER_ENC2_A_IIDX                                  (DL_GPIO_IIDX_DIO2)
+#define ENCODER_ENC2_A_PIN                                       (DL_GPIO_PIN_2)
+#define ENCODER_ENC2_A_IOMUX                                      (IOMUX_PINCM7)
 /* Defines for ENC2_B: GPIOA.26 with pinCMx 59 on package pin 46 */
 #define ENCODER_ENC2_B_PORT                                              (GPIOA)
 #define ENCODER_ENC2_B_IIDX                                 (DL_GPIO_IIDX_DIO26)
@@ -355,9 +308,7 @@ void SYSCFG_DL_MOTOR_PWM_B_init(void);
 void SYSCFG_DL_I2C0_init(void);
 void SYSCFG_DL_UART0_init(void);
 void SYSCFG_DL_UART1_init(void);
-void SYSCFG_DL_UART2_init(void);
 void SYSCFG_DL_UART3_init(void);
-void SYSCFG_DL_SPI0_init(void);
 void SYSCFG_DL_SPI1_init(void);
 void SYSCFG_DL_DMA_init(void);
 
