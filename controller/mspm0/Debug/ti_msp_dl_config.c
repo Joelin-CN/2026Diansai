@@ -57,6 +57,7 @@ SYSCONFIG_WEAK void SYSCFG_DL_init(void)
     SYSCFG_DL_SYSCTL_init();
     SYSCFG_DL_MOTOR_PWM_A_init();
     SYSCFG_DL_MOTOR_PWM_B_init();
+    SYSCFG_DL_CONTROL_TIMER_init();
     SYSCFG_DL_I2C0_init();
     SYSCFG_DL_UART0_init();
     SYSCFG_DL_UART1_init();
@@ -66,6 +67,7 @@ SYSCONFIG_WEAK void SYSCFG_DL_init(void)
     /* Ensure backup structures have no valid state */
 	gMOTOR_PWM_ABackup.backupRdy 	= false;
 	gMOTOR_PWM_BBackup.backupRdy 	= false;
+
 	gUART3Backup.backupRdy 	= false;
 	gSPI1Backup.backupRdy 	= false;
 
@@ -105,6 +107,7 @@ SYSCONFIG_WEAK void SYSCFG_DL_initPower(void)
     DL_GPIO_reset(GPIOB);
     DL_TimerA_reset(MOTOR_PWM_A_INST);
     DL_TimerA_reset(MOTOR_PWM_B_INST);
+    DL_TimerG_reset(CONTROL_TIMER_INST);
     DL_I2C_reset(I2C0_INST);
     DL_UART_Main_reset(UART0_INST);
     DL_UART_Main_reset(UART1_INST);
@@ -116,6 +119,7 @@ SYSCONFIG_WEAK void SYSCFG_DL_initPower(void)
     DL_GPIO_enablePower(GPIOB);
     DL_TimerA_enablePower(MOTOR_PWM_A_INST);
     DL_TimerA_enablePower(MOTOR_PWM_B_INST);
+    DL_TimerG_enablePower(CONTROL_TIMER_INST);
     DL_I2C_enablePower(I2C0_INST);
     DL_UART_Main_enablePower(UART0_INST);
     DL_UART_Main_enablePower(UART1_INST);
@@ -382,6 +386,45 @@ SYSCONFIG_WEAK void SYSCFG_DL_MOTOR_PWM_B_init(void) {
     
     DL_TimerA_setCCPDirection(MOTOR_PWM_B_INST , DL_TIMER_CC1_OUTPUT );
     DL_TimerA_enableShadowFeatures(MOTOR_PWM_B_INST);
+
+
+}
+
+
+
+/*
+ * Timer clock configuration to be sourced by BUSCLK /  (32000000 Hz)
+ * timerClkFreq = (timerClkSrc / (timerClkDivRatio * (timerClkPrescale + 1)))
+ *   32000000 Hz = 32000000 Hz / (1 * (0 + 1))
+ */
+static const DL_TimerG_ClockConfig gCONTROL_TIMERClockConfig = {
+    .clockSel    = DL_TIMER_CLOCK_BUSCLK,
+    .divideRatio = DL_TIMER_CLOCK_DIVIDE_1,
+    .prescale    = 0U,
+};
+
+/*
+ * Timer load value (where the counter starts from) is calculated as (timerPeriod * timerClockFreq) - 1
+ * CONTROL_TIMER_INST_LOAD_VALUE = (2 ms * 32000000 Hz) - 1
+ */
+static const DL_TimerG_TimerConfig gCONTROL_TIMERTimerConfig = {
+    .period     = CONTROL_TIMER_INST_LOAD_VALUE,
+    .timerMode  = DL_TIMER_TIMER_MODE_PERIODIC,
+    .startTimer = DL_TIMER_STOP,
+};
+
+SYSCONFIG_WEAK void SYSCFG_DL_CONTROL_TIMER_init(void) {
+
+    DL_TimerG_setClockConfig(CONTROL_TIMER_INST,
+        (DL_TimerG_ClockConfig *) &gCONTROL_TIMERClockConfig);
+
+    DL_TimerG_initTimerMode(CONTROL_TIMER_INST,
+        (DL_TimerG_TimerConfig *) &gCONTROL_TIMERTimerConfig);
+    DL_TimerG_enableInterrupt(CONTROL_TIMER_INST , DL_TIMERG_INTERRUPT_ZERO_EVENT);
+    DL_TimerG_enableClock(CONTROL_TIMER_INST);
+
+
+
 
 
 }

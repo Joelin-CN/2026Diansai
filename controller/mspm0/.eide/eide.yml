@@ -13,6 +13,11 @@ virtualFolder:
     - path: RTE_Components.h
     - path: C:/ti/mspm0_sdk_2_05_01_00/source/ti/devices/msp/m0p/startup_system_files/keil/startup_mspm0g350x_uvision.s
     - path: C:/ti/mspm0_sdk_2_05_01_00/source/ti/driverlib/lib/keil/m0p/mspm0g1x0x_g3x0x/driverlib.a
+    - path: C:/ti/mspm0_sdk_2_05_01_00/kernel/freertos/Source/tasks.c
+    - path: C:/ti/mspm0_sdk_2_05_01_00/kernel/freertos/Source/list.c
+    - path: C:/ti/mspm0_sdk_2_05_01_00/kernel/freertos/Source/queue.c
+    - path: C:/ti/mspm0_sdk_2_05_01_00/kernel/freertos/Source/portable/GCC/ARM_CM0/port.c
+    - path: C:/ti/mspm0_sdk_2_05_01_00/kernel/freertos/Source/portable/MemMang/heap_4.c
   folders: []
 dependenceList: []
 outDir: build
@@ -30,6 +35,8 @@ targets:
         - ../../modules/MCP23017/inc
         - C:/ti/mspm0_sdk_2_05_01_00/source
         - C:/ti/mspm0_sdk_2_05_01_00/source/third_party/CMSIS/Core/Include
+        - C:/ti/mspm0_sdk_2_05_01_00/kernel/freertos/Source/include
+        - C:/ti/mspm0_sdk_2_05_01_00/kernel/freertos/Source/portable/GCC/ARM_CM0
       libList: []
     excludeList: []
     settings:
@@ -64,10 +71,10 @@ targets:
             language-c: c99
             language-cpp: c++11
             link-time-optimization: false
-            optimization: level-0
+            optimization: level-image-size
           global:
             output-debug-info: enable
-            use-microLIB: false
+            use-microLIB: true
           linker:
             $outputTaskExcludes:
               - .bin

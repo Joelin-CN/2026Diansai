@@ -116,6 +116,14 @@ extern "C" {
 
 
 
+/* Defines for CONTROL_TIMER */
+#define CONTROL_TIMER_INST                                               (TIMG0)
+#define CONTROL_TIMER_INST_IRQHandler                           TIMG0_IRQHandler
+#define CONTROL_TIMER_INST_INT_IRQN                             (TIMG0_INT_IRQn)
+#define CONTROL_TIMER_INST_LOAD_VALUE                                   (63999U)
+
+
+
 
 /* Defines for I2C0 */
 #define I2C0_INST                                                           I2C0
@@ -305,6 +313,7 @@ void SYSCFG_DL_GPIO_init(void);
 void SYSCFG_DL_SYSCTL_init(void);
 void SYSCFG_DL_MOTOR_PWM_A_init(void);
 void SYSCFG_DL_MOTOR_PWM_B_init(void);
+void SYSCFG_DL_CONTROL_TIMER_init(void);
 void SYSCFG_DL_I2C0_init(void);
 void SYSCFG_DL_UART0_init(void);
 void SYSCFG_DL_UART1_init(void);

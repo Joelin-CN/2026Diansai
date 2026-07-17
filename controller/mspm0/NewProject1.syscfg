@@ -11,9 +11,10 @@
  *   ENC2_A: PA14 -> PA2 (PA14 is wired to the on-board LED)
  *   ENC4_A: PB17 -> PA31 (PB17 is wired to the on-board Flash CS)
  */
-//@cliArgs --device "MSPM0G350X" --package "LQFP-48(PT)" --part "Default"
+//@cliArgs --device "MSPM0G350X" --package "LQFP-48(PT)" --part "Default" --rtos freertos
 //@v2CliArgs --device "MSPM0G3507" --package "LQFP-48(PT)"
 
+const ProjectConfig = scripting.addModule("/ti/project_config/ProjectConfig");
 const GPIO = scripting.addModule("/ti/driverlib/GPIO", {}, false);
 const MOTOR_DIR = GPIO.addInstance();
 const ENCODER = GPIO.addInstance();
@@ -29,8 +30,21 @@ const UART = scripting.addModule("/ti/driverlib/UART", {}, false);
 const UART0 = UART.addInstance();
 const UART1 = UART.addInstance();
 const UART3 = UART.addInstance();
+const TIMER = scripting.addModule("/ti/driverlib/TIMER", {}, false);
+const CONTROL_TIMER = TIMER.addInstance();
 const SYSCTL = scripting.addModule("/ti/driverlib/SYSCTL");
 const Board = scripting.addModule("/ti/driverlib/Board", {}, false);
+
+/* The application supplies the FreeRTOS kernel and configuration. */
+ProjectConfig.genDisable = true;
+
+/* TIMG0 wakes the high-priority control task every 2 ms (500 Hz). */
+CONTROL_TIMER.$name = "CONTROL_TIMER";
+CONTROL_TIMER.timerMode = "PERIODIC";
+CONTROL_TIMER.timerPeriod = "2 ms";
+CONTROL_TIMER.timerStartTimer = false;
+CONTROL_TIMER.interrupts = ["ZERO"];
+CONTROL_TIMER.peripheral.$assign = "TIMG0";
 
 /* SPI1: PA16/PA17/PA18, software-controlled ICM42688 CS on PB20. */
 SPI1.$name = "SPI1";
