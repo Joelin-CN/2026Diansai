@@ -1,0 +1,4 @@
+{
+  "python.defaultInterpreterPath": "${env:USERPROFILE}/.conda/envs/py311/python.exe",
+  "python.analysis.extraPaths": ["${workspaceFolder}/2025e/src"]
+}

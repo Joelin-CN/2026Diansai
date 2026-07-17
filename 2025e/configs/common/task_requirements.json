@@ -1,0 +1,13 @@
+{
+  "target_orientation": "landscape",
+  "target_width_m": 0.297,
+  "target_height_m": 0.210,
+  "basic_2": {
+    "time_limit_s": 2.0,
+    "max_miss_distance_m": 0.02
+  },
+  "basic_3": {
+    "time_limit_s": 4.0,
+    "max_miss_distance_m": 0.02
+  }
+}

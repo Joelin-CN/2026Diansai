@@ -1,0 +1,15 @@
+{
+  "include": [
+    "2025e/src",
+    "2025e/tests",
+    "2025e/scripts"
+  ],
+  "executionEnvironments": [
+    {
+      "root": ".",
+      "extraPaths": [
+        "2025e/src"
+      ]
+    }
+  ]
+}

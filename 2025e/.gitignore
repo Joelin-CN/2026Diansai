@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+logs/*
+!logs/.gitkeep
+outputs/*
+!outputs/.gitkeep
+
+# 云端已保存同内容的规范文件名版本；本地副本不重复提交。
+docs/E题_简易自行瞄准装置 (1).pdf
