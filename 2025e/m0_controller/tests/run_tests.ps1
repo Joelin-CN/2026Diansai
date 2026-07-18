@@ -40,4 +40,14 @@ Invoke-TestBuild -Name "test_icm42688" -Arguments @(
     "$root\modules\ICM42688\src\icm42688_hal.c"
 )
 
+# Test: MCP23017 driver with fake I2C
+Invoke-TestBuild -Name "test_mcp23017" -Arguments @(
+    "-std=c99",
+    "-Wall",
+    "-Wextra",
+    "-I$root\modules\MCP23017\inc",
+    "-I$PSScriptRoot\fakes",
+    "$PSScriptRoot\test_mcp23017.c"
+)
+
 Write-Host "Host tests: PASS"
