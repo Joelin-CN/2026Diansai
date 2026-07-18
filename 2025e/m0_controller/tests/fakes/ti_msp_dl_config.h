@@ -40,4 +40,12 @@ void DL_I2C_startControllerTransfer(void *i2c, uint32_t target, DL_I2C_CONTROLLE
 bool DL_I2C_isControllerRXFIFOEmpty(void *i2c);
 uint8_t DL_I2C_receiveControllerData(void *i2c);
 
+#define ICM42688_TIMER_INST ((void *)1)
+
+void DL_TimerG_startCounter(void *timer);
+uint32_t DL_TimerG_getTimerCount(void *timer);
+uint32_t __get_PRIMASK(void);
+void __disable_irq(void);
+void __enable_irq(void);
+
 #endif

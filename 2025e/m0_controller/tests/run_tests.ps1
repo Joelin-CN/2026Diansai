@@ -26,6 +26,7 @@ Invoke-TestBuild -Name "test_platform_time" -Arguments @(
     "-Wall",
     "-Wextra",
     "-I$root\inc",
+    "-I$PSScriptRoot\fakes",
     "$PSScriptRoot\test_platform_time.c",
     "$root\src\platform_time.c"
 )

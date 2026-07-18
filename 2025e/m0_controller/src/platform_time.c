@@ -5,6 +5,7 @@
  */
 
 #include "platform_time.h"
+#include "ti_msp_dl_config.h"
 
 /* Wrap extension state */
 static uint32_t previous32 = 0U;
@@ -32,7 +33,7 @@ uint64_t PlatformTime_Extend32(uint32_t now32)
 }
 
 /* ======================================================================
- * Target API (hardware-dependent, stubbed until Task 7)
+ * Target API (hardware-dependent)
  * ====================================================================== */
 
 void PlatformTime_Init(void)
@@ -40,37 +41,26 @@ void PlatformTime_Init(void)
     /* Reset extension state */
     previous32 = 0U;
     high_word  = 0U;
-    
-    /* Actual timer configuration will be done in Task 7 via SysConfig */
+
+    DL_TimerG_startCounter(ICM42688_TIMER_INST);
 }
 
 uint32_t PlatformTime_GetUs32(void)
 {
-    /* TODO: Task 7 will configure ICM42688_TIMER_INST via SysConfig
-     * For now, this is a stub that would read the hardware timer:
-     * 
-     * uint32_t down_count = DL_TimerG_getTimerCount(ICM42688_TIMER_INST);
-     * return PlatformTime_UpCountFromDownCount(down_count);
-     */
-    return 0U;  /* Stub */
+    return PlatformTime_UpCountFromDownCount(
+        DL_TimerG_getTimerCount(ICM42688_TIMER_INST));
 }
 
 uint64_t PlatformTime_GetUs64(void)
 {
-    uint32_t now32;
+    uint32_t primask = __get_PRIMASK();
     uint64_t result;
-    
-    /* TODO: Task 7 will enable this code path
-     * For now, stub returns 0
-     */
-    
-    /* Critical section to protect wrap detection state */
-    /* __disable_irq(); */
-    
-    now32 = PlatformTime_GetUs32();
-    result = PlatformTime_Extend32(now32);
-    
-    /* __enable_irq(); */
-    
+
+    __disable_irq();
+    result = PlatformTime_Extend32(PlatformTime_GetUs32());
+    if (primask == 0U) {
+        __enable_irq();
+    }
+
     return result;
 }
