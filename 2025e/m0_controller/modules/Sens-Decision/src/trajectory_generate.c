@@ -129,8 +129,26 @@ sd_status_t trajectory_generate(trajectory_generator_t *generator,
     float delta_a;
     float max_delta_a;
     float v_new;
+    float dx, dy;
+    float sin_theta, cos_theta;
+    float y_local;
+    float curvature;
     
+    /* Step 6: Add precondition checks */
     if (generator == NULL || vehicle == NULL || behavior == NULL || output == NULL) {
+        return SD_ERR_INVALID_ARGUMENT;
+    }
+    
+    if (!generator->initialized) {
+        return SD_ERR_NOT_INITIALIZED;
+    }
+    
+    if (!isfinite(vehicle->x) || !isfinite(vehicle->y) || 
+        !isfinite(vehicle->theta) || !isfinite(vehicle->v) || !isfinite(vehicle->omega)) {
+        return SD_ERR_NUMERIC;
+    }
+    
+    if (dt <= 0.0f || !isfinite(dt)) {
         return SD_ERR_INVALID_ARGUMENT;
     }
     
@@ -167,7 +185,7 @@ sd_status_t trajectory_generate(trajectory_generator_t *generator,
         output->v = v_new;
         output->omega = 0.0f;
         output->a = a_clamped;
-        output->alpha = -vehicle->omega / (dt + 1e-9f);
+        output->alpha = -vehicle->omega / dt;
         output->curvature = 0.0f;
         
         generator->last_acceleration = a_clamped;
@@ -175,7 +193,7 @@ sd_status_t trajectory_generate(trajectory_generator_t *generator,
         return SD_OK;
     }
     
-    if (generator->path == NULL || generator->path_count == 0U) {
+    if (generator->path == NULL || generator->path_count < 2U) {
         return SD_ERR_INVALID_ARGUMENT;
     }
     
@@ -232,12 +250,25 @@ sd_status_t trajectory_generate(trajectory_generator_t *generator,
         a_clamped = (v_new - vehicle->v) / dt;
     }
     
+    /* Step 6: Compute Pure Pursuit curvature from vehicle pose */
+    dx = target_point->x - vehicle->x;
+    dy = target_point->y - vehicle->y;
+    sin_theta = sinf(vehicle->theta);
+    cos_theta = cosf(vehicle->theta);
+    
+    /* Transform target into vehicle frame */
+    y_local = -sin_theta * dx + cos_theta * dy;
+    
+    /* Pure Pursuit curvature: kappa = 2 * y_local / L^2 */
+    curvature = 2.0f * y_local / (generator->config->lookahead_distance_m * 
+                                   generator->config->lookahead_distance_m + 1e-9f);
+    
     output->x = target_point->x;
     output->y = target_point->y;
     output->theta = target_point->heading;
     output->v = v_new;
-    output->curvature = target_point->curvature;
-    output->omega = v_new * target_point->curvature;
+    output->curvature = curvature;
+    output->omega = v_new * curvature;
     output->a = a_clamped;
     
     output->alpha = (output->omega - vehicle->omega) / dt;

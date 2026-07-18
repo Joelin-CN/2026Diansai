@@ -84,4 +84,19 @@ Invoke-TestBuild -Name "test_target_adapters" -Arguments @(
     "$root\src\sensor_adapter.c"
 )
 
+# Test: Square Path (geometry, Pure Pursuit, corrections, lap counting)
+Invoke-TestBuild -Name "test_square_path" -Arguments @(
+    "-std=c99",
+    "-Wall",
+    "-Wextra",
+    "-Werror",
+    "-pedantic",
+    "-I$root\inc",
+    "-I$root\modules\Sens-Decision\inc",
+    "$PSScriptRoot\test_square_path.c",
+    "$root\src\square_path.c",
+    "$root\modules\Sens-Decision\src\trajectory_generate.c",
+    "$root\modules\Sens-Decision\src\utils.c"
+)
+
 Write-Host "Host tests: PASS"
