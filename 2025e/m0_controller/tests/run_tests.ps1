@@ -65,4 +65,23 @@ Invoke-TestBuild -Name "test_motion_control" -Arguments @(
     "$root\modules\Motion Control\src\motion_kinematics.c"
 )
 
+# Test: Target Adapters (encoder, motor, sensor)
+Invoke-TestBuild -Name "test_target_adapters" -Arguments @(
+    "-std=c99",
+    "-Wall",
+    "-Wextra",
+    "-Werror",
+    "-pedantic",
+    "-I$root\inc",
+    "-I$root\modules\Motion Control\inc",
+    "-I$root\modules\Sens-Decision\inc",
+    "-I$root\modules\ICM42688\inc",
+    "-I$root\modules\MCP23017\inc",
+    "$PSScriptRoot\test_target_adapters.c",
+    "$root\src\encoder_hw_bridge.c",
+    "$root\src\encoder_adapter.c",
+    "$root\src\motor_adapter.c",
+    "$root\src\sensor_adapter.c"
+)
+
 Write-Host "Host tests: PASS"
