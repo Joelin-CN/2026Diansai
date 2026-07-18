@@ -8,6 +8,7 @@
 #include <stdint.h>
 #include <assert.h>
 #include <string.h>
+#include <math.h>
 
 #include "../modules/ICM42688/inc/icm42688_hal.h"
 
@@ -67,9 +68,22 @@ static const icm42688_system_t mock_system = {
     .delay_ms = mock_delay_ms,
 };
 
+static const icm42688_config_t production_config = {
+    .interface_type = ICM42688_INTERFACE_SPI,
+    .acc_sample = ICM42688_ACC_SAMPLE_SGN_8G,
+    .gyro_sample = ICM42688_GYRO_SAMPLE_SGN_1000DPS,
+    .sample_rate = ICM42688_SAMPLE_RATE_1000,
+};
+
 /* ======================================================================
  * Test helpers
  * ====================================================================== */
+
+static void reset_mock(void)
+{
+    memset(mock_registers, 0, sizeof(mock_registers));
+    mock_who_am_i_value = ICM42688_ID;
+}
 
 /**
  * @brief  Encode signed int16 as big-endian into mock registers
@@ -99,6 +113,85 @@ static void setup_14byte_burst(int16_t temp, int16_t ax, int16_t ay, int16_t az,
 /* ======================================================================
  * Tests
  * ====================================================================== */
+
+static void test_production_range_registers(void)
+{
+    reset_mock();
+    icm42688_hal_init(&mock_comm, &mock_system, &production_config);
+
+    assert(icm42688_init() == ICM42688_STATUS_OK);
+    assert(mock_registers[ICM42688_ACCEL_CONFIG0] == 0x26U);
+    assert(mock_registers[ICM42688_GYRO_CONFIG0] == 0x26U);
+}
+
+static void test_range_register_mappings(void)
+{
+    static const uint8_t accel_fs_sel[] = {3U, 2U, 1U, 0U};
+    static const uint8_t gyro_fs_sel[] = {7U, 6U, 5U, 4U, 3U, 2U, 1U, 0U};
+
+    for (unsigned i = 0U; i < sizeof(accel_fs_sel); ++i) {
+        icm42688_config_t config = production_config;
+        config.acc_sample = (icm42688_acc_sample_t)i;
+        reset_mock();
+        icm42688_hal_init(&mock_comm, &mock_system, &config);
+        assert(icm42688_init() == ICM42688_STATUS_OK);
+        assert(mock_registers[ICM42688_ACCEL_CONFIG0] ==
+               (uint8_t)((accel_fs_sel[i] << 5) | 0x06U));
+    }
+
+    for (unsigned i = 0U; i < sizeof(gyro_fs_sel); ++i) {
+        icm42688_config_t config = production_config;
+        config.gyro_sample = (icm42688_gyro_sample_t)i;
+        reset_mock();
+        icm42688_hal_init(&mock_comm, &mock_system, &config);
+        assert(icm42688_init() == ICM42688_STATUS_OK);
+        assert(mock_registers[ICM42688_GYRO_CONFIG0] ==
+               (uint8_t)((gyro_fs_sel[i] << 5) | 0x06U));
+    }
+}
+
+static void test_invalid_configuration_before_hardware_access(void)
+{
+    icm42688_config_t config = production_config;
+    config.acc_sample = (icm42688_acc_sample_t)99;
+
+    reset_mock();
+    icm42688_hal_init(&mock_comm, &mock_system, &config);
+    assert(icm42688_init() == ICM42688_STATUS_INVALID_ARGUMENT);
+    assert(mock_registers[ICM42688_DEVICE_CONFIG] == 0U);
+    assert(mock_registers[ICM42688_PWR_MGMT0] == 0U);
+}
+
+static void test_scale_and_bias_metadata(void)
+{
+    float accel_scale = 0.0f;
+    float gyro_scale = 0.0f;
+    icm42688_vector3f_t bias;
+
+    icm42688_hal_init(NULL, NULL, NULL);
+    assert(icm42688_get_scale_factors(&accel_scale, &gyro_scale) ==
+           ICM42688_STATUS_NOT_READY);
+    assert(icm42688_get_gyro_bias(&bias) == ICM42688_STATUS_NOT_READY);
+
+    reset_mock();
+    icm42688_hal_init(&mock_comm, &mock_system, &production_config);
+    assert(icm42688_init() == ICM42688_STATUS_OK);
+    assert(icm42688_get_scale_factors(&accel_scale, &gyro_scale) ==
+           ICM42688_STATUS_OK);
+    assert(fabsf(accel_scale - (1.0f / 4096.0f)) < 1e-9f);
+    assert(fabsf(gyro_scale - (1.0f / 32.768f)) < 1e-6f);
+
+    setup_14byte_burst(0, 0, 0, 0, 328, -656, 984);
+    assert(icm42688_calibrate_gyro(2U, 0U) == ICM42688_STATUS_OK);
+    assert(icm42688_get_gyro_bias(&bias) == ICM42688_STATUS_OK);
+    assert(fabsf(bias.x - 10.009765625f) < 1e-5f);
+    assert(fabsf(bias.y + 20.01953125f) < 1e-5f);
+    assert(fabsf(bias.z - 30.029296875f) < 1e-5f);
+
+    assert(icm42688_get_scale_factors(NULL, &gyro_scale) ==
+           ICM42688_STATUS_INVALID_ARGUMENT);
+    assert(icm42688_get_gyro_bias(NULL) == ICM42688_STATUS_INVALID_ARGUMENT);
+}
 
 static void test_temperature_reading(void)
 {
@@ -150,6 +243,10 @@ static void test_temperature_reading(void)
 
 int main(void)
 {
+    test_invalid_configuration_before_hardware_access();
+    test_production_range_registers();
+    test_range_register_mappings();
+    test_scale_and_bias_metadata();
     test_temperature_reading();
     printf("\nAll ICM42688 tests PASSED\n");
     return 0;

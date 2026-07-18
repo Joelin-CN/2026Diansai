@@ -180,6 +180,10 @@ icm42688_status_t icm42688_read(icm42688_data_t *data);
 icm42688_status_t icm42688_calibrate_gyro(uint16_t samples,
                                           uint16_t interval_ms);
 
+icm42688_status_t icm42688_get_scale_factors(float *accel_g_per_lsb,
+                                              float *gyro_dps_per_lsb);
+icm42688_status_t icm42688_get_gyro_bias(icm42688_vector3f_t *bias_dps);
+
 /**
  * @brief  Convert raw ADC reading to acceleration in g.
  */
