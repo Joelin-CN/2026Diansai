@@ -448,6 +448,14 @@ static void test_only_complete_pipeline_resets_failure_count(void) {
     assert(velocity_command_calls == 0U);
     assert(motion_update_calls == 21U);
 
+    for (unsigned i = 0; i < 10U; ++i) {
+        ControlApp_RunFastCycle();
+    }
+
+    assert(emergency_stops == 1U);
+    assert(velocity_command_calls == 0U);
+    assert(motion_update_calls == 31U);
+
     pipeline_failure = PIPELINE_FAIL_NONE;
     run_next_decision_cycle();
     assert(velocity_command_calls == 1U);

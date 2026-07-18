@@ -231,9 +231,11 @@ void ControlApp_RunFastCycle(void) {
             }
             g_critical_failure_count = 0;
         } else {
-            g_critical_failure_count++;
-            if (g_critical_failure_count >= 3) {
-                MotionControl_EmergencyStop(&g_motion_control);
+            if (g_critical_failure_count < 3) {
+                g_critical_failure_count++;
+                if (g_critical_failure_count == 3) {
+                    MotionControl_EmergencyStop(&g_motion_control);
+                }
             }
         }
     }
