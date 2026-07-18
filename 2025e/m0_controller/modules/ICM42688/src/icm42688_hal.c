@@ -175,12 +175,12 @@ icm42688_status_t icm42688_init(void)
 }
 
 /* --------------------------------------------------------------------------
- * Public: read 12 bytes from ACCEL_DATA_X1
+ * Public: read 14 bytes from TEMP_DATA1
  * -------------------------------------------------------------------------- */
 
 icm42688_status_t icm42688_read(icm42688_data_t *data)
 {
-    uint8_t buf[12];
+    uint8_t buf[14];
 
     if (!comm_is_bound()) {
         return ICM42688_STATUS_NOT_READY;
@@ -189,15 +189,17 @@ icm42688_status_t icm42688_read(icm42688_data_t *data)
         return ICM42688_STATUS_INVALID_ARGUMENT;
     }
 
-    p_comm->read_regs(ICM42688_ACCEL_DATA_X1, buf, 12);
+    /* 14-byte burst: TEMP_DATA1 (0x1D) + 2 temp + 6 accel + 6 gyro */
+    p_comm->read_regs(ICM42688_TEMP_DATA1, buf, 14);
 
     /* Big-endian decode */
-    data->acc_raw.x  = decode_be16(&buf[0]);   /* ACCEL_X1/X0  */
-    data->acc_raw.y  = decode_be16(&buf[2]);   /* ACCEL_Y1/Y0  */
-    data->acc_raw.z  = decode_be16(&buf[4]);   /* ACCEL_Z1/Z0  */
-    data->gyro_raw.x = decode_be16(&buf[6]);   /* GYRO_X1/X0   */
-    data->gyro_raw.y = decode_be16(&buf[8]);   /* GYRO_Y1/Y0   */
-    data->gyro_raw.z = decode_be16(&buf[10]);  /* GYRO_Z1/Z0   */
+    data->temperature_raw = decode_be16(&buf[0]);   /* TEMP_DATA1/DATA0  */
+    data->acc_raw.x       = decode_be16(&buf[2]);   /* ACCEL_X1/X0       */
+    data->acc_raw.y       = decode_be16(&buf[4]);   /* ACCEL_Y1/Y0       */
+    data->acc_raw.z       = decode_be16(&buf[6]);   /* ACCEL_Z1/Z0       */
+    data->gyro_raw.x      = decode_be16(&buf[8]);   /* GYRO_X1/X0        */
+    data->gyro_raw.y      = decode_be16(&buf[10]);  /* GYRO_Y1/Y0        */
+    data->gyro_raw.z      = decode_be16(&buf[12]);  /* GYRO_Z1/Z0        */
 
     /* Convert to physical units */
     data->acc_g.x    = (float)data->acc_raw.x  * acc_factor;

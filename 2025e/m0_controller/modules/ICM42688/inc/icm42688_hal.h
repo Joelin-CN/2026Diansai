@@ -115,6 +115,7 @@ typedef struct {
 } icm42688_vector3f_t;
 
 typedef struct {
+    int16_t              temperature_raw;
     icm42688_axis_data_t acc_raw;
     icm42688_axis_data_t gyro_raw;
     icm42688_vector3f_t  acc_g;
@@ -162,8 +163,9 @@ void icm42688_hal_init(const icm42688_comm_t   *comm,
 icm42688_status_t icm42688_init(void);
 
 /**
- * @brief  Read 12 bytes from ACCEL_DATA_X1 in one burst; fill acc_raw,
- *         gyro_raw, acc_g, and gyro_dps.
+ * @brief  Read 14 bytes from TEMP_DATA1 in one burst: temperature, accelerometer,
+ *         and gyroscope data. Fills temperature_raw, acc_raw, gyro_raw, acc_g,
+ *         and gyro_dps.
  * @param  data  Pointer to output struct.
  * @return ICM42688_STATUS_OK on success.
  */

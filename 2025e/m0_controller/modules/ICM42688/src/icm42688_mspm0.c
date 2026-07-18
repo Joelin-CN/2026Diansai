@@ -5,6 +5,7 @@
  */
 
 #include "icm42688_mspm0.h"
+#include "platform_time.h"
 
 /* ======================================================================
  * Private SPI / GPIO primitives
@@ -101,17 +102,17 @@ static void delay_ms(uint16_t ms)
  * ====================================================================== */
 
 /**
- * TIMG0 is configured and started by SysConfig; init/start are no-ops.
- * The timer counter directly yields a microsecond timestamp.
+ * Platform timebase provides the microsecond timestamp.
+ * Timer init/start are handled by PlatformTime_Init() (called by main).
  */
 static uint32_t timer_get_time_us(void)
 {
-    return DL_TimerG_getTimerCount(ICM42688_TIMER_INST);
+    return PlatformTime_GetUs32();
 }
 
 static void timer_noop(void)
 {
-    /* SysConfig owns TIMG0 init/start - nothing to do here. */
+    /* PlatformTime_Init() called by main - nothing to do here. */
 }
 
 /* ======================================================================
