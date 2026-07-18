@@ -37,9 +37,17 @@ void PID_Init(PID_t *pid, float kp, float ki, float kd,
     pid->output_min = out_min;
     pid->output_max = out_max;
     
-    // 积分限幅默认为输出限幅的一半
-    pid->integral_min = out_min * 0.5f;
-    pid->integral_max = out_max * 0.5f;
+    /* Set integral limits based on ki to bound the integral contribution in output units */
+    /* If ki > 0: integral_limit = output_limit / ki */
+    /* This ensures ki * integral stays within output bounds */
+    if (ki > 1e-6f) {
+        pid->integral_min = out_min / ki;
+        pid->integral_max = out_max / ki;
+    } else {
+        /* If ki is zero or very small, integral limits don't matter */
+        pid->integral_min = -1e6f;
+        pid->integral_max = 1e6f;
+    }
 }
 
 float PID_Update(PID_t *pid, float setpoint, float measurement, float dt) {
@@ -83,6 +91,15 @@ void PID_SetGains(PID_t *pid, float kp, float ki, float kd) {
     pid->kp = kp;
     pid->ki = ki;
     pid->kd = kd;
+    
+    /* Update integral limits when ki changes */
+    if (ki > 1e-6f) {
+        pid->integral_min = pid->output_min / ki;
+        pid->integral_max = pid->output_max / ki;
+    } else {
+        pid->integral_min = -1e6f;
+        pid->integral_max = 1e6f;
+    }
 }
 
 void PID_SetIntegralLimits(PID_t *pid, float min, float max) {

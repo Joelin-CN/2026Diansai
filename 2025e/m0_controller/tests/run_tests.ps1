@@ -50,4 +50,19 @@ Invoke-TestBuild -Name "test_mcp23017" -Arguments @(
     "$PSScriptRoot\test_mcp23017.c"
 )
 
+# Test: Motion Control with fake encoder and motor
+Invoke-TestBuild -Name "test_motion_control" -Arguments @(
+    "-std=c99",
+    "-Wall",
+    "-Wextra",
+    "-Werror",
+    "-pedantic",
+    "-I$root\modules\Motion Control\inc",
+    "$PSScriptRoot\test_motion_control.c",
+    "$root\modules\Motion Control\src\motion_control.c",
+    "$root\modules\Motion Control\src\motion_feedback.c",
+    "$root\modules\Motion Control\src\motion_feedforward.c",
+    "$root\modules\Motion Control\src\motion_kinematics.c"
+)
+
 Write-Host "Host tests: PASS"

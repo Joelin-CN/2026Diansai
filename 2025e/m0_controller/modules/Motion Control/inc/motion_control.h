@@ -102,6 +102,7 @@ typedef struct {
     /* ---- 指令平滑（一阶低通滤波） ---- */
     float smoothed_v;       /**< 平滑后的线速度 (m/s) */
     float smoothed_omega;   /**< 平滑后的角速度 (rad/s) */
+    float prev_limited_v;   /**< 上次限幅后的速度 (用于加速度限幅) */
     
     /* ---- 内环：左右轮速度控制器（前馈+反馈） ---- */
     WheelController_t wheel_left;

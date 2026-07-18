@@ -27,10 +27,23 @@ extern "C" {
 /** @brief 轮半径 (m) - 标定值 */
 #define WHEEL_RADIUS            0.033f
 
-/** @brief 编码器每转脉冲数 (4倍频后) */
+/** 
+ * @brief 编码器分辨率 (counts per revolution)
+ * 
+ * 这是完整轮转一圈后编码器计数的增量，已经考虑了：
+ * - 4倍频（AB相正交解码）
+ * - 齿轮减速比（如果编码器在电机轴上）
+ * 
+ * 测量方法：
+ * 1. 复位编码器计数
+ * 2. 手动转动轮子完整一圈
+ * 3. 读取编码器计数差值，即为 ENCODER_PPR
+ * 
+ * 注意：不要再乘以 GEAR_RATIO，除非编码器在电机轴上且需要转换到轮轴
+ */
 #define ENCODER_PPR             334
 
-/** @brief 电机减速比 */
+/** @brief 电机减速比（保留用于文档，当前未使用） */
 #define GEAR_RATIO              28.0f
 
 /** @brief 轮周长 (m) */

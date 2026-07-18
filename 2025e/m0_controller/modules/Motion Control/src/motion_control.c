@@ -8,6 +8,7 @@
 #include "motion_config.h"
 #include "motion_kinematics.h"
 #include <string.h>
+#include <math.h>
 
 /* ============================================================================
  * 内部辅助函数
@@ -119,14 +120,20 @@ static float ClampAcceleration(float target, float previous, float dt) {
     return target;  /* 在范围内，直接使用 */
 }
 
-/* ============================================================================
- * 公共函数实现
- * ============================================================================ */
-
 bool MotionControl_Init(MotionControl_t *ctrl,
                        EncoderInterface_t *encoder,
                        MotorInterface_t *motor) {
     if (ctrl == NULL || encoder == NULL || motor == NULL) {
+        return false;
+    }
+
+    /* Validate encoder callbacks */
+    if (encoder->getCount == NULL || encoder->resetCount == NULL) {
+        return false;
+    }
+
+    /* Validate motor callbacks */
+    if (motor->setDifferentialPWM == NULL || motor->stop == NULL || motor->init == NULL) {
         return false;
     }
 
@@ -157,6 +164,7 @@ bool MotionControl_Init(MotionControl_t *ctrl,
     ctrl->cmd.omega    = 0.0f;
     ctrl->smoothed_v   = 0.0f;
     ctrl->smoothed_omega = 0.0f;
+    ctrl->prev_limited_v = 0.0f;
     ctrl->loop_count   = 0;
     ctrl->max_exec_time = 0;
     ctrl->last_stamp   = 0;
@@ -196,19 +204,18 @@ void MotionControl_Update(MotionControl_t *ctrl) {
     /* ------------------------------------------------------------
      * 步骤3: 加速度限幅
      * ---------------------------------------------------------- */
-    /* 获取上次平滑后的速度用于计算 delta */
-    static float prev_smoothed_v = 0.0f;
-    float v_limited = ClampAcceleration(ctrl->smoothed_v, prev_smoothed_v, dt);
-    prev_smoothed_v = v_limited;
+    /* Use instance-owned previous state for acceleration limiting */
+    float v_limited = ClampAcceleration(ctrl->smoothed_v, ctrl->prev_limited_v, dt);
+    ctrl->prev_limited_v = v_limited;
 
-    /* 线速度和角速度各自限幅 */
-    v_limited = clamp_float(v_limited, MIN_SPEED, MAX_SPEED);
-    float omega_limited = clamp_float(ctrl->smoothed_omega, -MAX_OMEGA, MAX_OMEGA);
-
-    /* 如果速度指令为零，刹车 */
-    if (v_limited < 0.005f) {
-        v_limited = 0.0f;
+    /* Apply symmetric deadband: only apply MIN_SPEED when magnitude is nonzero */
+    if (fabsf(v_limited) > 0.0f && fabsf(v_limited) < MIN_SPEED) {
+        v_limited = (v_limited > 0.0f) ? MIN_SPEED : -MIN_SPEED;
     }
+    
+    /* Speed limits */
+    v_limited = clamp_float(v_limited, -MAX_SPEED, MAX_SPEED);
+    float omega_limited = clamp_float(ctrl->smoothed_omega, -MAX_OMEGA, MAX_OMEGA);
 
     /* ------------------------------------------------------------
      * 步骤4: 逆运动学 - (v, ω) → (vL_target, vR_target)
@@ -275,8 +282,8 @@ void MotionControl_SetFeedforward(MotionControl_t *ctrl,
  * ============================================================================ */
 
 void MotionControl_Start(MotionControl_t *ctrl) {
-    /* 只允许从 IDLE 启动 */
-    if (ctrl->state != CONTROL_STATE_IDLE) {
+    /* 只允许从 IDLE 或 EMERGENCY 启动 */
+    if (ctrl->state != CONTROL_STATE_IDLE && ctrl->state != CONTROL_STATE_EMERGENCY) {
         return;
     }
 
@@ -288,6 +295,7 @@ void MotionControl_Start(MotionControl_t *ctrl) {
     /* 复位平滑状态，使用当前指令值初始化 */
     ctrl->smoothed_v     = ctrl->cmd.v_linear;
     ctrl->smoothed_omega = ctrl->cmd.omega;
+    ctrl->prev_limited_v = 0.0f;
 
     ctrl->state = CONTROL_STATE_RUNNING;
 }
@@ -304,6 +312,7 @@ void MotionControl_Stop(MotionControl_t *ctrl) {
     ctrl->cmd.omega      = 0.0f;
     ctrl->smoothed_v     = 0.0f;
     ctrl->smoothed_omega = 0.0f;
+    ctrl->prev_limited_v = 0.0f;
 
     ctrl->state = CONTROL_STATE_IDLE;
 }
