@@ -17,8 +17,6 @@
 #ifndef _ICM42688_MSPM0_H_
 #define _ICM42688_MSPM0_H_
 
-#include "ti_msp_dl_config.h"
-
 #include "icm42688_hal.h"
 #include "ahrs_hal.h"
 

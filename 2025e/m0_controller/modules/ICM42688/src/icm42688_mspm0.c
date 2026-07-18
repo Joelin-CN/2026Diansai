@@ -6,6 +6,7 @@
 
 #include "icm42688_mspm0.h"
 #include "platform_time.h"
+#include "ti_msp_dl_config.h"
 
 /* ======================================================================
  * Private SPI / GPIO primitives

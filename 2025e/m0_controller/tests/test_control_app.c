@@ -19,6 +19,10 @@
 #include <stdbool.h>
 
 #include "../inc/control_app.h"
+#include "../modules/ICM42688/inc/icm42688_hal.h"
+#include "../modules/ICM42688/inc/icm42688_mspm0.h"
+#include "../modules/MCP23017/inc/mcp23017.h"
+#include "../modules/Sens-Decision/inc/config.h"
 
 /* ============================================================================
  * Test Infrastructure: Call Tracking (Must be declared first)
@@ -35,9 +39,26 @@ static unsigned cycle_sequence_counter = 0;
 static unsigned decision_sequence_num = 0;
 static unsigned motion_sequence_num = 0;
 
+typedef enum {
+    EVENT_CONFIG_DEFAULTS,
+    EVENT_TIME_INIT,
+    EVENT_ICM_BIND,
+    EVENT_ICM_INIT,
+    EVENT_ICM_CALIBRATE,
+    EVENT_SCALE_READ,
+    EVENT_BIAS_READ,
+    EVENT_SENSOR_INIT
+} init_event_t;
+
+static init_event_t init_events[16];
+static size_t init_event_count = 0;
+static icm42688_config_t bound_icm_config;
+
 /* Fault injection flags */
 static bool inject_mcp_failure = false;
 static bool inject_icm_failure = false;
+static bool inject_scale_failure = false;
+static bool inject_bias_failure = false;
 static bool inject_sensor_hal_failure = false;
 static bool inject_path_setup_failure = false;
 static bool inject_motion_init_failure = false;
@@ -58,26 +79,29 @@ void Encoder_ResetCount(Encoder_Id encoder) { (void)encoder; }
 void Encoder_Init(void) {}
 
 /* MCP23017 fake */
-bool MCP23017_Init(void) {
-    return !inject_mcp_failure;
+mcp23017_status_t MCP23017_Init(void) {
+    return inject_mcp_failure ? MCP23017_STATUS_IO_ERROR : MCP23017_STATUS_OK;
 }
-bool MCP23017_ReadInputs(uint16_t *inputs) {
-    if (inputs) *inputs = 0x0FFF;
-    return true;
+mcp23017_status_t MCP23017_ReadInputs(uint16_t *inputs) {
+    if (inputs == NULL) {
+        return MCP23017_STATUS_INVALID_ARGUMENT;
+    }
+    *inputs = 0x0FFFU;
+    return inject_mcp_failure ? MCP23017_STATUS_IO_ERROR : MCP23017_STATUS_OK;
 }
 
 /* Platform time fake */
-void PlatformTime_Init(void) {}
+void PlatformTime_Init(void) {
+    init_events[init_event_count++] = EVENT_TIME_INIT;
+}
 uint64_t PlatformTime_GetUs64(void) { return decision_update_calls * 20000ULL; }
 
 /* ICM42688 fake */
-typedef enum { ICM42688_STATUS_OK = 0, ICM42688_STATUS_NOT_READY = 1 } icm42688_status_t;
-typedef struct { int16_t x, y, z; } icm42688_vec3_t;
-typedef struct {
-    icm42688_vec3_t acc_raw;
-    icm42688_vec3_t gyro_raw;
-    int16_t temperature_raw;
-} icm42688_data_t;
+void icm42688_mspm0_bind(const icm42688_config_t *config) {
+    init_events[init_event_count++] = EVENT_ICM_BIND;
+    assert(config != NULL);
+    bound_icm_config = *config;
+}
 icm42688_status_t icm42688_read(icm42688_data_t *data) {
     if (inject_icm_failure) return ICM42688_STATUS_NOT_READY;
     if (data) {
@@ -88,27 +112,50 @@ icm42688_status_t icm42688_read(icm42688_data_t *data) {
     return ICM42688_STATUS_OK;
 }
 icm42688_status_t icm42688_init(void) {
+    init_events[init_event_count++] = EVENT_ICM_INIT;
     return inject_icm_failure ? ICM42688_STATUS_NOT_READY : ICM42688_STATUS_OK;
 }
-icm42688_status_t icm42688_calibrate_gyro(unsigned samples, unsigned delay_ms) {
+icm42688_status_t icm42688_calibrate_gyro(uint16_t samples, uint16_t delay_ms) {
     (void)samples; (void)delay_ms;
+    init_events[init_event_count++] = EVENT_ICM_CALIBRATE;
     return inject_icm_failure ? ICM42688_STATUS_NOT_READY : ICM42688_STATUS_OK;
+}
+icm42688_status_t icm42688_get_scale_factors(float *accel, float *gyro) {
+    init_events[init_event_count++] = EVENT_SCALE_READ;
+    if (inject_scale_failure) {
+        return ICM42688_STATUS_NOT_READY;
+    }
+    *accel = 1.0f / 4096.0f;
+    *gyro = 1.0f / 32.768f;
+    return ICM42688_STATUS_OK;
+}
+icm42688_status_t icm42688_get_gyro_bias(icm42688_vector3f_t *bias) {
+    init_events[init_event_count++] = EVENT_BIAS_READ;
+    if (inject_bias_failure) {
+        return ICM42688_STATUS_NOT_READY;
+    }
+    bias->x = 1.0f;
+    bias->y = -2.0f;
+    bias->z = 3.0f;
+    return ICM42688_STATUS_OK;
 }
 
 /* Sens-Decision config stub */
-typedef struct {
-    struct { float gyro_bias_radps[3]; float gyro_scale_radps_per_lsb; } imu;
-} sens_decision_config_t;
 sens_decision_config_t g_sens_decision_config;
+void sd_config_reset_defaults(void) {
+    init_events[init_event_count++] = EVENT_CONFIG_DEFAULTS;
+    memset(&g_sens_decision_config, 0, sizeof(g_sens_decision_config));
+    g_sens_decision_config.imu.filter_alpha = 0.25f;
+}
 
 /* Sens-Decision sensor HAL stub */
-typedef enum { SD_OK = 0, SD_ERR_HW_FAULT = -5 } sd_status_t;
 typedef struct { void *dummy; } sensor_hal_t;
 sd_status_t sensors_configure_hal(const sensor_hal_t *hal) {
     (void)hal;
     return inject_sensor_hal_failure ? SD_ERR_HW_FAULT : SD_OK;
 }
 sd_status_t sensors_init_all(void) {
+    init_events[init_event_count++] = EVENT_SENSOR_INIT;
     return inject_sensor_hal_failure ? SD_ERR_HW_FAULT : SD_OK;
 }
 
@@ -149,7 +196,6 @@ const sensor_hal_t *SensorAdapter_GetHal(void) { return NULL; }
 /* Trajectory generator fake */
 typedef struct { float x, y, heading, curvature; } path_point_t;
 typedef struct { int dummy; } trajectory_generator_t;
-typedef struct { int dummy; } sd_trajectory_config_t;
 trajectory_generator_t g_trajectory_generator;
 void trajectory_generator_init(trajectory_generator_t *gen, const sd_trajectory_config_t *cfg) {
     (void)gen; (void)cfg;
@@ -178,7 +224,6 @@ typedef struct { int dummy; } behavior_input_t;
 typedef struct { int dummy; } behavior_output_t;
 typedef struct { float v, omega; } trajectory_point_t;
 typedef struct { int dummy; } vehicle_state_t;
-typedef struct { int dummy; } sd_ekf_config_t;
 
 void state_evaluator_init(state_evaluator_t *eval, const sd_ekf_config_t *cfg) {
     (void)eval; (void)cfg;
@@ -237,6 +282,32 @@ static void reset_call_tracking(void) {
     cycle_sequence_counter = 0;
     decision_sequence_num = 0;
     motion_sequence_num = 0;
+    init_event_count = 0;
+    memset(init_events, 0, sizeof(init_events));
+    memset(&bound_icm_config, 0, sizeof(bound_icm_config));
+    inject_mcp_failure = false;
+    inject_icm_failure = false;
+    inject_scale_failure = false;
+    inject_bias_failure = false;
+    inject_sensor_hal_failure = false;
+    inject_path_setup_failure = false;
+    inject_motion_init_failure = false;
+}
+
+static void assert_event_before(init_event_t first, init_event_t second) {
+    size_t first_index = init_event_count;
+    size_t second_index = init_event_count;
+
+    for (size_t i = 0; i < init_event_count; ++i) {
+        if (init_events[i] == first && first_index == init_event_count) {
+            first_index = i;
+        }
+        if (init_events[i] == second && second_index == init_event_count) {
+            second_index = i;
+        }
+    }
+
+    assert(first_index < second_index);
 }
 
 /* ============================================================================
@@ -300,6 +371,75 @@ static void test_init_mcp_failure_stops_motors(void) {
     assert(motion_stops >= 1);  /* Motor_Stop should be called */
     
     inject_mcp_failure = false;
+    printf("  PASS: Init failed, motors stopped\n");
+}
+
+static void test_successful_init_accepts_zero_status(void) {
+    printf("Test: Successful init accepts zero-valued status...\n");
+
+    reset_call_tracking();
+    assert(ControlApp_Init(3U));
+
+    printf("  PASS: MCP23017_STATUS_OK accepted\n");
+}
+
+static void test_startup_binds_icm_and_synchronizes_sensor_config(void) {
+    const float degrees_to_radians = 0.017453292519943295f;
+
+    printf("Test: Startup binds ICM and synchronizes SI config...\n");
+
+    reset_call_tracking();
+    assert(ControlApp_Init(3U));
+
+    assert(bound_icm_config.interface_type == ICM42688_INTERFACE_SPI);
+    assert(bound_icm_config.acc_sample == ICM42688_ACC_SAMPLE_SGN_8G);
+    assert(bound_icm_config.gyro_sample == ICM42688_GYRO_SAMPLE_SGN_1000DPS);
+    assert(bound_icm_config.sample_rate == ICM42688_SAMPLE_RATE_1000);
+
+    assert_event_before(EVENT_CONFIG_DEFAULTS, EVENT_SENSOR_INIT);
+    assert_event_before(EVENT_TIME_INIT, EVENT_ICM_BIND);
+    assert_event_before(EVENT_ICM_BIND, EVENT_ICM_INIT);
+    assert_event_before(EVENT_ICM_INIT, EVENT_ICM_CALIBRATE);
+    assert_event_before(EVENT_ICM_CALIBRATE, EVENT_SCALE_READ);
+    assert_event_before(EVENT_SCALE_READ, EVENT_BIAS_READ);
+    assert_event_before(EVENT_BIAS_READ, EVENT_SENSOR_INIT);
+
+    assert(fabsf(g_sens_decision_config.imu.accel_scale_mps2_per_lsb -
+                 9.80665f / 4096.0f) < 1e-8f);
+    assert(fabsf(g_sens_decision_config.imu.gyro_scale_radps_per_lsb -
+                 degrees_to_radians / 32.768f) < 1e-8f);
+    assert(fabsf(g_sens_decision_config.imu.gyro_bias_radps[0] -
+                 degrees_to_radians) < 1e-7f);
+    assert(fabsf(g_sens_decision_config.imu.gyro_bias_radps[1] +
+                 2.0f * degrees_to_radians) < 1e-7f);
+    assert(fabsf(g_sens_decision_config.imu.gyro_bias_radps[2] -
+                 3.0f * degrees_to_radians) < 1e-7f);
+    assert(g_sens_decision_config.imu.filter_alpha == 0.25f);
+
+    printf("  PASS: Exact mode, order, scales, biases, and defaults verified\n");
+}
+
+static void test_scale_metadata_failure_stops_motors(void) {
+    printf("Test: Scale metadata failure stops motors...\n");
+
+    reset_call_tracking();
+    inject_scale_failure = true;
+
+    assert(!ControlApp_Init(3U));
+    assert(motion_stops >= 2U);
+
+    printf("  PASS: Init failed, motors stopped\n");
+}
+
+static void test_bias_metadata_failure_stops_motors(void) {
+    printf("Test: Bias metadata failure stops motors...\n");
+
+    reset_call_tracking();
+    inject_bias_failure = true;
+
+    assert(!ControlApp_Init(3U));
+    assert(motion_stops >= 2U);
+
     printf("  PASS: Init failed, motors stopped\n");
 }
 
@@ -375,6 +515,10 @@ int main(void) {
     test_decision_precedes_motion();
     
     /* Initialization fault injection tests */
+    test_successful_init_accepts_zero_status();
+    test_startup_binds_icm_and_synchronizes_sensor_config();
+    test_scale_metadata_failure_stops_motors();
+    test_bias_metadata_failure_stops_motors();
     test_init_mcp_failure_stops_motors();
     test_init_icm_failure_stops_motors();
     test_init_sensor_hal_failure_stops_motors();

@@ -15,6 +15,7 @@
 
 #include "../modules/MCP23017/inc/mcp23017.h"
 #include "../modules/ICM42688/inc/icm42688_hal.h"
+#include "../modules/ICM42688/inc/icm42688_mspm0.h"
 #include "../modules/Motion Control/inc/motion_control.h"
 #include "../modules/Sens-Decision/inc/config.h"
 #include "../modules/Sens-Decision/inc/interface.h"
@@ -48,6 +49,16 @@ static uint8_t g_target_laps = 0;
 static unsigned g_cycle_counter = 0;
 static unsigned g_critical_failure_count = 0;
 
+static const icm42688_config_t g_icm_config = {
+    .interface_type = ICM42688_INTERFACE_SPI,
+    .acc_sample = ICM42688_ACC_SAMPLE_SGN_8G,
+    .gyro_sample = ICM42688_GYRO_SAMPLE_SGN_1000DPS,
+    .sample_rate = ICM42688_SAMPLE_RATE_1000,
+};
+
+static const float STANDARD_GRAVITY_MPS2 = 9.80665f;
+static const float DEGREES_TO_RADIANS = 0.017453292519943295f;
+
 /* ============================================================================
  * Initialization
  * ============================================================================ */
@@ -67,33 +78,58 @@ bool ControlApp_Init(uint8_t target_laps) {
     Encoder_Init();
     
     /* Step 3: MCP23017_Init and read */
-    if (!MCP23017_Init()) {
+    if (MCP23017_Init() != MCP23017_STATUS_OK) {
         Motor_Stop();
         return false;
     }
     
     uint16_t ir_mask = 0;
-    if (!MCP23017_ReadInputs(&ir_mask)) {
+    if (MCP23017_ReadInputs(&ir_mask) != MCP23017_STATUS_OK) {
         Motor_Stop();
         return false;
     }
     
-    /* Step 4: PlatformTime_Init */
+    /* Step 4: Load Sens-Decision defaults and initialize platform time */
+    sd_config_reset_defaults();
     PlatformTime_Init();
     
-    /* Step 5: ICM bind/init - icm42688_init checks WHO_AM_I internally */
+    /* Step 5: Bind and initialize ICM - init checks WHO_AM_I internally */
+    icm42688_mspm0_bind(&g_icm_config);
     if (icm42688_init() != ICM42688_STATUS_OK) {
         Motor_Stop();
         return false;
     }
     
     /* Step 6: Calibrate gyro bias using HAL built-in calibration */
-    if (icm42688_calibrate_gyro(100, 10) != ICM42688_STATUS_OK) {
+    if (icm42688_calibrate_gyro(100U, 10U) != ICM42688_STATUS_OK) {
         Motor_Stop();
         return false;
     }
-    
-    /* Step 7: Sensor HAL configure/init */
+
+    /* Step 7: Synchronize calibrated ICM metadata into Sens-Decision SI units */
+    float accel_g_per_lsb;
+    float gyro_dps_per_lsb;
+    icm42688_vector3f_t gyro_bias_dps;
+
+    if (icm42688_get_scale_factors(&accel_g_per_lsb, &gyro_dps_per_lsb) !=
+            ICM42688_STATUS_OK ||
+        icm42688_get_gyro_bias(&gyro_bias_dps) != ICM42688_STATUS_OK) {
+        Motor_Stop();
+        return false;
+    }
+
+    g_sens_decision_config.imu.accel_scale_mps2_per_lsb =
+        accel_g_per_lsb * STANDARD_GRAVITY_MPS2;
+    g_sens_decision_config.imu.gyro_scale_radps_per_lsb =
+        gyro_dps_per_lsb * DEGREES_TO_RADIANS;
+    g_sens_decision_config.imu.gyro_bias_radps[0] =
+        gyro_bias_dps.x * DEGREES_TO_RADIANS;
+    g_sens_decision_config.imu.gyro_bias_radps[1] =
+        gyro_bias_dps.y * DEGREES_TO_RADIANS;
+    g_sens_decision_config.imu.gyro_bias_radps[2] =
+        gyro_bias_dps.z * DEGREES_TO_RADIANS;
+
+    /* Step 8: Sensor HAL configure/init */
     const sensor_hal_t *hal = SensorAdapter_GetHal();
     if (sensors_configure_hal(hal) != SD_OK) {
         Motor_Stop();
@@ -105,7 +141,7 @@ bool ControlApp_Init(uint8_t target_laps) {
         return false;
     }
     
-    /* Step 8: Sens-Decision objects/path */
+    /* Step 9: Sens-Decision objects/path */
     state_evaluator_init(&g_state_evaluator, &g_sens_decision_config.ekf);
     perception_init(&g_perception);
     behavior_planner_init(&g_behavior_planner);
@@ -126,7 +162,7 @@ bool ControlApp_Init(uint8_t target_laps) {
     /* Initialize lap counter */
     memset(&g_lap_counter, 0, sizeof(g_lap_counter));
     
-    /* Step 9: Motion Control init/start */
+    /* Step 10: Motion Control init/start */
     if (!MotionControl_Init(&g_motion_control, EncoderAdapter_GetInterface(), 
                            MotorAdapter_GetInterface())) {
         Motor_Stop();

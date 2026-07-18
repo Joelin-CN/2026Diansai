@@ -27,12 +27,17 @@ extern "C" {
  *   1. Motor_Init -> Motor_Stop
  *   2. Encoder_Init
  *   3. MCP23017_Init and read
- *   4. PlatformTime_Init
- *   5. ICM bind/init
- *   6. Configure raw scales/bias (collect 100 gyro samples)
- *   7. Sensor HAL configure/init
- *   8. Sens-Decision objects/path
- *   9. Motion Control init/start
+ *   4. Reset Sens-Decision configuration defaults
+ *   5. Start the TIMG12-backed platform timebase
+ *   6. Bind the MSPM0 SPI adapter and initialize the ICM42688
+ *   7. Calibrate the gyro from 100 samples over approximately one second
+ *   8. Synchronize ICM42688 scales and gyro bias into SI-unit sensor config
+ *   9. Configure and initialize the sensor HAL
+ *  10. Initialize Sens-Decision objects/path
+ *  11. Initialize and start Motion Control
+ *
+ * The robot must remain stationary during the approximately one-second gyro
+ * calibration so the synchronized bias is valid.
  * 
  * @param target_laps Target lap count (1-5)
  * @return true if all mandatory components initialized successfully, false otherwise
