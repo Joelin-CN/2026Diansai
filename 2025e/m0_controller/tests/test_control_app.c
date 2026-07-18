@@ -31,6 +31,7 @@
 static unsigned motion_update_calls = 0;
 static unsigned decision_update_calls = 0;
 static float last_decision_dt = 0.0f;
+static unsigned motor_init_calls = 0;
 static unsigned motion_stops = 0;
 static unsigned emergency_stops = 0;
 
@@ -70,7 +71,7 @@ static bool inject_motion_init_failure = false;
  * ============================================================================ */
 
 /* Motor HAL fakes */
-void Motor_Init(void) {}
+void Motor_Init(void) { motor_init_calls++; }
 void Motor_Stop(void) { motion_stops++; }
 void Motor_SetSpeed(int16_t left, int16_t right) { (void)left; (void)right; }
 
@@ -280,6 +281,7 @@ static void reset_call_tracking(void) {
     motion_update_calls = 0;
     decision_update_calls = 0;
     last_decision_dt = 0.0f;
+    motor_init_calls = 0;
     motion_stops = 0;
     emergency_stops = 0;
     cycle_sequence_counter = 0;
@@ -490,10 +492,12 @@ static void test_invalid_target_laps_establishes_safe_motor_state(void) {
 
     reset_call_tracking();
     assert(!ControlApp_Init(0U));
+    assert(motor_init_calls == 1U);
     assert(motion_stops == 1U);
 
     reset_call_tracking();
     assert(!ControlApp_Init(6U));
+    assert(motor_init_calls == 1U);
     assert(motion_stops == 1U);
 
     printf("  PASS: Low and high invalid values stopped motors\n");
