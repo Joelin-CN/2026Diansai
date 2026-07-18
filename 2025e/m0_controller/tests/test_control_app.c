@@ -55,8 +55,10 @@ static size_t init_event_count = 0;
 static icm42688_config_t bound_icm_config;
 
 /* Fault injection flags */
-static bool inject_mcp_failure = false;
-static bool inject_icm_failure = false;
+static bool inject_mcp_init_failure = false;
+static bool inject_mcp_read_failure = false;
+static bool inject_icm_init_failure = false;
+static bool inject_icm_calibration_failure = false;
 static bool inject_scale_failure = false;
 static bool inject_bias_failure = false;
 static bool inject_sensor_hal_failure = false;
@@ -80,14 +82,14 @@ void Encoder_Init(void) {}
 
 /* MCP23017 fake */
 mcp23017_status_t MCP23017_Init(void) {
-    return inject_mcp_failure ? MCP23017_STATUS_IO_ERROR : MCP23017_STATUS_OK;
+    return inject_mcp_init_failure ? MCP23017_STATUS_IO_ERROR : MCP23017_STATUS_OK;
 }
 mcp23017_status_t MCP23017_ReadInputs(uint16_t *inputs) {
     if (inputs == NULL) {
         return MCP23017_STATUS_INVALID_ARGUMENT;
     }
     *inputs = 0x0FFFU;
-    return inject_mcp_failure ? MCP23017_STATUS_IO_ERROR : MCP23017_STATUS_OK;
+    return inject_mcp_read_failure ? MCP23017_STATUS_IO_ERROR : MCP23017_STATUS_OK;
 }
 
 /* Platform time fake */
@@ -103,7 +105,7 @@ void icm42688_mspm0_bind(const icm42688_config_t *config) {
     bound_icm_config = *config;
 }
 icm42688_status_t icm42688_read(icm42688_data_t *data) {
-    if (inject_icm_failure) return ICM42688_STATUS_NOT_READY;
+    if (inject_icm_init_failure) return ICM42688_STATUS_NOT_READY;
     if (data) {
         data->acc_raw.x = data->acc_raw.y = data->acc_raw.z = 0;
         data->gyro_raw.x = data->gyro_raw.y = data->gyro_raw.z = 0;
@@ -113,12 +115,13 @@ icm42688_status_t icm42688_read(icm42688_data_t *data) {
 }
 icm42688_status_t icm42688_init(void) {
     init_events[init_event_count++] = EVENT_ICM_INIT;
-    return inject_icm_failure ? ICM42688_STATUS_NOT_READY : ICM42688_STATUS_OK;
+    return inject_icm_init_failure ? ICM42688_STATUS_NOT_READY : ICM42688_STATUS_OK;
 }
 icm42688_status_t icm42688_calibrate_gyro(uint16_t samples, uint16_t delay_ms) {
     (void)samples; (void)delay_ms;
     init_events[init_event_count++] = EVENT_ICM_CALIBRATE;
-    return inject_icm_failure ? ICM42688_STATUS_NOT_READY : ICM42688_STATUS_OK;
+    return inject_icm_calibration_failure ? ICM42688_STATUS_NOT_READY :
+                                            ICM42688_STATUS_OK;
 }
 icm42688_status_t icm42688_get_scale_factors(float *accel, float *gyro) {
     init_events[init_event_count++] = EVENT_SCALE_READ;
@@ -285,8 +288,10 @@ static void reset_call_tracking(void) {
     init_event_count = 0;
     memset(init_events, 0, sizeof(init_events));
     memset(&bound_icm_config, 0, sizeof(bound_icm_config));
-    inject_mcp_failure = false;
-    inject_icm_failure = false;
+    inject_mcp_init_failure = false;
+    inject_mcp_read_failure = false;
+    inject_icm_init_failure = false;
+    inject_icm_calibration_failure = false;
     inject_scale_failure = false;
     inject_bias_failure = false;
     inject_sensor_hal_failure = false;
@@ -363,14 +368,25 @@ static void test_init_mcp_failure_stops_motors(void) {
     printf("Test: MCP23017 init failure stops motors...\n");
     
     reset_call_tracking();
-    inject_mcp_failure = true;
+    inject_mcp_init_failure = true;
     
     bool result = ControlApp_Init(3);
     
     assert(!result);
-    assert(motion_stops >= 1);  /* Motor_Stop should be called */
+    assert(motion_stops >= 2U);
     
-    inject_mcp_failure = false;
+    printf("  PASS: Init failed, motors stopped\n");
+}
+
+static void test_initial_mcp_read_failure_stops_motors(void) {
+    printf("Test: MCP23017 initial read failure stops motors...\n");
+
+    reset_call_tracking();
+    inject_mcp_read_failure = true;
+
+    assert(!ControlApp_Init(3U));
+    assert(motion_stops >= 2U);
+
     printf("  PASS: Init failed, motors stopped\n");
 }
 
@@ -447,15 +463,40 @@ static void test_init_icm_failure_stops_motors(void) {
     printf("Test: ICM identity check failure stops motors...\n");
     
     reset_call_tracking();
-    inject_icm_failure = true;
+    inject_icm_init_failure = true;
     
     bool result = ControlApp_Init(3);
     
     assert(!result);
-    assert(motion_stops >= 1);
+    assert(motion_stops >= 2U);
     
-    inject_icm_failure = false;
     printf("  PASS: Init failed, motors stopped\n");
+}
+
+static void test_icm_calibration_failure_stops_motors(void) {
+    printf("Test: ICM gyro calibration failure stops motors...\n");
+
+    reset_call_tracking();
+    inject_icm_calibration_failure = true;
+
+    assert(!ControlApp_Init(3U));
+    assert(motion_stops >= 2U);
+
+    printf("  PASS: Init failed, motors stopped\n");
+}
+
+static void test_invalid_target_laps_establishes_safe_motor_state(void) {
+    printf("Test: Invalid target laps establish safe motor state...\n");
+
+    reset_call_tracking();
+    assert(!ControlApp_Init(0U));
+    assert(motion_stops == 1U);
+
+    reset_call_tracking();
+    assert(!ControlApp_Init(6U));
+    assert(motion_stops == 1U);
+
+    printf("  PASS: Low and high invalid values stopped motors\n");
 }
 
 static void test_init_sensor_hal_failure_stops_motors(void) {
@@ -520,7 +561,10 @@ int main(void) {
     test_scale_metadata_failure_stops_motors();
     test_bias_metadata_failure_stops_motors();
     test_init_mcp_failure_stops_motors();
+    test_initial_mcp_read_failure_stops_motors();
     test_init_icm_failure_stops_motors();
+    test_icm_calibration_failure_stops_motors();
+    test_invalid_target_laps_establishes_safe_motor_state();
     test_init_sensor_hal_failure_stops_motors();
     test_init_path_setup_failure_stops_motors();
     test_init_motion_control_failure_stops_motors();

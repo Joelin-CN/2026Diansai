@@ -64,15 +64,15 @@ static const float DEGREES_TO_RADIANS = 0.017453292519943295f;
  * ============================================================================ */
 
 bool ControlApp_Init(uint8_t target_laps) {
+    /* Step 1: Establish a safe motor state before validating configuration */
+    Motor_Init();
+    Motor_Stop();
+
     /* Validate target laps */
     if (target_laps < 1 || target_laps > 5) {
         return false;
     }
     g_target_laps = target_laps;
-    
-    /* Step 1: Motor_Init -> Motor_Stop */
-    Motor_Init();
-    Motor_Stop();
     
     /* Step 2: Encoder_Init */
     Encoder_Init();
