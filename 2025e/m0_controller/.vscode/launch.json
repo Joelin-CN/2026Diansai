@@ -1,0 +1,38 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "MSPM0G3507 Debug",
+      "type": "cppdbg",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/build/Debug/NewProject1.axf",
+      "cwd": "${workspaceFolder}",
+      "MIMode": "gdb",
+      "miDebuggerPath": "arm-none-eabi-gdb.exe",
+      "miDebuggerServerAddress": "localhost:50000",
+      "debugServerPath": "openocd.exe",
+      "debugServerArgs": "-c \"gdb_port 50000\" -c \"tcl_port 50001\" -c \"telnet_port 50002\" -s \"${workspaceFolder}\" -f \"${workspaceFolder}/.vscode/openocd_mspm0g3507.cfg\"",
+      "serverStarted": "Listening on port 50000 for gdb connections",
+      "serverLaunchTimeout": 20000,
+      "filterStdout": true,
+      "filterStderr": true,
+      "stopAtEntry": false,
+      "launchCompleteCommand": "None",
+      "setupCommands": [
+        {
+          "text": "set mem inaccessible-by-default off",
+          "ignoreFailures": true
+        },
+        {
+          "text": "monitor reset halt",
+          "ignoreFailures": true
+        },
+        {
+          "text": "break main",
+          "ignoreFailures": true
+        }
+      ]
+    }
+  ]
+}

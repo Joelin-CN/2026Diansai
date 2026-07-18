@@ -1,0 +1,15 @@
+# dot files
+/.settings
+
+# Keep .vscode/ and .eide/ tracked for reproducible builds
+# Build artifacts in Debug/ will be excluded by SysConfig generation patterns
+
+# project out
+/build
+/bin
+/obj
+/out
+
+# eide template
+*.ept
+*.eide-template
