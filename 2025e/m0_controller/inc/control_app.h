@@ -50,13 +50,16 @@ bool ControlApp_Init(uint8_t target_laps);
  * On every 10th call:
  *   - Runs Sens-Decision pipeline (preprocess, state evaluation, perception,
  *     behavior planning, trajectory generation) at 50 Hz with dt=0.020f
- *   - Applies IR corrections to omega
- *   - Sets velocity command for Motion Control
+ *   - Skips every downstream stage if any stage fails
+ *   - Applies IR corrections and submits a new velocity command only after the
+ *     complete pipeline succeeds
+ *   - Resets the consecutive critical-failure count only after complete success
  * 
  * On every call:
  *   - Updates Motion Control at 500 Hz
- *   - Handles lap completion (stops when target reached)
- *   - Tracks critical failures (emergency stop at 3 consecutive)
+ *
+ * After each successful decision pipeline, handles lap completion. After each
+ * failed pipeline, tracks critical failures and emergency-stops at 3 consecutive.
  */
 void ControlApp_RunFastCycle(void);
 

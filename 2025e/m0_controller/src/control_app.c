@@ -189,59 +189,52 @@ void ControlApp_RunFastCycle(void) {
         
         /* Preprocess sensor data */
         sd_status_t status = preprocess_update(PlatformTime_GetUs64(), &g_sensor_frame);
-        if (status != SD_OK) {
+
+        if (status == SD_OK) {
+            status = state_evaluator_update(&g_state_evaluator, &g_sensor_frame);
+        }
+        if (status == SD_OK) {
+            status = perception_update(&g_perception, &g_sensor_frame.ir,
+                                       g_sensor_frame.timestamp_us,
+                                       &g_perception_result);
+        }
+        if (status == SD_OK) {
+            g_behavior_input.vehicle = &g_state_evaluator.state;
+            g_behavior_input.perception = &g_perception_result;
+            g_behavior_input.path_curvature = 0.0f;
+            g_behavior_input.command =
+                g_behavior_output.state == BEHAVIOR_STATE_IDLE
+                    ? BEHAVIOR_CMD_START
+                    : BEHAVIOR_CMD_NONE;
+            status = behavior_planner_update(&g_behavior_planner, &g_behavior_input,
+                                             &g_behavior_output);
+        }
+        if (status == SD_OK) {
+            status = trajectory_generate(&g_trajectory_generator,
+                                         &g_state_evaluator.state,
+                                         &g_behavior_output, dt, &g_trajectory);
+        }
+
+        if (status == SD_OK) {
+            float corrected_omega = SquarePath_CorrectOmega(
+                g_trajectory.omega, g_perception_result.lateral_error,
+                g_perception_result.heading_error, &g_square_config);
+
+            MotionControl_SetVelocityCommand(&g_motion_control, g_trajectory.v,
+                                             corrected_omega);
+            SquarePath_UpdateLap(&g_lap_counter,
+                                 g_trajectory_generator.last_nearest_index,
+                                 SquarePath_GetPointCount(), g_target_laps);
+
+            if (g_lap_counter.target_reached) {
+                MotionControl_Stop(&g_motion_control);
+            }
+            g_critical_failure_count = 0;
+        } else {
             g_critical_failure_count++;
             if (g_critical_failure_count >= 3) {
                 MotionControl_EmergencyStop(&g_motion_control);
             }
-        } else {
-            g_critical_failure_count = 0;
-        }
-        
-        /* State evaluation */
-        status = state_evaluator_update(&g_state_evaluator, &g_sensor_frame);
-        
-        /* Perception */
-        status = perception_update(&g_perception, &g_sensor_frame.ir,
-                                  g_sensor_frame.timestamp_us, &g_perception_result);
-        
-        /* Behavior planning with persistent start command */
-        g_behavior_input.vehicle = &g_state_evaluator.state;
-        g_behavior_input.perception = &g_perception_result;
-        g_behavior_input.path_curvature = 0.0f;  /* Filled by trajectory generator */
-        
-        /* Keep sending BEHAVIOR_CMD_START until planner exits IDLE state */
-        if (g_behavior_output.state == BEHAVIOR_STATE_IDLE) {
-            g_behavior_input.command = BEHAVIOR_CMD_START;
-        } else {
-            g_behavior_input.command = BEHAVIOR_CMD_NONE;
-        }
-        
-        status = behavior_planner_update(&g_behavior_planner, &g_behavior_input, 
-                                        &g_behavior_output);
-        
-        /* Trajectory generation */
-        status = trajectory_generate(&g_trajectory_generator, &g_state_evaluator.state,
-                                    &g_behavior_output, dt, &g_trajectory);
-        
-        /* Apply IR corrections to omega */
-        float corrected_omega = SquarePath_CorrectOmega(g_trajectory.omega,
-                                                       g_perception_result.lateral_error,
-                                                       g_perception_result.heading_error,
-                                                       &g_square_config);
-        
-        /* Set velocity command for Motion Control */
-        MotionControl_SetVelocityCommand(&g_motion_control, g_trajectory.v, corrected_omega);
-        
-        /* Update lap counter */
-        if (SquarePath_UpdateLap(&g_lap_counter, g_trajectory_generator.last_nearest_index,
-                                SquarePath_GetPointCount(), g_target_laps)) {
-            /* Lap incremented */
-        }
-        
-        /* Check if target laps reached */
-        if (g_lap_counter.target_reached) {
-            MotionControl_Stop(&g_motion_control);
         }
     }
     

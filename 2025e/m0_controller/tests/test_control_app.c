@@ -35,6 +35,22 @@ static unsigned motor_init_calls = 0;
 static unsigned motion_stops = 0;
 static unsigned emergency_stops = 0;
 
+typedef enum {
+    PIPELINE_FAIL_NONE,
+    PIPELINE_FAIL_PREPROCESS,
+    PIPELINE_FAIL_STATE,
+    PIPELINE_FAIL_PERCEPTION,
+    PIPELINE_FAIL_BEHAVIOR,
+    PIPELINE_FAIL_TRAJECTORY
+} pipeline_failure_t;
+
+static pipeline_failure_t pipeline_failure = PIPELINE_FAIL_NONE;
+static unsigned state_calls = 0;
+static unsigned perception_calls = 0;
+static unsigned behavior_calls = 0;
+static unsigned trajectory_calls = 0;
+static unsigned velocity_command_calls = 0;
+
 /* Track call ordering within a cycle */
 static unsigned cycle_sequence_counter = 0;
 static unsigned decision_sequence_num = 0;
@@ -184,6 +200,7 @@ void MotionControl_Update(MotionControl_t *ctrl) {
 }
 void MotionControl_SetVelocityCommand(MotionControl_t *ctrl, float v, float omega) {
     (void)ctrl; (void)v; (void)omega;
+    velocity_command_calls++;
 }
 void MotionControl_EmergencyStop(MotionControl_t *ctrl) {
     (void)ctrl;
@@ -244,28 +261,32 @@ sd_status_t preprocess_update(uint64_t timestamp_us, sensor_frame_t *frame) {
     decision_update_calls++;
     decision_sequence_num = ++cycle_sequence_counter;
     last_decision_dt = 0.020f;  /* Simulating 50 Hz */
-    return SD_OK;
+    return pipeline_failure == PIPELINE_FAIL_PREPROCESS ? SD_ERR_DATA_INVALID : SD_OK;
 }
 
 sd_status_t state_evaluator_update(state_evaluator_t *eval, const sensor_frame_t *frame) {
     (void)eval; (void)frame;
-    return SD_OK;
+    state_calls++;
+    return pipeline_failure == PIPELINE_FAIL_STATE ? SD_ERR_DATA_INVALID : SD_OK;
 }
 
 sd_status_t perception_update(perception_t *perc, const void *ir, uint64_t ts, perception_result_t *result) {
     (void)perc; (void)ir; (void)ts; (void)result;
-    return SD_OK;
+    perception_calls++;
+    return pipeline_failure == PIPELINE_FAIL_PERCEPTION ? SD_ERR_DATA_INVALID : SD_OK;
 }
 
 sd_status_t behavior_planner_update(behavior_planner_t *planner, const behavior_input_t *in, behavior_output_t *out) {
     (void)planner; (void)in; (void)out;
-    return SD_OK;
+    behavior_calls++;
+    return pipeline_failure == PIPELINE_FAIL_BEHAVIOR ? SD_ERR_DATA_INVALID : SD_OK;
 }
 
 sd_status_t trajectory_generate(trajectory_generator_t *gen, const vehicle_state_t *veh,
                                const behavior_output_t *beh, float dt, trajectory_point_t *out) {
     (void)gen; (void)veh; (void)beh; (void)dt; (void)out;
-    return SD_OK;
+    trajectory_calls++;
+    return pipeline_failure == PIPELINE_FAIL_TRAJECTORY ? SD_ERR_DATA_INVALID : SD_OK;
 }
 
 float SquarePath_CorrectOmega(float nominal, float lateral, float heading, const void *cfg) {
@@ -284,6 +305,12 @@ static void reset_call_tracking(void) {
     motor_init_calls = 0;
     motion_stops = 0;
     emergency_stops = 0;
+    pipeline_failure = PIPELINE_FAIL_NONE;
+    state_calls = 0;
+    perception_calls = 0;
+    behavior_calls = 0;
+    trajectory_calls = 0;
+    velocity_command_calls = 0;
     cycle_sequence_counter = 0;
     decision_sequence_num = 0;
     motion_sequence_num = 0;
@@ -299,6 +326,14 @@ static void reset_call_tracking(void) {
     inject_sensor_hal_failure = false;
     inject_path_setup_failure = false;
     inject_motion_init_failure = false;
+}
+
+static void run_next_decision_cycle(void) {
+    unsigned next_decision = decision_update_calls + 1U;
+
+    while (decision_update_calls < next_decision) {
+        ControlApp_RunFastCycle();
+    }
 }
 
 static void assert_event_before(init_event_t first, init_event_t second) {
@@ -360,6 +395,69 @@ static void test_decision_precedes_motion(void) {
     
     printf("  PASS: Decision sequence=%u, Motion sequence=%u\n",
            decision_sequence_num, motion_sequence_num);
+}
+
+static void test_failed_pipeline_stages_short_circuit_downstream_work(void) {
+    static const struct {
+        pipeline_failure_t failure;
+        unsigned state;
+        unsigned perception;
+        unsigned behavior;
+        unsigned trajectory;
+        unsigned velocity;
+    } cases[] = {
+        { PIPELINE_FAIL_PREPROCESS, 0U, 0U, 0U, 0U, 0U },
+        { PIPELINE_FAIL_STATE,      1U, 0U, 0U, 0U, 0U },
+        { PIPELINE_FAIL_PERCEPTION, 1U, 1U, 0U, 0U, 0U },
+        { PIPELINE_FAIL_BEHAVIOR,   1U, 1U, 1U, 0U, 0U },
+        { PIPELINE_FAIL_TRAJECTORY, 1U, 1U, 1U, 1U, 0U },
+        { PIPELINE_FAIL_NONE,       1U, 1U, 1U, 1U, 1U },
+    };
+
+    printf("Test: Failed pipeline stages short-circuit downstream work...\n");
+
+    for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); ++i) {
+        reset_call_tracking();
+        assert(ControlApp_Init(3U));
+        pipeline_failure = cases[i].failure;
+
+        run_next_decision_cycle();
+
+        assert(state_calls == cases[i].state);
+        assert(perception_calls == cases[i].perception);
+        assert(behavior_calls == cases[i].behavior);
+        assert(trajectory_calls == cases[i].trajectory);
+        assert(velocity_command_calls == cases[i].velocity);
+    }
+
+    printf("  PASS: Exact downstream call table verified\n");
+}
+
+static void test_only_complete_pipeline_resets_failure_count(void) {
+    printf("Test: Only a complete pipeline resets consecutive failures...\n");
+
+    reset_call_tracking();
+    assert(ControlApp_Init(3U));
+    pipeline_failure = PIPELINE_FAIL_STATE;
+
+    for (unsigned i = 0; i < 21U; ++i) {
+        ControlApp_RunFastCycle();
+    }
+
+    assert(emergency_stops == 1U);
+    assert(velocity_command_calls == 0U);
+    assert(motion_update_calls == 21U);
+
+    pipeline_failure = PIPELINE_FAIL_NONE;
+    run_next_decision_cycle();
+    assert(velocity_command_calls == 1U);
+
+    pipeline_failure = PIPELINE_FAIL_STATE;
+    run_next_decision_cycle();
+    assert(emergency_stops == 1U);
+    assert(velocity_command_calls == 1U);
+
+    printf("  PASS: Success reset the count before the next isolated failure\n");
 }
 
 /* ============================================================================
@@ -558,6 +656,8 @@ int main(void) {
     /* Scheduler tests */
     test_scheduler_divider();
     test_decision_precedes_motion();
+    test_failed_pipeline_stages_short_circuit_downstream_work();
+    test_only_complete_pipeline_resets_failure_count();
     
     /* Initialization fault injection tests */
     test_successful_init_accepts_zero_status();
