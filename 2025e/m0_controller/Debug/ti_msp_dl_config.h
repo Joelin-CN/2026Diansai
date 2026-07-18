@@ -121,6 +121,11 @@ extern "C" {
 #define CONTROL_TIMER_INST_IRQHandler                           TIMG0_IRQHandler
 #define CONTROL_TIMER_INST_INT_IRQN                             (TIMG0_INT_IRQn)
 #define CONTROL_TIMER_INST_LOAD_VALUE                                   (63999U)
+/* Defines for ICM42688_TIMER */
+#define ICM42688_TIMER_INST                                             (TIMG12)
+#define ICM42688_TIMER_INST_IRQHandler                         TIMG12_IRQHandler
+#define ICM42688_TIMER_INST_INT_IRQN                           (TIMG12_INT_IRQn)
+#define ICM42688_TIMER_INST_LOAD_VALUE                             (4294967295U)
 
 
 
@@ -305,6 +310,7 @@ extern "C" {
 #define ENCODER_ENC4_B_PIN                                      (DL_GPIO_PIN_18)
 #define ENCODER_ENC4_B_IOMUX                                     (IOMUX_PINCM44)
 
+
 /* clang-format on */
 
 void SYSCFG_DL_init(void);
@@ -314,6 +320,7 @@ void SYSCFG_DL_SYSCTL_init(void);
 void SYSCFG_DL_MOTOR_PWM_A_init(void);
 void SYSCFG_DL_MOTOR_PWM_B_init(void);
 void SYSCFG_DL_CONTROL_TIMER_init(void);
+void SYSCFG_DL_ICM42688_TIMER_init(void);
 void SYSCFG_DL_I2C0_init(void);
 void SYSCFG_DL_UART0_init(void);
 void SYSCFG_DL_UART1_init(void);

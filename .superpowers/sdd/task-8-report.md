@@ -385,3 +385,109 @@ Task 8 is complete. The control application successfully:
 - ✅ Ready for on-target testing
 
 The system is now a complete closed-loop controller ready for hardware validation.
+
+---
+
+## Critical Fixes Applied (2026-07-18)
+
+### Fix C1: Gyro Bias Calibration
+
+**Issue:** Manual gyro bias computation stored values in `g_sens_decision_config.imu.gyro_bias_radps[]` but never updated the ICM42688 HAL's internal bias state, making the computed bias unused.
+
+**Root cause:** The manual bias collection loop (lines 91-113) computed bias independently instead of using the HAL's built-in calibration function.
+
+**Fix applied:**
+- Replaced manual bias collection with `icm42688_calibrate_gyro(100, 10)`
+- This uses the HAL's internal calibration that properly updates bias state
+- Uses system delay_ms callback for accurate 10ms timing between samples
+- Removed 24 lines of redundant manual bias computation code
+
+**Changes:**
+```c
+// Before (lines 90-113):
+int32_t gyro_sum[3] = {0, 0, 0};
+for (unsigned i = 0; i < 100U; ++i) {
+    icm42688_read(&imu_data);
+    gyro_sum[0] += imu_data.gyro_raw.x;
+    // ... manual accumulation and computation
+}
+
+// After (lines 90-95):
+if (icm42688_calibrate_gyro(100, 10) != ICM42688_STATUS_OK) {
+    Motor_Stop();
+    return false;
+}
+```
+
+### Fix C2: MCP23017 API Return Type
+
+**Issue:** Code checked `MCP23017_Init() != MCP23017_STATUS_OK` but the actual API returns `bool`, not an enum. `MCP23017_STATUS_OK` doesn't exist in the API.
+
+**Root cause:** Incorrect assumption about MCP23017 API return type during initial implementation.
+
+**Fix applied:**
+- Changed status checks from enum comparison to boolean evaluation
+- Updated both `MCP23017_Init()` and `MCP23017_ReadInputs()` checks
+
+**Changes:**
+```c
+// Before (lines 70, 76):
+if (MCP23017_Init() != MCP23017_STATUS_OK) { ... }
+if (MCP23017_ReadInputs(&ir_mask) != MCP23017_STATUS_OK) { ... }
+
+// After:
+if (!MCP23017_Init()) { ... }
+if (!MCP23017_ReadInputs(&ir_mask)) { ... }
+```
+
+### Test Updates
+
+Updated `tests/test_control_app.c` to match API changes:
+
+1. **MCP23017 fake return type:**
+   - Changed from `mcp23017_status_t` enum to `bool`
+   - `MCP23017_Init()` now returns `!inject_mcp_failure`
+   - `MCP23017_ReadInputs()` always returns `true` (success)
+
+2. **ICM42688 calibration fake:**
+   - Added `icm42688_calibrate_gyro(unsigned samples, unsigned delay_ms)` stub
+   - Returns `ICM42688_STATUS_OK` unless fault injected
+
+### Verification
+
+All tests pass after fixes:
+```
+=== Control Application Tests ===
+
+Test: Scheduler divider (500 Hz / 50 Hz)...
+  PASS: Motion called 100x, Decision called 10x, dt=0.020f
+Test: Decision update precedes Motion Control on 10th cycle...
+  PASS: Decision sequence=1, Motion sequence=11
+Test: MCP23017 init failure stops motors...
+  PASS: Init failed, motors stopped
+Test: ICM identity check failure stops motors...
+  PASS: Init failed, motors stopped
+Test: Sensor HAL init failure stops motors...
+  PASS: Init failed, motors stopped
+Test: Path setup failure stops motors...
+  PASS: Init failed, motors stopped
+Test: Motion Control init failure stops motors...
+  PASS: Init failed, motors stopped
+
+=== All tests passed ===
+Host tests: PASS
+```
+
+### Impact Assessment
+
+**C1 (Gyro Bias):**
+- **Severity:** Critical - bias was computed but never applied to sensor readings
+- **Impact:** Fixed. HAL now properly subtracts bias from raw gyro measurements
+- **Lines changed:** src/control_app.c (24 lines removed, 5 added)
+
+**C2 (MCP23017 API):**
+- **Severity:** Critical - compilation would fail with undefined symbol
+- **Impact:** Fixed. Correct boolean API usage
+- **Lines changed:** src/control_app.c (2 lines modified)
+
+Both fixes are minimal, focused, and preserve all existing functionality while correcting critical defects.

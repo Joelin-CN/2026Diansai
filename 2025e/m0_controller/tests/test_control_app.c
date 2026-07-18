@@ -23,6 +23,9 @@
 #include "../modules/ICM42688/inc/icm42688_mspm0.h"
 #include "../modules/MCP23017/inc/mcp23017.h"
 #include "../modules/Sens-Decision/inc/config.h"
+#include "../modules/Sens-Decision/inc/interface.h"
+#include "../modules/Sens-Decision/inc/behavior_planner.h"
+#include "../modules/Sens-Decision/inc/trajectory_generate.h"
 
 /* ============================================================================
  * Test Infrastructure: Call Tracking (Must be declared first)
@@ -34,6 +37,12 @@ static float last_decision_dt = 0.0f;
 static unsigned motor_init_calls = 0;
 static unsigned motion_stops = 0;
 static unsigned emergency_stops = 0;
+static float calibration_gyro_scale_dps = 1.0f / 32.768f;
+static float calibration_gyro_bias_dps = 1.0f;
+static int16_t sensor_gyro_raw = 100;
+static int32_t sensor_encoder_counts[SD_ENCODER_COUNT];
+static behavior_command_t last_behavior_command = BEHAVIOR_CMD_NONE;
+static bool expect_released_sensors = false;
 
 typedef enum {
     PIPELINE_FAIL_NONE,
@@ -146,7 +155,7 @@ icm42688_status_t icm42688_get_scale_factors(float *accel, float *gyro) {
         return ICM42688_STATUS_NOT_READY;
     }
     *accel = 1.0f / 4096.0f;
-    *gyro = 1.0f / 32.768f;
+    *gyro = calibration_gyro_scale_dps;
     return ICM42688_STATUS_OK;
 }
 icm42688_status_t icm42688_get_gyro_bias(icm42688_vector3f_t *bias) {
@@ -154,7 +163,7 @@ icm42688_status_t icm42688_get_gyro_bias(icm42688_vector3f_t *bias) {
     if (inject_bias_failure) {
         return ICM42688_STATUS_NOT_READY;
     }
-    bias->x = 1.0f;
+    bias->x = calibration_gyro_bias_dps;
     bias->y = -2.0f;
     bias->z = 3.0f;
     return ICM42688_STATUS_OK;
@@ -163,21 +172,47 @@ icm42688_status_t icm42688_get_gyro_bias(icm42688_vector3f_t *bias) {
 /* Sens-Decision config stub */
 sens_decision_config_t g_sens_decision_config;
 void sd_config_reset_defaults(void) {
+    size_t index;
+
     init_events[init_event_count++] = EVENT_CONFIG_DEFAULTS;
     memset(&g_sens_decision_config, 0, sizeof(g_sens_decision_config));
+    for (index = 0U; index < SD_ENCODER_COUNT; ++index) {
+        g_sens_decision_config.encoders[index].wheel_radius_m = 0.1f;
+        g_sens_decision_config.encoders[index].pulses_per_revolution = 100U;
+        g_sens_decision_config.encoders[index].direction = 1;
+    }
     g_sens_decision_config.imu.filter_alpha = 0.25f;
 }
+sd_status_t sd_config_validate(const sens_decision_config_t *config) {
+    return config == NULL ? SD_ERR_INVALID_ARGUMENT : SD_OK;
+}
 
-/* Sens-Decision sensor HAL stub */
-typedef struct { void *dummy; } sensor_hal_t;
-sd_status_t sensors_configure_hal(const sensor_hal_t *hal) {
-    (void)hal;
-    return inject_sensor_hal_failure ? SD_ERR_HW_FAULT : SD_OK;
+/* Sens-Decision sensor HAL fakes, consumed by the real interface.c lifecycle. */
+static sd_status_t read_encoder_count(uint8_t index, int32_t *count) {
+    if (index >= SD_ENCODER_COUNT || count == NULL) {
+        return SD_ERR_INVALID_ARGUMENT;
+    }
+    *count = sensor_encoder_counts[index];
+    return SD_OK;
 }
-sd_status_t sensors_init_all(void) {
-    init_events[init_event_count++] = EVENT_SENSOR_INIT;
-    return inject_sensor_hal_failure ? SD_ERR_HW_FAULT : SD_OK;
+static sd_status_t read_imu_raw(imu_raw_data_t *data) {
+    if (data == NULL) {
+        return SD_ERR_INVALID_ARGUMENT;
+    }
+    memset(data, 0, sizeof(*data));
+    data->gyro[0] = sensor_gyro_raw;
+    return SD_OK;
 }
+static sd_status_t read_ir_mask(uint16_t *active_mask) {
+    if (active_mask == NULL) {
+        return SD_ERR_INVALID_ARGUMENT;
+    }
+    *active_mask = 0U;
+    return SD_OK;
+}
+static const sensor_hal_t g_sensor_hal = {
+    read_encoder_count, read_imu_raw, read_ir_mask
+};
 
 /* Motion Control fake */
 typedef struct { int dummy; } MotionControl_t;
@@ -212,11 +247,20 @@ static EncoderInterface_t g_encoder_iface;
 static MotorInterface_t g_motor_iface;
 EncoderInterface_t *EncoderAdapter_GetInterface(void) { return &g_encoder_iface; }
 MotorInterface_t *MotorAdapter_GetInterface(void) { return &g_motor_iface; }
-const sensor_hal_t *SensorAdapter_GetHal(void) { return NULL; }
+const sensor_hal_t *SensorAdapter_GetHal(void) {
+    size_t index;
+
+    init_events[init_event_count++] = EVENT_SENSOR_INIT;
+    if (expect_released_sensors) {
+        for (index = 0U; index < SENSOR_ID_COUNT; ++index) {
+            assert(!sensor_get((sensor_id_t)index)->initialized);
+        }
+        expect_released_sensors = false;
+    }
+    return inject_sensor_hal_failure ? NULL : &g_sensor_hal;
+}
 
 /* Trajectory generator fake */
-typedef struct { float x, y, heading, curvature; } path_point_t;
-typedef struct { int dummy; } trajectory_generator_t;
 trajectory_generator_t g_trajectory_generator;
 void trajectory_generator_init(trajectory_generator_t *gen, const sd_trajectory_config_t *cfg) {
     (void)gen; (void)cfg;
@@ -236,16 +280,6 @@ bool SquarePath_UpdateLap(lap_counter_t *counter, size_t nearest_idx, size_t pat
 }
 
 /* Decision pipeline fakes - these track call counts */
-typedef struct { int dummy; } sensor_frame_t;
-typedef struct { int dummy; } state_evaluator_t;
-typedef struct { int dummy; } perception_t;
-typedef struct { int dummy; } perception_result_t;
-typedef struct { int dummy; } behavior_planner_t;
-typedef struct { int dummy; } behavior_input_t;
-typedef struct { int dummy; } behavior_output_t;
-typedef struct { float v, omega; } trajectory_point_t;
-typedef struct { int dummy; } vehicle_state_t;
-
 void state_evaluator_init(state_evaluator_t *eval, const sd_ekf_config_t *cfg) {
     (void)eval; (void)cfg;
 }
@@ -270,14 +304,17 @@ sd_status_t state_evaluator_update(state_evaluator_t *eval, const sensor_frame_t
     return pipeline_failure == PIPELINE_FAIL_STATE ? SD_ERR_DATA_INVALID : SD_OK;
 }
 
-sd_status_t perception_update(perception_t *perc, const void *ir, uint64_t ts, perception_result_t *result) {
+sd_status_t perception_update(perception_t *perc, const ir_array_data_t *ir,
+                              uint64_t ts, perception_result_t *result) {
     (void)perc; (void)ir; (void)ts; (void)result;
     perception_calls++;
     return pipeline_failure == PIPELINE_FAIL_PERCEPTION ? SD_ERR_DATA_INVALID : SD_OK;
 }
 
 sd_status_t behavior_planner_update(behavior_planner_t *planner, const behavior_input_t *in, behavior_output_t *out) {
-    (void)planner; (void)in; (void)out;
+    (void)planner;
+    last_behavior_command = in->command;
+    out->state = BEHAVIOR_STATE_LINE_FOLLOW;
     behavior_calls++;
     return pipeline_failure == PIPELINE_FAIL_BEHAVIOR ? SD_ERR_DATA_INVALID : SD_OK;
 }
@@ -317,6 +354,12 @@ static void reset_call_tracking(void) {
     init_event_count = 0;
     memset(init_events, 0, sizeof(init_events));
     memset(&bound_icm_config, 0, sizeof(bound_icm_config));
+    calibration_gyro_scale_dps = 1.0f / 32.768f;
+    calibration_gyro_bias_dps = 1.0f;
+    sensor_gyro_raw = 100;
+    memset(sensor_encoder_counts, 0, sizeof(sensor_encoder_counts));
+    last_behavior_command = BEHAVIOR_CMD_NONE;
+    expect_released_sensors = false;
     inject_mcp_init_failure = false;
     inject_mcp_read_failure = false;
     inject_icm_init_failure = false;
@@ -543,6 +586,50 @@ static void test_startup_binds_icm_and_synchronizes_sensor_config(void) {
     printf("  PASS: Exact mode, order, scales, biases, and defaults verified\n");
 }
 
+static void test_second_init_reinitializes_real_sensor_and_runtime_state(void) {
+    const float degrees_to_radians = 0.017453292519943295f;
+    imu_data_t imu;
+    encoder_data_t encoder;
+
+    printf("Test: Second init resets real sensor and application runtime state...\n");
+
+    reset_call_tracking();
+    assert(sensors_release_all() == SD_OK);
+    calibration_gyro_scale_dps = 0.5f;
+    calibration_gyro_bias_dps = 10.0f;
+    assert(ControlApp_Init(3U));
+
+    assert(sensor_read(sensor_get(SENSOR_ID_IMU), &imu, 50000U) == SD_OK);
+    assert(fabsf(imu.gyro_radps[0] - 40.0f * degrees_to_radians) < 1e-6f);
+    sensor_encoder_counts[0] = 100;
+    assert(sensor_read(sensor_get(SENSOR_ID_ENCODER_LEFT_FRONT), &encoder,
+                       50000U) == SD_OK);
+    sensor_encoder_counts[0] = 110;
+    assert(sensor_read(sensor_get(SENSOR_ID_ENCODER_LEFT_FRONT), &encoder,
+                       60000U) == SD_OK);
+    assert(encoder.speed_mps > 0.0f);
+    run_next_decision_cycle();
+    assert(last_behavior_command == BEHAVIOR_CMD_START);
+
+    calibration_gyro_scale_dps = 0.25f;
+    calibration_gyro_bias_dps = 5.0f;
+    expect_released_sensors = true;
+    assert(ControlApp_Init(3U));
+    assert(!expect_released_sensors);
+
+    assert(sensor_read(sensor_get(SENSOR_ID_IMU), &imu, 0U) == SD_OK);
+    assert(fabsf(imu.gyro_radps[0] - 20.0f * degrees_to_radians) < 1e-6f);
+    sensor_encoder_counts[0] = 200;
+    assert(sensor_read(sensor_get(SENSOR_ID_ENCODER_LEFT_FRONT), &encoder, 0U) ==
+           SD_OK);
+    assert(encoder.speed_mps == 0.0f);
+    last_behavior_command = BEHAVIOR_CMD_NONE;
+    run_next_decision_cycle();
+    assert(last_behavior_command == BEHAVIOR_CMD_START);
+
+    printf("  PASS: New bias, baselines, filters, and START state are active\n");
+}
+
 static void test_scale_metadata_failure_stops_motors(void) {
     printf("Test: Scale metadata failure stops motors...\n");
 
@@ -670,6 +757,7 @@ int main(void) {
     /* Initialization fault injection tests */
     test_successful_init_accepts_zero_status();
     test_startup_binds_icm_and_synchronizes_sensor_config();
+    test_second_init_reinitializes_real_sensor_and_runtime_state();
     test_scale_metadata_failure_stops_motors();
     test_bias_metadata_failure_stops_motors();
     test_init_mcp_failure_stops_motors();

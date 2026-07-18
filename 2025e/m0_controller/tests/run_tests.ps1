@@ -113,7 +113,8 @@ Invoke-TestBuild -Name "test_control_app" -Arguments @(
     "-I$root\modules\ICM42688\inc",
     "-I$root\modules\MCP23017\inc",
     "$PSScriptRoot\test_control_app.c",
-    "$root\src\control_app.c"
+    "$root\src\control_app.c",
+    "$root\modules\Sens-Decision\src\interface.c"
 )
 
 Write-Host "Host tests: PASS"

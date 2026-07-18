@@ -10,6 +10,7 @@
 #include "../inc/utils.h"
 
 #include <math.h>
+#include <stddef.h>
 
 static const char *behavior_state_names[] = {
     "IDLE",

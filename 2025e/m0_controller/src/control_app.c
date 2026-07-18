@@ -68,6 +68,27 @@ bool ControlApp_Init(uint8_t target_laps) {
     Motor_Init();
     Motor_Stop();
 
+    if (sensors_release_all() != SD_OK) {
+        Motor_Stop();
+        return false;
+    }
+
+    memset(&g_motion_control, 0, sizeof(g_motion_control));
+    memset(&g_state_evaluator, 0, sizeof(g_state_evaluator));
+    memset(&g_perception, 0, sizeof(g_perception));
+    memset(&g_behavior_planner, 0, sizeof(g_behavior_planner));
+    memset(&g_trajectory_generator, 0, sizeof(g_trajectory_generator));
+    memset(&g_square_config, 0, sizeof(g_square_config));
+    memset(&g_lap_counter, 0, sizeof(g_lap_counter));
+    memset(&g_sensor_frame, 0, sizeof(g_sensor_frame));
+    memset(&g_perception_result, 0, sizeof(g_perception_result));
+    memset(&g_behavior_input, 0, sizeof(g_behavior_input));
+    memset(&g_behavior_output, 0, sizeof(g_behavior_output));
+    memset(&g_trajectory, 0, sizeof(g_trajectory));
+    g_target_laps = 0U;
+    g_cycle_counter = 0U;
+    g_critical_failure_count = 0U;
+
     /* Validate target laps */
     if (target_laps < 1 || target_laps > 5) {
         return false;
@@ -159,9 +180,6 @@ bool ControlApp_Init(uint8_t target_laps) {
     g_square_config.max_omega_radps = 2.0f;
     g_square_config.target_laps = target_laps;
     
-    /* Initialize lap counter */
-    memset(&g_lap_counter, 0, sizeof(g_lap_counter));
-    
     /* Step 10: Motion Control init/start */
     if (!MotionControl_Init(&g_motion_control, EncoderAdapter_GetInterface(), 
                            MotorAdapter_GetInterface())) {
@@ -170,10 +188,6 @@ bool ControlApp_Init(uint8_t target_laps) {
     }
     
     MotionControl_Start(&g_motion_control);
-    
-    /* Reset cycle counter */
-    g_cycle_counter = 0;
-    g_critical_failure_count = 0;
     
     return true;
 }

@@ -1,0 +1,150 @@
+# Task 5 review package
+
+## Base
+
+fb950819624530dce45727bc5dca2773f414e2d7 (working-tree review; commits prohibited)
+
+## Files changed
+
+Debug/ti_msp_dl_config.c | 40 +
+Debug/ti_msp_dl_config.h | 7 +
+NewProject1.syscfg       | 12 (+7/-5)
+Debug/Event.dot          | unchanged
+
+## Diff
+
+diff --git a/2025e/m0_controller/Debug/ti_msp_dl_config.c b/2025e/m0_controller/Debug/ti_msp_dl_config.c
+index 2644bf6..006feb2 100644
+--- a/2025e/m0_controller/Debug/ti_msp_dl_config.c
++++ b/2025e/m0_controller/Debug/ti_msp_dl_config.c
+@@ -58,6 +58,7 @@ SYSCONFIG_WEAK void SYSCFG_DL_init(void)
+     SYSCFG_DL_MOTOR_PWM_A_init();
+     SYSCFG_DL_MOTOR_PWM_B_init();
+     SYSCFG_DL_CONTROL_TIMER_init();
++    SYSCFG_DL_ICM42688_TIMER_init();
+     SYSCFG_DL_I2C0_init();
+     SYSCFG_DL_UART0_init();
+     SYSCFG_DL_UART1_init();
+@@ -108,6 +109,7 @@ SYSCONFIG_WEAK void SYSCFG_DL_initPower(void)
+     DL_TimerA_reset(MOTOR_PWM_A_INST);
+     DL_TimerA_reset(MOTOR_PWM_B_INST);
+     DL_TimerG_reset(CONTROL_TIMER_INST);
++    DL_TimerG_reset(ICM42688_TIMER_INST);
+     DL_I2C_reset(I2C0_INST);
+     DL_UART_Main_reset(UART0_INST);
+     DL_UART_Main_reset(UART1_INST);
+@@ -120,6 +122,7 @@ SYSCONFIG_WEAK void SYSCFG_DL_initPower(void)
+     DL_TimerA_enablePower(MOTOR_PWM_A_INST);
+     DL_TimerA_enablePower(MOTOR_PWM_B_INST);
+     DL_TimerG_enablePower(CONTROL_TIMER_INST);
++    DL_TimerG_enablePower(ICM42688_TIMER_INST);
+     DL_I2C_enablePower(I2C0_INST);
+     DL_UART_Main_enablePower(UART0_INST);
+     DL_UART_Main_enablePower(UART1_INST);
+@@ -281,6 +284,7 @@ SYSCONFIG_WEAK void SYSCFG_DL_SYSCTL_init(void)
+ 	/* Set default configuration */
+ 	DL_SYSCTL_disableHFXT();
+ 	DL_SYSCTL_disableSYSPLL();
++    DL_SYSCTL_enableMFCLK();
+ 
+ }
+ 
+@@ -427,6 +431,42 @@ SYSCONFIG_WEAK void SYSCFG_DL_CONTROL_TIMER_init(void) {
+ 
+ 
+ 
++}
++
++/*
++ * Timer clock configuration to be sourced by MFCLK /  (1000000 Hz)
++ * timerClkFreq = (timerClkSrc / (timerClkDivRatio * (timerClkPrescale + 1)))
++ *   1000000 Hz = 1000000 Hz / (4 * (0 + 1))
++ */
++static const DL_TimerG_ClockConfig gICM42688_TIMERClockConfig = {
++    .clockSel    = DL_TIMER_CLOCK_MFCLK,
++    .divideRatio = DL_TIMER_CLOCK_DIVIDE_4,
++    .prescale    = 0U,
++};
++
++/*
++ * Timer load value (where the counter starts from) is calculated as (timerPeriod * timerClockFreq) - 1
++ * ICM42688_TIMER_INST_LOAD_VALUE = (4294.967296 s * 1000000 Hz) - 1
++ */
++static const DL_TimerG_TimerConfig gICM42688_TIMERTimerConfig = {
++    .period     = ICM42688_TIMER_INST_LOAD_VALUE,
++    .timerMode  = DL_TIMER_TIMER_MODE_PERIODIC,
++    .startTimer = DL_TIMER_STOP,
++};
++
++SYSCONFIG_WEAK void SYSCFG_DL_ICM42688_TIMER_init(void) {
++
++    DL_TimerG_setClockConfig(ICM42688_TIMER_INST,
++        (DL_TimerG_ClockConfig *) &gICM42688_TIMERClockConfig);
++
++    DL_TimerG_initTimerMode(ICM42688_TIMER_INST,
++        (DL_TimerG_TimerConfig *) &gICM42688_TIMERTimerConfig);
++    DL_TimerG_enableClock(ICM42688_TIMER_INST);
++
++
++
++
++
+ }
+
+diff --git a/2025e/m0_controller/Debug/ti_msp_dl_config.h b/2025e/m0_controller/Debug/ti_msp_dl_config.h
+index 0156f8b..b9c1ae4 100644
+--- a/2025e/m0_controller/Debug/ti_msp_dl_config.h
++++ b/2025e/m0_controller/Debug/ti_msp_dl_config.h
+@@ -121,6 +121,11 @@ extern "C" {
+ #define CONTROL_TIMER_INST_IRQHandler                           TIMG0_IRQHandler
+ #define CONTROL_TIMER_INST_INT_IRQN                             (TIMG0_INT_IRQn)
+ #define CONTROL_TIMER_INST_LOAD_VALUE                                   (63999U)
++/* Defines for ICM42688_TIMER */
++#define ICM42688_TIMER_INST                                             (TIMG12)
++#define ICM42688_TIMER_INST_IRQHandler                         TIMG12_IRQHandler
++#define ICM42688_TIMER_INST_INT_IRQN                           (TIMG12_INT_IRQn)
++#define ICM42688_TIMER_INST_LOAD_VALUE                             (4294967295U)
+@@ -305,6 +310,7 @@ extern "C" {
+ #define ENCODER_ENC4_B_PIN                                      (DL_GPIO_PIN_18)
+ #define ENCODER_ENC4_B_IOMUX                                     (IOMUX_PINCM44)
+ 
++
+ /* clang-format on */
+@@ -314,6 +320,7 @@ void SYSCFG_DL_SYSCTL_init(void);
+ void SYSCFG_DL_MOTOR_PWM_A_init(void);
+ void SYSCFG_DL_MOTOR_PWM_B_init(void);
+ void SYSCFG_DL_CONTROL_TIMER_init(void);
++void SYSCFG_DL_ICM42688_TIMER_init(void);
+ void SYSCFG_DL_I2C0_init(void);
+
+diff --git a/2025e/m0_controller/NewProject1.syscfg b/2025e/m0_controller/NewProject1.syscfg
+index ff3c0c3..67f9dfc 100644
+--- a/2025e/m0_controller/NewProject1.syscfg
++++ b/2025e/m0_controller/NewProject1.syscfg
+@@ -47,13 +47,13 @@ CONTROL_TIMER.timerStartTimer = false;
+ CONTROL_TIMER.interrupts = ["ZERO"];
+ CONTROL_TIMER.peripheral.$assign = "TIMG0";
+ 
+-/* TIMG12 provides 1 MHz timebase for ICM42688 sensor timing. */
++/* TIMG12 uses fixed 4 MHz MFCLK / 4 for a 1 MHz sensor timebase. */
+ ICM42688_TIMER.$name = "ICM42688_TIMER";
+ ICM42688_TIMER.timerMode = "PERIODIC";
+-ICM42688_TIMER.timerClkSrc = "BUSCLK";
+-ICM42688_TIMER.timerClkDiv = 1;
+-ICM42688_TIMER.timerClkPrescale = 32;
+-ICM42688_TIMER.timerPeriod = "4294967295";
++ICM42688_TIMER.timerClkSrc = "MFCLK";
++ICM42688_TIMER.timerClkDiv = 4;
++ICM42688_TIMER.timerClkPrescale = 1;
++ICM42688_TIMER.timerPeriod = "4294.967296 s";
+ ICM42688_TIMER.timerStartTimer = false;
+ ICM42688_TIMER.interrupts = [];
+ ICM42688_TIMER.peripheral.$assign = "TIMG12";
+@@ -196,6 +196,8 @@ for (let i = 0; i < encoderPins.length; i++) {
+ 
+ SYSCTL.forceDefaultClkConfig = true;
+ SYSCTL.clockTreeEn = true;
++const MFCLKGATE = system.clockTree["MFCLKGATE"];
++MFCLKGATE.enable = true;
+ 
+ /* Keep the debugger and reset functions reserved. */

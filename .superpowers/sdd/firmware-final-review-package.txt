@@ -1,0 +1,74 @@
+# Firmware Build Repair Final Review Package
+
+## Base and scope
+
+- Base: fb950819624530dce45727bc5dca2773f414e2d7
+- Commits: none; user prohibited commits
+- Review scope: actual working-tree changes to seven production/config/generated paths
+- Requirements: docs/superpowers/specs/2026-07-18-firmware-build-repair-design.md and docs/superpowers/plans/2026-07-18-firmware-build-repair.md
+- Final verification: E:\B306\2026\电赛\.superpowers\sdd\firmware-task-7-report.md
+
+## Files changed
+
+- .eide/eide.yml: complete SysConfig command in command field, ProjectRoot, failure gate retained
+- inc/FreeRTOSConfig.h: configENABLE_MPU 0
+- modules/Sens-Decision/src/behavior_planner.c: include stddef.h
+- NewProject1.syscfg: user-approved MFCLK correction for valid TIMG12 1 MHz maximum-period timebase
+- Debug/ti_msp_dl_config.c: SysConfig-generated TIMG12/MFCLK initialization
+- Debug/ti_msp_dl_config.h: SysConfig-generated TIMG12 macros/declaration
+- Debug/Event.dot: unchanged
+
+## Approved deviation/root cause
+
+The original 32 MHz BUSCLK / prescale 32 design is impossible on TIMG12 because it is the device's only 32-bit timer and has no prescaler; divider options are 1..8. The user approved fixed 4 MHz MFCLK / divider 4 / configured prescale 1 and period 4294.967296 s. This preserves TIMG12, exact 1 MHz, load 4294967295U, no interrupt, no autostart, and every existing physical mapping.
+
+## Final diff summary
+
+6 files changed, 61 insertions, 10 deletions. Event.dot unchanged.
+
+### .eide/eide.yml
+
+- command executable moved into folded command string
+- args field removed
+- WorkspaceRoot replaced by ProjectRoot for product/script/output
+- stopBuildAfterFailed remains true
+
+### inc/FreeRTOSConfig.h
+
++#define configENABLE_MPU                       0
+
+### modules/Sens-Decision/src/behavior_planner.c
+
++#include <stddef.h>
+
+### NewProject1.syscfg
+
+- BUSCLK/div1/prescale32/period-without-unit
++ MFCLK/div4/prescale1/4294.967296 s
++ MFCLKGATE.enable = true
+
+### Generated output
+
+- SYSCFG_DL_ICM42688_TIMER_init called
+- TIMG12 reset and power enable
+- DL_SYSCTL_enableMFCLK
+- DL_TIMER_CLOCK_MFCLK / DL_TIMER_CLOCK_DIVIDE_4 / register prescale 0U
+- load 4294967295U, periodic, DL_TIMER_STOP
+- no ICM timer interrupt enable/start call
+
+## Final evidence
+
+- SysConfig: 1.26.2+4477 at C:\ti\sysconfig_1.26.2; installer hash/signature valid
+- SDK: repository 2.10.00.04
+- Host suite: seven executables, exit 0, Host tests: PASS
+- Second full EIDE rebuild: --rebuild --no-color, exit 0, compiler.log Builder Mode: Rebuild
+- Mandatory SysConfig prebuild: 0 errors, 1 intentional ProjectConfig warning
+- AXF/map/logs: fresh under build/Debug
+- Total ROM: 30624 / 131072
+- Total RW: 10240 / 32768
+- portasm.o, vStartFirstTask, PendSV_Handler, SVC_Handler: linked
+- All 36 expected objects: linked
+- OLED, example_usage, all seven host tests, tests paths, temp paths: absent
+- Full mapping audit: timers/PWM/encoder/I2C/SPI/DMA/UART/GPIO/SWD/reset unchanged except approved timer clock source
+- Repair-owned git diff --check: exit 0
+- Hardware flashing/on-device operation: out of scope and not claimed

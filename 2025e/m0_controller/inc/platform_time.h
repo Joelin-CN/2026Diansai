@@ -44,7 +44,7 @@ uint64_t PlatformTime_Extend32(uint32_t now32);
 /**
  * @brief  Initialize platform timebase
  * @note   SysConfig configures TIMG12 as a stopped 1 MHz down-counter.
- *         This function resets wrap-extension state and starts the timer.
+ *         This function starts the timer and establishes a new software epoch.
  */
 void PlatformTime_Init(void);
 

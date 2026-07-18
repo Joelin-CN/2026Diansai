@@ -1,0 +1,24 @@
+# Task 1 review package
+
+## Base
+
+fb950819624530dce45727bc5dca2773f414e2d7 (working-tree review; commits prohibited)
+
+## Files changed
+
+inc/FreeRTOSConfig.h | 1 +
+
+## Diff
+
+diff --git a/2025e/m0_controller/inc/FreeRTOSConfig.h b/2025e/m0_controller/inc/FreeRTOSConfig.h
+index 7df147d..27c3d72 100644
+--- a/2025e/m0_controller/inc/FreeRTOSConfig.h
++++ b/2025e/m0_controller/inc/FreeRTOSConfig.h
+@@ -4,6 +4,7 @@
+ #include <stdint.h>
+ 
+ /* Scheduler and clock configuration. CPUCLK_FREQ is currently 32 MHz. */
++#define configENABLE_MPU                       0
+ #define configUSE_PREEMPTION                    1
+ #define configUSE_PORT_OPTIMISED_TASK_SELECTION 0
+ #define configUSE_TIME_SLICING                   0

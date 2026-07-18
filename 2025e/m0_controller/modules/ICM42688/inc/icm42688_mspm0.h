@@ -10,8 +10,8 @@
  *            icm42688_mspm0_bind(). SysConfig must provide:
  *              - SPI peripheral named SPI1            -> SPI1_INST
  *              - GPIO output for ICM42688 CS          -> ICM42688_PORT, ICM42688_CS_PIN
- *              - Timer (TIMG0) named ICM42688_TIMER   -> ICM42688_TIMER_INST
- *            and CPUCLK_FREQ (default 32000000).
+ *            and CPUCLK_FREQ (default 32000000). The controller owns TIMG12
+ *            through PlatformTime and starts it with PlatformTime_Init().
  */
 
 #ifndef _ICM42688_MSPM0_H_
@@ -34,7 +34,7 @@ extern const icm42688_comm_t icm42688_mspm0_comm;
 /** delay_ms backed by delay_cycles() loop. */
 extern const icm42688_system_t icm42688_mspm0_system;
 
-/** TIMG0-backed microsecond timer. init/start are no-ops (SysConfig owns them). */
+/** Controller PlatformTime-backed microsecond timer; the controller owns startup. */
 extern const ahrs_timer_t icm42688_mspm0_timer;
 
 /* ----------------------------------------------------------------------

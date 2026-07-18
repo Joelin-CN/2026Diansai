@@ -164,9 +164,32 @@ static void test_invalid_configuration_before_hardware_access(void)
 
 static void test_scale_and_bias_metadata(void)
 {
+    static const struct {
+        icm42688_acc_sample_t range;
+        float full_scale_g;
+    } accel_cases[] = {
+        {ICM42688_ACC_SAMPLE_SGN_2G, 2.0f},
+        {ICM42688_ACC_SAMPLE_SGN_4G, 4.0f},
+        {ICM42688_ACC_SAMPLE_SGN_8G, 8.0f},
+        {ICM42688_ACC_SAMPLE_SGN_16G, 16.0f},
+    };
+    static const struct {
+        icm42688_gyro_sample_t range;
+        float full_scale_dps;
+    } gyro_cases[] = {
+        {ICM42688_GYRO_SAMPLE_SGN_15_625DPS, 15.625f},
+        {ICM42688_GYRO_SAMPLE_SGN_31_25DPS, 31.25f},
+        {ICM42688_GYRO_SAMPLE_SGN_62_5DPS, 62.5f},
+        {ICM42688_GYRO_SAMPLE_SGN_125DPS, 125.0f},
+        {ICM42688_GYRO_SAMPLE_SGN_250DPS, 250.0f},
+        {ICM42688_GYRO_SAMPLE_SGN_500DPS, 500.0f},
+        {ICM42688_GYRO_SAMPLE_SGN_1000DPS, 1000.0f},
+        {ICM42688_GYRO_SAMPLE_SGN_2000DPS, 2000.0f},
+    };
     float accel_scale = 0.0f;
     float gyro_scale = 0.0f;
     icm42688_vector3f_t bias;
+    size_t index;
 
     icm42688_hal_init(NULL, NULL, NULL);
     assert(icm42688_get_scale_factors(&accel_scale, &gyro_scale) ==
@@ -181,6 +204,35 @@ static void test_scale_and_bias_metadata(void)
     assert(fabsf(accel_scale - (1.0f / 4096.0f)) < 1e-9f);
     assert(fabsf(gyro_scale - (1.0f / 32.768f)) < 1e-6f);
 
+    for (index = 0U; index < sizeof(accel_cases) / sizeof(accel_cases[0]);
+         ++index) {
+        icm42688_config_t config = production_config;
+        config.acc_sample = accel_cases[index].range;
+        reset_mock();
+        icm42688_hal_init(&mock_comm, &mock_system, &config);
+        assert(icm42688_init() == ICM42688_STATUS_OK);
+        assert(icm42688_get_scale_factors(&accel_scale, &gyro_scale) ==
+               ICM42688_STATUS_OK);
+        assert(fabsf(accel_scale - accel_cases[index].full_scale_g / 32768.0f) <
+               1e-9f);
+    }
+
+    for (index = 0U; index < sizeof(gyro_cases) / sizeof(gyro_cases[0]);
+         ++index) {
+        icm42688_config_t config = production_config;
+        config.gyro_sample = gyro_cases[index].range;
+        reset_mock();
+        icm42688_hal_init(&mock_comm, &mock_system, &config);
+        assert(icm42688_init() == ICM42688_STATUS_OK);
+        assert(icm42688_get_scale_factors(&accel_scale, &gyro_scale) ==
+               ICM42688_STATUS_OK);
+        assert(fabsf(gyro_scale - gyro_cases[index].full_scale_dps / 32768.0f) <
+               1e-7f);
+    }
+
+    reset_mock();
+    icm42688_hal_init(&mock_comm, &mock_system, &production_config);
+    assert(icm42688_init() == ICM42688_STATUS_OK);
     setup_14byte_burst(0, 0, 0, 0, 328, -656, 984);
     assert(icm42688_calibrate_gyro(2U, 0U) == ICM42688_STATUS_OK);
     assert(icm42688_get_gyro_bias(&bias) == ICM42688_STATUS_OK);

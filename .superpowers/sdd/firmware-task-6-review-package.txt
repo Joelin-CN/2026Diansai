@@ -1,0 +1,54 @@
+# Task 6 review package
+
+## Repository source diff
+
+No production source/configuration file changed in Task 6. EIDE generated ignored build artifacts under build/Debug.
+
+## builder.params
+
+- name: NewProject1
+- target: Debug
+- toolchain: AC6
+- toolchainLocation: C:\Keil_v5\ARM\ARMCLANG
+- outDir: build\Debug
+- RAM: 32768
+- ROM: 131072
+- beforeBuildTasks[0].command contains the complete SysConfig executable and arguments
+- beforeBuildTasks[0].stopBuildAfterFailed: true
+- env.ProjectRoot: E:\B306\2026\电赛\2025e\m0_controller
+
+## Full rebuild
+
+Command:
+"C:\Users\Joelin\.vscode\extensions\cl.eide-3.27.2\res\tools\win32\unify_builder\unify_builder.exe" --params-file "E:\B306\2026\电赛\2025e\m0_controller\build\Debug\builder.params" --rebuild --no-color
+
+Exit: 0
+Mode: Rebuild
+Inputs: 35 C, 1 assembly, 1 library
+Pre-build SysConfig: done, 0 errors, 1 ProjectConfig warning
+
+## Image evidence
+
+- NewProject1.axf: present
+- NewProject1.map: present
+- NewProject1.hex: present
+- NewProject1.s19: present
+- NewProject1.map.view: present
+- unify_builder.log: present
+- compiler.log: present
+- portasm.o: present
+- vStartFirstTask: portasm.o, 0x000003ad
+- PendSV_Handler: portasm.o, 0x000003cf
+- SVC_Handler: portasm.o, 0x00000411
+- OLED/example_usage/tests/temp: absent from object list and map
+
+## fromelf
+
+- Code: 29884
+- RO Data: 620
+- RW Data: 120
+- ZI Data: 10120
+- Total RO: 30504
+- Total RW: 10240 / 32768
+- Total ROM: 30624 / 131072
+- Exit: 0

@@ -10,6 +10,7 @@
 /* Wrap extension state */
 static uint32_t previous32 = 0U;
 static uint64_t high_word  = 0U;
+static uint32_t origin32   = 0U;
 
 /* ======================================================================
  * Pure testable functions (no hardware access)
@@ -38,17 +39,25 @@ uint64_t PlatformTime_Extend32(uint32_t now32)
 
 void PlatformTime_Init(void)
 {
-    /* Reset extension state */
+    uint32_t primask = __get_PRIMASK();
+
+    __disable_irq();
+    DL_TimerG_startCounter(ICM42688_TIMER_INST);
+    origin32 = PlatformTime_UpCountFromDownCount(
+        DL_TimerG_getTimerCount(ICM42688_TIMER_INST));
     previous32 = 0U;
     high_word  = 0U;
-
-    DL_TimerG_startCounter(ICM42688_TIMER_INST);
+    if (primask == 0U) {
+        __enable_irq();
+    }
 }
 
 uint32_t PlatformTime_GetUs32(void)
 {
-    return PlatformTime_UpCountFromDownCount(
+    uint32_t now32 = PlatformTime_UpCountFromDownCount(
         DL_TimerG_getTimerCount(ICM42688_TIMER_INST));
+
+    return now32 - origin32;
 }
 
 uint64_t PlatformTime_GetUs64(void)

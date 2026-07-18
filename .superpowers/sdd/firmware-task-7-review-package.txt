@@ -1,0 +1,35 @@
+# Task 7 final acceptance review package
+
+## Fresh commands
+
+- Host suite: powershell -ExecutionPolicy Bypass -File .\tests\run_tests.ps1
+- Host exit: 0
+- Host result: 7 executables, Host tests: PASS
+- Full rebuild: unify_builder.exe --params-file <absolute build/Debug/builder.params> --rebuild --no-color
+- Rebuild exit: 0
+- Rebuild start/end: 2026-07-18 18:42:34..18:42:36 +08:00
+- compiler.log mode: Rebuild
+- Prebuild order: prebuild -> cc -> ld
+- SysConfig: 0 errors, 1 ProjectConfig warning
+
+## Image
+
+- AXF: E:\B306\2026\电赛\2025e\m0_controller\build\Debug\NewProject1.axf
+- Map: E:\B306\2026\电赛\2025e\m0_controller\build\Debug\NewProject1.map
+- Total ROM: 30624 / 131072
+- Total RW: 10240 / 32768
+- portasm.o and vStartFirstTask/PendSV_Handler/SVC_Handler: present
+- OLED/example_usage/all 7 host tests/tests paths/temp paths: absent
+- All 36 expected objects: present
+
+## Generated mapping
+
+- TIMG12 MFCLK / 4, 1 MHz, load 4294967295U, periodic, no interrupt, no autostart
+- CONTROL_TIMER TIMG0/load 63999 unchanged
+- PWM, encoder, I2C, SPI, DMA, UART, motor GPIO, CS, SWD, reset, PA23 mappings all pass
+
+## Repository
+
+- Repair-owned git diff --check exit: 0
+- No commit
+- No flashing/on-device test

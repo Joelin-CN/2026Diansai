@@ -1,0 +1,24 @@
+# Task 2 review package
+
+## Base
+
+fb950819624530dce45727bc5dca2773f414e2d7 (working-tree review; commits prohibited)
+
+## Files changed
+
+modules/Sens-Decision/src/behavior_planner.c | 1 +
+
+## Diff
+
+diff --git a/2025e/m0_controller/modules/Sens-Decision/src/behavior_planner.c b/2025e/m0_controller/modules/Sens-Decision/src/behavior_planner.c
+index a8afbe0..220c148 100644
+--- a/2025e/m0_controller/modules/Sens-Decision/src/behavior_planner.c
++++ b/2025e/m0_controller/modules/Sens-Decision/src/behavior_planner.c
+@@ -10,6 +10,7 @@
+ #include "../inc/utils.h"
+ 
+ #include <math.h>
++#include <stddef.h>
+ 
+ static const char *behavior_state_names[] = {
+     "IDLE",

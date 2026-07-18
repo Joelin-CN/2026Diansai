@@ -1,0 +1,22 @@
+# Task 4 review package
+
+## Repository diff
+
+No project file changed. Task 4 is an external tool installation.
+
+## Installed artifacts
+
+- Installer: C:\Users\Joelin\AppData\Local\Temp\opencode\sysconfig-1.26.2_4477-setup.exe
+- Installer size: 177142592 bytes
+- SHA-256: b40e31b01987c68c420ea90bb2095885cd97ee9ab23f2447fa37b4a33933fd31
+- Authenticode: Valid
+- Install directory: C:\ti\sysconfig_1.26.2
+- CLI: C:\ti\sysconfig_1.26.2\sysconfig_cli.bat
+- dist/version.txt: 1.26.2+4477
+- Installer exit: 0
+- CLI help exit: 0
+
+## SDK metadata
+
+- Product version: 2.10.00.04
+- minToolVersion: 1.26.0

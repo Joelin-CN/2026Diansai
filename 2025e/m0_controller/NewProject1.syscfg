@@ -47,13 +47,13 @@ CONTROL_TIMER.timerStartTimer = false;
 CONTROL_TIMER.interrupts = ["ZERO"];
 CONTROL_TIMER.peripheral.$assign = "TIMG0";
 
-/* TIMG12 provides 1 MHz timebase for ICM42688 sensor timing. */
+/* TIMG12 uses fixed 4 MHz MFCLK / 4 for a 1 MHz sensor timebase. */
 ICM42688_TIMER.$name = "ICM42688_TIMER";
 ICM42688_TIMER.timerMode = "PERIODIC";
-ICM42688_TIMER.timerClkSrc = "BUSCLK";
-ICM42688_TIMER.timerClkDiv = 1;
-ICM42688_TIMER.timerClkPrescale = 32;
-ICM42688_TIMER.timerPeriod = "4294967295";
+ICM42688_TIMER.timerClkSrc = "MFCLK";
+ICM42688_TIMER.timerClkDiv = 4;
+ICM42688_TIMER.timerClkPrescale = 1;
+ICM42688_TIMER.timerPeriod = "4294.967296 s";
 ICM42688_TIMER.timerStartTimer = false;
 ICM42688_TIMER.interrupts = [];
 ICM42688_TIMER.peripheral.$assign = "TIMG12";
@@ -196,6 +196,8 @@ for (let i = 0; i < encoderPins.length; i++) {
 
 SYSCTL.forceDefaultClkConfig = true;
 SYSCTL.clockTreeEn = true;
+const MFCLKGATE = system.clockTree["MFCLKGATE"];
+MFCLKGATE.enable = true;
 
 /* Keep the debugger and reset functions reserved. */
 Board.peripheral.$suggestSolution = "DEBUGSS";

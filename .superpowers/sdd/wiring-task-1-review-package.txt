@@ -1,0 +1,75 @@
+﻿diff --git a/2025e/m0_controller/WIRING_AND_SYSCONFIG.md b/2025e/m0_controller/WIRING_AND_SYSCONFIG.md
+index 93960dc..3f64b45 100644
+--- a/2025e/m0_controller/WIRING_AND_SYSCONFIG.md
++++ b/2025e/m0_controller/WIRING_AND_SYSCONFIG.md
+@@ -1,24 +1,33 @@
+ # MSPM0G3507 LQFP-48 鏈€缁堝紩鑴氭柟妗? 
+-鏈〃涓?`NewProject1.syscfg` 鍙?SysConfig 鐢熸垚鐨?`Debug/ti_msp_dl_config.h` 涓€鑷淬€係ysConfig 1.24 / SDK 2.05 宸查獙璇侀€氳繃銆傞厤濂楁€昏鍥撅細[MSPM0G3507_PINOUT_SUMMARY.png](docs/MSPM0G3507_PINOUT_SUMMARY.png)銆?+`NewProject1.syscfg` 鏄‖浠朵笌澶栬閰嶇疆鐨勫敮涓€鏉冨▉鏉ユ簮锛沗Debug/ti_msp_dl_config.c` 鍜?`Debug/ti_msp_dl_config.h` 鍧囦负鐢熸垚鏂囦欢锛屼笉寰楁墜宸ョ紪杈戙€傚浐瀹氬伐鍏风増鏈负 SysConfig 1.26.2+4477 鍜屼粨搴?SDK 2.10.00.04銆傚凡瀹℃煡鐢熸垚鏄犲皠锛屼絾灏氭湭瀹屾垚鐩爣鏉跨儳褰曘€佺數姘旇繛鎺ュ拰纭欢杩愯楠岃瘉銆傛瀯寤恒€佽繍琛岄檺鍒跺拰妯″潡鎵╁睍闂ㄦ瑙?[README.md](README.md)锛岄厤濂楀紩鑴氭€昏鍥捐 [MSPM0G3507_PINOUT_SUMMARY.png](docs/MSPM0G3507_PINOUT_SUMMARY.png)銆?+
++## 绯荤粺鏃堕挓涓庡畾鏃跺櫒
++
++- CPU / SYSOSC / BUSCLK锛?2 MHz锛汬FXT 鍜?SYSPLL 鍧囩鐢ㄣ€傝 32 MHz 鏃堕挓鐢ㄤ簬 CPU銆丳WM銆乀IMG0銆乁ART銆丼PI 鍜?I2C銆?+- MFCLK锛氬浐瀹?4 MHz锛屼粎涓?TIMG12 鍚敤銆?+- TIMG0 / CONTROL_TIMER锛氫娇鐢?32 MHz BUSCLK锛屽懆鏈?2 ms锛岃杞藉€?63999锛屽懆鏈熸ā寮忥紝鍦?ZERO 浜嬩欢浜х敓涓柇锛屽搴?500 Hz 鎺у埗鑺傛媿銆傚垵濮嬪寲鍚庝繚鎸佸仠姝紝鐢?`control` 浠诲姟鍚姩銆?+- TIMG12 / ICM42688_TIMER锛氫娇鐢?MFCLK / 4锛岄鐜?1 MHz锛岃杞藉€?4294967295锛屽懆鏈熸ā寮忥紝鏃犱腑鏂笖涓嶈嚜鍔ㄥ惎鍔ㄣ€傚畠棰勭暀涓哄井绉掓椂鍩猴紝浣嗗綋鍓嶅簲鐢ㄦ棦鏈惎鍔ㄤ篃鏈鍙栬瀹氭椂鍣ㄣ€?+
++`PlatformTime_GetUs32()` 褰撳墠浠嶈繑鍥?`0`锛屽洜姝?TIMG12 灏氭湭闆嗘垚涓哄簲鐢ㄦ椂闂存埑锛涘皻鏈湪鐩爣鏉挎祴閲忓疄闄呴鐜囨垨鍛ㄦ湡銆? 
+ ## 閫氫俊鎺ュ彛
+ 
+ | 鍔熻兘 | GPIO | 鏍稿績鏉夸綅缃?| IOMUX / 澶嶇敤 | 璇存槑 |
+ |---|---|---|---|---|
+ | ICM42688_CS | PB20 | H1-8 | PINCM48 / GPIO 杈撳嚭 | 杞欢鐗囬€夛紝绌洪棽鏃朵繚鎸侀珮鐢靛钩 |
+ | SPI1_POCI / ICM42688_SDO | PA16 | H2-13 | PINCM38 / SPI1_POCI | ICM42688 浼犳劅鍣ㄨ緭鍑恒€佷富鎺ц緭鍏?|
+ | SPI1_PICO / ICM42688_SDI | PA18 | H2-11 | PINCM40 / SPI1_PICO | ICM42688 涓绘帶杈撳嚭銆佷紶鎰熷櫒杈撳叆 |
+ | SPI1_SCLK / ICM42688_SCLK | PA17 | H2-12 | PINCM39 / SPI1_SCLK | 1 MHz锛孲PI Mode 0 |
+-| I2C0_SDA | PA0 | H1-1 | PINCM1 / I2C0_SDA | 100 kHz锛汷LED 涓?MCP23017 鍏辩敤锛岀粺涓€涓婃媺鑷?3.3 V |
+-| I2C0_SCL | PA1 | H1-2 | PINCM2 / I2C0_SCL | 100 kHz锛汷LED 涓?MCP23017 鍏辩敤 |
++| I2C0_SDA | PA0 | H1-1 | PINCM1 / I2C0_SDA | 100 kHz锛汳CP23017 浣跨敤锛屽彲鍦ㄧ‖浠朵笂涓?3.3 V OLED 鍏辩敤锛汷LED 婧愮爜褰撳墠鏈摼鎺?|
++| I2C0_SCL | PA1 | H1-2 | PINCM2 / I2C0_SCL | 100 kHz锛涘叡浜澶囧繀椤讳娇鐢?3.3 V 骞堕伩鍏嶅湴鍧€鍐茬獊 |
+ | UART0_TX | PA10 | 璋冭瘯鎺掗拡 U4 | PINCM21 / UART0_TX | 宸叉帴 CH340 |
+ | UART0_RX | PA11 | 璋冭瘯鎺掗拡 U4 | PINCM22 / UART0_RX | 宸叉帴 CH340 |
+ | UART1_TX | PA8 | H1-14 | PINCM19 / UART1_TX | 115200 |
+ | UART1_RX | PA9 | H1-15 | PINCM20 / UART1_RX | 115200 |
+ | UART3_TX | PB2 | H1-12 | PINCM15 / UART3_TX | 115200 |
+ | UART3_RX | PB3 | H1-13 | PINCM16 / UART3_RX | 115200 |
+ 
+ SPI0 鏈惎鐢紝鍥犱负 PA4/PA5/PA6 涓庢牳蹇冩澘鏃堕挓缃戠粶鍏辩敤锛沀ART2 鏈惎鐢紝鍥犱负 PB15/PB16 涓庢澘杞?Flash 缃戠粶鍏辩敤銆? 
+ ### ICM42688 鎺ョ嚎涓庣墖閫?@@ -71,20 +80,22 @@ SPI1 鍦?SysConfig 涓缃负 Controller銆? bit銆丮SB first銆丮ode 0銆? MHz
+ 
+ `ENC2_A` 浠?PA14 鏀瑰埌 PA2锛岄伩寮€鏉胯浇 LED锛沗ENC4_A` 浠?PB17 鏀瑰埌 PA31锛屽洜涓?PB17 鏄澘杞?Flash 鐨勭墖閫夎剼涓旀湭鎺ュ埌 H1/H2銆? 
+ ## SPI DMA
+ 
+ | 鏂瑰悜 | 瑙﹀彂婧?| DMA 閫氶亾 |
+ |---|---|---|
+ | SPI1 RX | DMA_SPI1_RX_TRIG | DMA_CH2 |
+ | SPI1 TX | DMA_SPI1_TX_TRIG | DMA_CH3 |
+ 
++DMA CH2/CH3 鐢辩粺涓€ SPI1 浼犺緭灞傜嫭鍗犵鐞嗐€傚悓涓€ SPI1 鎬荤嚎涓婄殑鏂拌澶囧彲浠ヤ娇鐢ㄨ浼犺緭鏈嶅姟锛屼絾涓嶅緱鐙珛閲嶉厤缃€佹姠鍗犮€佸苟鍙戦┍鍔ㄨ繖浜涢€氶亾锛屼篃涓嶅緱寤虹珛鍏朵粬 DMA 鎵€鏈夎€呫€傛墍鏈夎澶囦粛蹇呴』浣跨敤鐙珛鐗囬€夛紝骞朵繚鎸?ICM42688 鐨勫畬鏁?CS 浣庣數骞充簨鍔°€?+
+ ## 璋冭瘯淇濈暀
+ 
+ | 鍔熻兘 | GPIO | 浣嶇疆 |
+ |---|---|---|
+ | SWDIO | PA19 | 璋冭瘯鎺掗拡 U4 |
+ | SWCLK | PA20 | 璋冭瘯鎺掗拡 U4 |
+ | NRST | NRST | H1-5 / 澶嶄綅鎸夐敭 |
+ 
+ ## 鐩稿鍘熷浘鐨勫繀瑕佷慨姝? 
+@@ -100,18 +111,26 @@ SPI1 鍦?SysConfig 涓缃负 Controller銆? bit銆丮SB first銆丮ode 0銆? MHz
+ | ENC2_A = PA14 | PA2 | PA14 涓庢澘杞?LED 鍏辩敤 |
+ | SPI1_CS0 = PB20 | ICM42688_CS = PB20 | ICM42688 闇€瑕佽蒋浠舵帶鍒舵暣涓瘎瀛樺櫒浜嬪姟鐨勭墖閫夋椂搴?|
+ 
+ ## 寰抗妯″潡璇存槑
+ 
+ 杩欏瀹屾暣閫氫俊銆佸洓 PWM銆佸叓缂栫爜鍣ㄦ柟妗堟病鏈夊墿浣欑殑 12 璺嫭绔?GPIO銆傚惊杩硅緭鍏ュ浐瀹氫娇鐢?MCP23017 I2C GPIO 鎵╁睍鍣紝涓嶆柊澧?MCU锛屼篃涓嶄慨鏀?SysConfig銆? 
+ | MCP23017 | 杩炴帴 |
+ |---|---|
+ | VCC / GND | 3.3 V 澶栫疆鐢垫簮 / 涓?MSPM0 鍜屼紶鎰熷櫒鍏卞湴 |
+-| SDA / SCL | PA0 / PA1锛屼笌 OLED 鍏辩敤 I2C0 |
++| SDA / SCL | PA0 / PA1锛屼娇鐢?I2C0锛涚‖浠跺彲涓?3.3 V OLED 鍏辩敤锛屼絾 OLED 褰撳墠鏈繘鍏ョ洰鏍囧浐浠?|
+ | A0 / A1 / A2 | 鍏ㄦ帴 GND锛? 浣?I2C 鍦板潃 `0x20` |
+ | RESET | 涓婃媺鑷?3.3 V |
+ | GPA0~GPA7 | 寰抗 S1~S8 |
+ | GPB0~GPB3 | 寰抗 S9~S12 |
+ | INTA / INTB | 榛樿涓嶆帴锛岃蒋浠惰疆璇㈣鍙栵紱PA23 鍙暀浣滃悗缁腑鏂緭鍏?|
+ 
+ SDA/SCL 涓婃媺鍜屾墍鏈?MCP23017 GPIO 杈撳叆蹇呴』涓?3.3 V 閫昏緫銆傝嫢寰抗妯″潡杈撳嚭 5 V锛屽繀椤诲厛鍋氱數骞宠浆鎹㈡垨鍒嗗帇锛屼笉鑳界洿鎺ユ帴 MCP23017銆?+
++## 褰撳墠楠岃瘉杈圭晫
++
++宸查獙璇侊細浣跨敤鍥哄畾宸ュ叿缁勫悎瀹屾垚鐢熸垚锛涚敓鎴愮殑 TIMG0銆乀IMG12 浠ュ強鏈枃璁板綍鐨勫叏閮ㄥ璁惧拰 GPIO 鏄犲皠宸插畬鎴愭鏌ワ紝鏄犲皠瀹℃煡鏈彂鐜伴噸鏄犲皠锛汦IDE/AC6 鍏ㄩ噺缂栬瘧鍜岄摼鎺ユ垚鍔熴€?+
++鏈獙璇侊細HEX 鐑у綍銆佺洰鏍囨澘鍚姩/澶嶄綅銆佸疄闄呮椂閽熶笌瀹氭椂鍣ㄧ簿搴︺€佸璁句笌鎺у埗鐜‖浠惰涓恒€佹帴绾裤€佺數骞炽€丒MI銆佺數婧愬畬鏁存€у拰鏈€鍧忔儏鍐垫墽琛屾椂闂淬€?+
++鏈枃鎻忚堪褰撳墠閰嶇疆涓庢帴绾胯姹傦紝涓嶆瀯鎴愮‖浠跺悎鏍奸獙璇佺殑璇佹槑銆?

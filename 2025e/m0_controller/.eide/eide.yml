@@ -65,13 +65,13 @@ targets:
             misc-controls: ""
           beforeBuildTasks:
             - name: Generate SysConfig
-              command: C:/ti/sysconfig_1.26.2/sysconfig_cli.bat
-              args: >-
-                --product "${WorkspaceRoot}/../../controller/documents/sdk/.metadata/product.json"
+              command: >-
+                C:/ti/sysconfig_1.26.2/sysconfig_cli.bat
+                --product "${ProjectRoot}/../../controller/documents/sdk/.metadata/product.json"
                 --device MSPM0G3507
                 --package "LQFP-48(PT)"
-                --script "${WorkspaceRoot}/NewProject1.syscfg"
-                --output "${WorkspaceRoot}/Debug"
+                --script "${ProjectRoot}/NewProject1.syscfg"
+                --output "${ProjectRoot}/Debug"
                 --compiler keil
               stopBuildAfterFailed: true
           c/cpp-compiler:

@@ -80,23 +80,40 @@ int main(void)
 
     printf("Testing platform timer and interrupt integration...\n");
 
+    fake_down_count = UINT32_MAX - 1000U;
+    fake_primask = 0U;
     timer_start_calls = 0U;
+    disable_irq_calls = 0U;
+    enable_irq_calls = 0U;
     PlatformTime_Init();
     assert(timer_start_calls == 1U);
-
-    fake_down_count = UINT32_MAX - 25U;
-    assert(PlatformTime_GetUs32() == 25U);
-
-    fake_down_count = UINT32_MAX - 20000U;
-    assert(PlatformTime_GetUs64() == UINT64_C(20000));
+    assert(PlatformTime_GetUs32() == 0U);
     assert(disable_irq_calls == 1U);
     assert(enable_irq_calls == 1U);
 
+    fake_down_count = UINT32_MAX - 1025U;
+    assert(PlatformTime_GetUs32() == 25U);
+
+    fake_down_count = UINT32_MAX - 20000U;
+    PlatformTime_Init();
+    assert(PlatformTime_GetUs32() == 0U);
+    fake_down_count = UINT32_MAX - 20025U;
+    assert(PlatformTime_GetUs64() == UINT64_C(25));
+    assert(disable_irq_calls == 3U);
+    assert(enable_irq_calls == 3U);
+
     fake_primask = 1U;
     fake_down_count = UINT32_MAX - 40000U;
-    assert(PlatformTime_GetUs64() == UINT64_C(40000));
+    PlatformTime_Init();
+    assert(PlatformTime_GetUs32() == 0U);
     assert(fake_primask == 1U);
-    assert(enable_irq_calls == 1U);
+    assert(enable_irq_calls == 3U);
+
+    fake_primask = 0U;
+    fake_down_count = UINT32_MAX - 0xFFFFFFF0U;
+    PlatformTime_Init();
+    fake_down_count = UINT32_MAX - 0x00000010U;
+    assert(PlatformTime_GetUs32() == 0x20U);
 
     printf("All platform_time tests PASSED\n");
     return 0;

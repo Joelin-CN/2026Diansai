@@ -76,7 +76,7 @@ static float acc_transition_factor(icm42688_acc_sample_t range)
 static float gyro_transition_factor(icm42688_gyro_sample_t range)
 {
     switch (range) {
-        case ICM42688_GYRO_SAMPLE_SGN_15_125DPS: return  15.125f / 32768.0f;
+        case ICM42688_GYRO_SAMPLE_SGN_15_625DPS: return  15.625f / 32768.0f;
         case ICM42688_GYRO_SAMPLE_SGN_31_25DPS:  return  31.25f  / 32768.0f;
         case ICM42688_GYRO_SAMPLE_SGN_62_5DPS:   return  62.5f   / 32768.0f;
         case ICM42688_GYRO_SAMPLE_SGN_125DPS:    return 125.0f   / 32768.0f;
@@ -102,7 +102,7 @@ static bool acc_fs_sel(icm42688_acc_sample_t range, uint8_t *value)
 static bool gyro_fs_sel(icm42688_gyro_sample_t range, uint8_t *value)
 {
     switch (range) {
-        case ICM42688_GYRO_SAMPLE_SGN_15_125DPS: *value = 7U; return true;
+        case ICM42688_GYRO_SAMPLE_SGN_15_625DPS: *value = 7U; return true;
         case ICM42688_GYRO_SAMPLE_SGN_31_25DPS:  *value = 6U; return true;
         case ICM42688_GYRO_SAMPLE_SGN_62_5DPS:   *value = 5U; return true;
         case ICM42688_GYRO_SAMPLE_SGN_125DPS:    *value = 4U; return true;

@@ -1,0 +1,35 @@
+# Task 3 review package
+
+## Base
+
+fb950819624530dce45727bc5dca2773f414e2d7 (working-tree review; commits prohibited)
+
+## Files changed
+
+.eide/eide.yml | 8 ++++----
+
+## Diff
+
+diff --git a/2025e/m0_controller/.eide/eide.yml b/2025e/m0_controller/.eide/eide.yml
+index 8a5b15f..95fbf43 100644
+--- a/2025e/m0_controller/.eide/eide.yml
++++ b/2025e/m0_controller/.eide/eide.yml
+@@ -65,13 +65,13 @@ targets:
+             misc-controls: ""
+           beforeBuildTasks:
+             - name: Generate SysConfig
+-              command: C:/ti/sysconfig_1.26.2/sysconfig_cli.bat
+-              args: >-
+-                --product "${WorkspaceRoot}/../../controller/documents/sdk/.metadata/product.json"
++              command: >-
++                C:/ti/sysconfig_1.26.2/sysconfig_cli.bat
++                --product "${ProjectRoot}/../../controller/documents/sdk/.metadata/product.json"
+                 --device MSPM0G3507
+                 --package "LQFP-48(PT)"
+-                --script "${WorkspaceRoot}/NewProject1.syscfg"
+-                --output "${WorkspaceRoot}/Debug"
++                --script "${ProjectRoot}/NewProject1.syscfg"
++                --output "${ProjectRoot}/Debug"
+                 --compiler keil
+               stopBuildAfterFailed: true
+           c/cpp-compiler:
