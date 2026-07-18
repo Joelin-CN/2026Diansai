@@ -1,0 +1,8 @@
+﻿task-8-todos
+[ ] Step 1: Write failing scheduler-divider tests
+[ ] Step 2: Write failing startup/fault tests
+[ ] Step 3: Implement application state and initialization
+[ ] Step 4: Implement 50 Hz pipeline
+[ ] Step 5: Handle invalid data and lap completion
+[ ] Step 6: Rewrite main.c as RTOS shell
+[ ] Step 7: Run host integration tests

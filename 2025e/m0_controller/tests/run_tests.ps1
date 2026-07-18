@@ -99,4 +99,20 @@ Invoke-TestBuild -Name "test_square_path" -Arguments @(
     "$root\modules\Sens-Decision\src\utils.c"
 )
 
+# Test: Control Application (500/50 Hz scheduler, initialization, integration)
+Invoke-TestBuild -Name "test_control_app" -Arguments @(
+    "-std=c99",
+    "-Wall",
+    "-Wextra",
+    "-Werror",
+    "-pedantic",
+    "-I$root\inc",
+    "-I$root\modules\Motion Control\inc",
+    "-I$root\modules\Sens-Decision\inc",
+    "-I$root\modules\ICM42688\inc",
+    "-I$root\modules\MCP23017\inc",
+    "$PSScriptRoot\test_control_app.c",
+    "$root\src\control_app.c"
+)
+
 Write-Host "Host tests: PASS"

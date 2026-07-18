@@ -2,41 +2,74 @@
 
 ## 概述
 
-本模块实现了基于三环串级控制的循迹小车运动控制系统，支持：
-- **外环**：横向位置PID控制（基于12路循迹传感器）
-- **中环**：角速度PI控制（基于ICM42688陀螺仪）
-- **内环**：轮速控制（前馈+反馈，基于编码器）
+本模块实现轨迹跟踪执行层，接收上层决策模块（Sens-Decision）的速度指令，通过差速运动学解算 + 前馈/反馈轮速控制，输出PWM到电机。
+
+## 新架构：决策-执行分离
+
+```
+┌──────────────────────────────────────────┐
+│  Sens-Decision（决策层）                   │
+│  传感器 → EKF → 感知 → 行为规划 → 轨迹生成  │
+│                                ↓          │
+│                    trajectory_point_t      │
+│                       {v, omega}           │
+└────────────────────┬─────────────────────┘
+                     ↓
+┌──────────────────────────────────────────┐
+│  Motion Control（执行层）                   │
+│                                           │
+│  速度指令 → 平滑 → 限幅 → 逆运动学          │
+│       ↓                                   │
+│  轮速控制（前馈+反馈）                       │
+│       ↓                                   │
+│  PWM → 电机                                │
+└──────────────────────────────────────────┘
+```
 
 ## 文件结构
 
 ```
 Motion Control/
-├── motion_config.h              # 参数配置
-├── motion_kinematics.h/c        # 差速运动学
-├── motion_feedback.h/c          # 反馈控制+状态估计
-├── motion_feedforward.h/c       # 前馈控制
-├── motion_control.h/c           # 主控制器
+├── motion_config.h              # 参数配置（调参只需改这个文件）
+├── motion_kinematics.h/c        # 差速运动学（不变）
+├── motion_feedback.h/c          # PID + 编码器状态估计（不变）
+├── motion_feedforward.h/c       # 前馈控制（不变）
+├── motion_control.h/c           # 主控制器（重构为轨迹跟踪）
 ├── example_usage.c              # 使用示例
 └── README.md                    # 本文件
 ```
 
 ## 核心特性
 
-### 1. 三环控制架构
+### 1. 职责清晰
+
+| 层 | 职责 | 频率 |
+|-----|------|------|
+| **Sens-Decision** | 传感器数据融合、感知、行为决策、轨迹规划 | 10-50Hz |
+| **Motion Control** | 轨迹跟踪（逆运动学+轮速控制） | 500Hz |
+
+Motion Control 不再直接读取循迹传感器或IMU，只接收 `(v, ω)` 速度指令。
+
+### 2. 轮速控制（前馈+反馈）
+
 ```
-循迹传感器 → 横向位置环(100Hz) → 角速度环(500Hz) → 轮速环(500Hz) → 电机
-                    ↑                    ↑                  ↑
-                    └─────────────────────┴──────────────────┘
-                           状态估计器（编码器+IMU）
+PWM = 前馈（惯性+摩擦+静摩擦）+ PI反馈（速度误差）
 ```
 
-### 2. 前馈+反馈控制
-- **前馈**：基于电机模型补偿惯性、摩擦（准电流环效果70-80%）
-- **反馈**：PID闭环修正模型误差和外部扰动
+- **前馈**：基于电机模型的预测补偿，提供70-80%的控制量
+- **反馈**：PI闭环修正模型误差和外部扰动
 
-### 3. 虚表接口设计
+### 3. 指令安全保护
+
+- **一阶低通平滑**：防止指令跳变引起冲击（时间常数可配）
+- **加速度限幅**：限制速度变化率，防止打滑
+- **角速度限幅**：保护差速机构
+
+### 4. 虚表接口设计
+
 - 解耦硬件依赖，方便测试和移植
-- 支持运行时切换接口实现
+- 编码器接口：`getCount()` / `resetCount()`
+- 电机接口：`setDifferentialPWM()` / `stop()` / `init()`
 
 ## 快速开始
 
@@ -48,174 +81,156 @@ Motion Control/
 
 ### 2. 实现硬件接口
 
-参考 `example_usage.c` 中的接口实现：
-- 循迹传感器接口
-- 编码器接口
-- IMU接口
-- 电机接口
+参考 `example_usage.c` 中的接口实现。
 
 ### 3. 初始化和使用
 
 ```c
-// 创建控制器实例
 static MotionControl_t g_motionCtrl;
 
-// 初始化
-MotionControl_Init(&g_motionCtrl, &hw_perceptionInterface, &hw_actuatorInterface);
+// 初始化（只需编码器和电机接口）
+MotionControl_Init(&g_motionCtrl, &hw_encoderInterface, &hw_motorInterface);
 
-// 配置参数
-MotionControl_SetBaseSpeed(&g_motionCtrl, 0.5f);  // 0.5 m/s
+// 设置初始速度指令
+MotionControl_SetVelocityCommand(&g_motionCtrl, 0.5f, 0.0f);
 
 // 启动控制
 MotionControl_Start(&g_motionCtrl);
 
-// 在500Hz定时器中断中调用
+// ------------------------------------------------------------------
+// 高频中断（500Hz）：执行轮速控制
+// ------------------------------------------------------------------
 void TIMER_IRQHandler(void) {
     MotionControl_Update(&g_motionCtrl);
 }
+
+// ------------------------------------------------------------------
+// 主循环（10-50Hz）：更新速度指令
+// ------------------------------------------------------------------
+trajectory_point_t traj = SensDecision_GetTrajectory();
+MotionControl_SetVelocityCommand(&g_motionCtrl, traj.v, traj.omega);
 ```
 
 ## 参数调试
 
+所有参数集中在 `motion_config.h` 中，修改后重新编译即可生效。
+
 ### 调试顺序
 
-1. **内环（轮速）**
-   - 断开外环，单独测试速度跟踪
-   - 先调Kp，再调Ki
-   - 目标：速度跟踪误差<5%
+1. **物理参数标定**
+   - 轮径、轮距按实际测量填入
 
-2. **中环（角速度）**
-   - 固定内环，断开外环
-   - 测试原地旋转响应
-   - 目标：快速无超调
+2. **前馈参数**（静摩擦 → 摩擦 → 加速度）
+   - `FF_K_STATIC`：找到刚好克服静摩擦的最小PWM值
+   - `FF_K_FRICTION`：记录不同匀速对应的稳态PWM
+   - `FF_K_ACCEL`：测试不同加速度对应的PWM需求
 
-3. **外环（横向位置）**
-   - 完整系统测试
-   - 先调Kp，再调Kd
-   - 目标：平滑循迹无摆动
+3. **速度PI反馈**
+   - 先调 `SPEED_KP` 到快速响应无振荡
+   - 再调 `SPEED_KI` 消除稳态误差
+
+4. **指令平滑**
+   - `CMD_SMOOTH_TAU`：越大越平滑但响应慢，越小越跟指但冲击大
+   - `MAX_ACCELERATION`：根据赛道抓地力设定
 
 ### 关键参数
 
-参数在 `motion_config.h` 中定义：
-
 | 参数 | 默认值 | 说明 |
 |------|--------|------|
-| `LATERAL_KP` | 0.30 | 横向位置比例增益 |
-| `LATERAL_KD` | 0.15 | 横向位置微分增益 |
-| `OMEGA_KP` | 0.80 | 角速度比例增益 |
-| `OMEGA_KI` | 0.10 | 角速度积分增益 |
+| `WHEEL_BASE` | 0.150 | 轮距 (m) |
+| `WHEEL_RADIUS` | 0.033 | 轮半径 (m) |
+| `ENCODER_PPR` | 334 | 编码器每转脉冲数 |
+| `CONTROL_FREQ_HZ` | 500 | 控制频率 (Hz) |
 | `SPEED_KP` | 200.0 | 轮速比例增益 |
 | `SPEED_KI` | 50.0 | 轮速积分增益 |
 | `FF_K_ACCEL` | 50.0 | 加速度前馈系数 |
 | `FF_K_FRICTION` | 300.0 | 摩擦前馈系数 |
 | `FF_K_STATIC` | 80.0 | 静摩擦补偿 |
+| `MAX_SPEED` | 1.00 | 最大速度 (m/s) |
+| `MAX_ACCELERATION` | 2.0 | 最大加速度 (m/s²) |
+| `MAX_OMEGA` | 6.0 | 最大角速度 (rad/s) |
+| `CMD_SMOOTH_TAU` | 0.05 | 指令平滑时间常数 (s) |
 
 ## 性能指标
 
 | 指标 | 目标值 |
 |------|--------|
-| 循迹精度 | ±1cm |
-| 速度稳定性 | ±5% |
 | 控制频率 | 500Hz |
-| CPU占用率 | <6% (MSPM0G3507 @ 32MHz) |
-| 代码量 | ~1000行 |
-| Flash占用 | ~8-10KB |
-| SRAM占用 | ~3KB |
+| CPU占用率 | <2% (MSPM0G3507 @ 32MHz) |
+| 代码量 | ~500行（精简后） |
+| Flash占用 | ~5-6KB |
+| SRAM占用 | ~2KB |
 
 ## 状态机
 
 ```
-INIT → IDLE → RUNNING ⇄ LINE_LOST
-                ↓
-           EMERGENCY
+INIT → IDLE → RUNNING → EMERGENCY
 ```
 
-- `INIT`: 初始化状态
-- `IDLE`: 空闲，电机停止
-- `RUNNING`: 正常运行
-- `LINE_LOST`: 丢线搜索（0.5秒超时后停止）
-- `EMERGENCY`: 紧急停止
+- `INIT`: 初始化状态（仅内部使用）
+- `IDLE`: 空闲，电机停止，等待指令
+- `RUNNING`: 正常运行，跟踪速度指令
+- `EMERGENCY`: 紧急停止，需手动恢复
 
 ## 常见问题
 
-### Q1: 小车左右摆动严重
-**A**: 降低 `LATERAL_KP`，增加 `LATERAL_KD`
+### Q1: 高速时车轮打滑
+**A**: 增加 `CMD_SMOOTH_TAU` 降低指令变化率，或降低 `MAX_ACCELERATION`
 
-### Q2: 转弯响应慢
-**A**: 增加 `OMEGA_KP`，检查IMU是否正常工作
+### Q2: 速度跟踪有稳态误差
+**A**: 增大 `SPEED_KI`
 
-### Q3: 速度不稳定
-**A**: 检查编码器连接，调整 `SPEED_KP` 和 `SPEED_KI`
+### Q3: 低速时抖动
+**A**: 调整 `FF_K_STATIC` 确保能克服静摩擦，适当降低 `SPEED_KP`
 
-### Q4: 高速时冲出轨道
-**A**: 降低 `BASE_SPEED`，或增加 `LATERAL_KD`
+### Q4: 响应慢
+**A**: 减小 `CMD_SMOOTH_TAU`，增大 `SPEED_KP`，检查前馈参数
 
-### Q5: 低速时抖动
-**A**: 调整 `FF_K_STATIC`，确保能克服静摩擦
+### Q5: 指令跳变引起冲击
+**A**: 增大 `CMD_SMOOTH_TAU`，确保加速度限幅生效
 
-## 物理参数标定
+## 从旧版（三环控制）迁移
 
-### 轮径标定
-```c
-// 推车直线10米，记录编码器脉冲数
-float wheel_radius = 10.0f / (total_pulses / ENCODER_PPR) / (2 * 3.14159f);
-```
+### 删除的功能
 
-### 轮距标定
-```c
-// 原地旋转360度，记录左右轮脉冲差
-float wheel_base = (left_pulses - right_pulses) * wheel_radius / (2 * 3.14159f);
-```
+| 功能 | 原因 |
+|------|------|
+| 横向位置PID（外环） | 由 Sens-Decision 感知层替代 |
+| 角速度PI（中环） | 由 Sens-Decision 轨迹生成替代 |
+| 循迹传感器接口 | 不再直接读取 |
+| IMU接口 | 不再直接读取 |
+| 丢线处理 | 由 Sens-Decision 行为规划处理 |
+| LineSensorInterface_t | 删除 |
+| ImuInterface_t | 删除 |
+| PerceptionInterface_t | 删除（简化为 EncoderInterface_t + MotorInterface_t） |
+| ActuatorInterface_t | 删除（电机接口直接内嵌） |
 
-## 扩展功能
+### 新增的功能
 
-### 1. 自适应速度规划
-根据路径曲率动态调整速度：
-```c
-// 在外环控制中添加
-float curvature = estimate_curvature(lateral_error);
-ctrl->base_speed = adaptive_speed(curvature);
-```
+| 功能 | 说明 |
+|------|------|
+| VelocityCommand_t | 速度指令结构 (v, ω) |
+| 指令平滑 | 一阶低通滤波 |
+| 加速度限幅 | 保护不打滑 |
+| 角速度限幅 | 保护差速机构 |
+| MotionControl_SetVelocityCommand() | 接收上层指令 |
+| MotionControl_GetTargetWheelSpeed() | 查询目标轮速 |
 
-### 2. 电池电压补偿
-```c
-// 在前馈中添加
-float voltage_comp = 12.0f / Battery_GetVoltage();
-pwm_ff *= voltage_comp;
-```
+### 复用的模块
 
-### 3. 卡尔曼滤波
-融合编码器和IMU进行更精确的状态估计。
-
-## 调试工具
-
-### 性能监控
-```c
-uint32_t loop_count, max_exec_time;
-MotionControl_GetPerformance(&ctrl, &loop_count, &max_exec_time);
-printf("Loop: %lu, Max time: %lu us\n", loop_count, max_exec_time);
-```
-
-### 实时数据
-```c
-int16_t error = MotionControl_GetLateralError(&ctrl);
-float v_left, v_right;
-MotionControl_GetWheelSpeed(&ctrl, &v_left, &v_right);
-printf("Error: %d, V_L: %.2f, V_R: %.2f\n", error, v_left, v_right);
-```
+| 模块 | 状态 |
+|------|------|
+| motion_feedback.h/c (PID + 状态估计器) | 完全复用 |
+| motion_feedforward.h/c (前馈控制) | 完全复用 |
+| motion_kinematics.h/c (差速运动学) | 完全复用 |
 
 ## 参考文档
 
 - [运动控制层设计文档](../../docs/superpowers/specs/2026-07-14-motion-control-design.md)
-- [小车底盘控制系统完整设计框架](./小车底盘控制系统完整设计框架.md)
-- [运动控制层架构详解](./运动控制层架构详解.md)
 
 ## 作者与维护
 
 - **开发日期**: 2026-07-14
+- **重构日期**: 2026-07-17
 - **芯片平台**: TI MSPM0G3507
-- **应用场景**: 电赛循迹小车
-
-## 许可证
-
-本模块为电赛项目内部代码，仅供学习和比赛使用。
+- **应用场景**: 电赛循迹小车（与 Sens-Decision 配合使用）

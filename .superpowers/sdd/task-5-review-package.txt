@@ -1,0 +1,955 @@
+﻿d31d0a6 Add encoder, motor, and sensor adapters (Task 5)
+
+--- STAT ---
+
+ 2025e/m0_controller/inc/encoder.h                |  18 ++
+ 2025e/m0_controller/inc/encoder_adapter.h        |  29 ++
+ 2025e/m0_controller/inc/encoder_hw_bridge.h      |  37 +++
+ 2025e/m0_controller/inc/motor_adapter.h          |  29 ++
+ 2025e/m0_controller/inc/sensor_adapter.h         |  29 ++
+ 2025e/m0_controller/src/encoder.c                |  89 ++++++
+ 2025e/m0_controller/src/encoder_adapter.c        |  75 +++++
+ 2025e/m0_controller/src/encoder_hw_bridge.c      |  40 +++
+ 2025e/m0_controller/src/motor_adapter.c          |  29 ++
+ 2025e/m0_controller/src/sensor_adapter.c         | 109 +++++++
+ 2025e/m0_controller/tests/run_tests.ps1          |  19 ++
+ 2025e/m0_controller/tests/test_target_adapters.c | 350 +++++++++++++++++++++++
+ 12 files changed, 853 insertions(+)
+
+--- DIFF ---
+
+diff --git a/2025e/m0_controller/inc/encoder.h b/2025e/m0_controller/inc/encoder.h
+new file mode 100644
+index 0000000..59cb221
+--- /dev/null
++++ b/2025e/m0_controller/inc/encoder.h
+@@ -0,0 +1,18 @@
++#ifndef ENCODER_H_
++#define ENCODER_H_
++
++#include <stdint.h>
++
++typedef enum {
++    ENCODER_M1 = 0,
++    ENCODER_M2,
++    ENCODER_M3,
++    ENCODER_M4,
++    ENCODER_ID_COUNT
++} Encoder_Id;
++
++void Encoder_Init(void);
++int32_t Encoder_GetCount(Encoder_Id encoder);
++void Encoder_ResetCount(Encoder_Id encoder);
++
++#endif /* ENCODER_H_ */
+diff --git a/2025e/m0_controller/inc/encoder_adapter.h b/2025e/m0_controller/inc/encoder_adapter.h
+new file mode 100644
+index 0000000..5a31364
+--- /dev/null
++++ b/2025e/m0_controller/inc/encoder_adapter.h
+@@ -0,0 +1,29 @@
++/**
++ * @file encoder_adapter.h
++ * @brief Encoder adapter for Motion Control module
++ * @date 2026-07-18
++ * 
++ * Provides the EncoderInterface_t vtable that bridges Motion Control's
++ * logical encoder IDs to the physical hardware encoder IDs.
++ */
++
++#ifndef ENCODER_ADAPTER_H
++#define ENCODER_ADAPTER_H
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++#include "../modules/Motion Control/inc/motion_feedback.h"
++
++/**
++ * @brief Get the encoder interface for Motion Control
++ * @return Pointer to static EncoderInterface_t instance
++ */
++EncoderInterface_t *EncoderAdapter_GetInterface(void);
++
++#ifdef __cplusplus
++}
++#endif
++
++#endif /* ENCODER_ADAPTER_H */
+diff --git a/2025e/m0_controller/inc/encoder_hw_bridge.h b/2025e/m0_controller/inc/encoder_hw_bridge.h
+new file mode 100644
+index 0000000..1b0faf1
+--- /dev/null
++++ b/2025e/m0_controller/inc/encoder_hw_bridge.h
+@@ -0,0 +1,37 @@
++/**
++ * @file encoder_hw_bridge.h
++ * @brief Hardware bridge for encoder - isolates low-level driver dependencies
++ * @date 2026-07-18
++ * 
++ * This bridge provides a clean interface to encoder hardware without exposing
++ * the low-level driver headers (encoder.h). It uses only stdint types.
++ */
++
++#ifndef ENCODER_HW_BRIDGE_H
++#define ENCODER_HW_BRIDGE_H
++
++#include <stdint.h>
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++/**
++ * @brief Get encoder count for a physical encoder ID
++ * @param physical_id Physical encoder identifier (0-3)
++ * @return Encoder count, or 0 if physical_id is out of range
++ */
++int32_t EncoderHwBridge_GetCount(uint8_t physical_id);
++
++/**
++ * @brief Reset encoder count for a physical encoder ID
++ * @param physical_id Physical encoder identifier (0-3)
++ * @note This function is ISR-safe (uses critical section)
++ */
++void EncoderHwBridge_ResetCount(uint8_t physical_id);
++
++#ifdef __cplusplus
++}
++#endif
++
++#endif /* ENCODER_HW_BRIDGE_H */
+diff --git a/2025e/m0_controller/inc/motor_adapter.h b/2025e/m0_controller/inc/motor_adapter.h
+new file mode 100644
+index 0000000..3bf54f3
+--- /dev/null
++++ b/2025e/m0_controller/inc/motor_adapter.h
+@@ -0,0 +1,29 @@
++/**
++ * @file motor_adapter.h
++ * @brief Motor adapter for Motion Control module
++ * @date 2026-07-18
++ * 
++ * Provides the MotorInterface_t vtable that bridges Motion Control's
++ * differential PWM commands to the hardware motor driver.
++ */
++
++#ifndef MOTOR_ADAPTER_H
++#define MOTOR_ADAPTER_H
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++#include "../modules/Motion Control/inc/motion_control.h"
++
++/**
++ * @brief Get the motor interface for Motion Control
++ * @return Pointer to static MotorInterface_t instance
++ */
++MotorInterface_t *MotorAdapter_GetInterface(void);
++
++#ifdef __cplusplus
++}
++#endif
++
++#endif /* MOTOR_ADAPTER_H */
+diff --git a/2025e/m0_controller/inc/sensor_adapter.h b/2025e/m0_controller/inc/sensor_adapter.h
+new file mode 100644
+index 0000000..d74d5ae
+--- /dev/null
++++ b/2025e/m0_controller/inc/sensor_adapter.h
+@@ -0,0 +1,29 @@
++/**
++ * @file sensor_adapter.h
++ * @brief Sensor HAL adapter for Sens-Decision module
++ * @date 2026-07-18
++ * 
++ * Provides the sensor_hal_t interface that bridges Sens-Decision to the
++ * low-level hardware drivers (encoders, ICM42688, MCP23017).
++ */
++
++#ifndef SENSOR_ADAPTER_H
++#define SENSOR_ADAPTER_H
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++#include "../modules/Sens-Decision/inc/interface.h"
++
++/**
++ * @brief Get the sensor HAL interface for Sens-Decision
++ * @return Pointer to static sensor_hal_t instance
++ */
++const sensor_hal_t *SensorAdapter_GetHal(void);
++
++#ifdef __cplusplus
++}
++#endif
++
++#endif /* SENSOR_ADAPTER_H */
+diff --git a/2025e/m0_controller/src/encoder.c b/2025e/m0_controller/src/encoder.c
+new file mode 100644
+index 0000000..bc74037
+--- /dev/null
++++ b/2025e/m0_controller/src/encoder.c
+@@ -0,0 +1,89 @@
++#include "encoder.h"
++
++#include "ti_msp_dl_config.h"
++
++static volatile int32_t g_encoderCount[ENCODER_ID_COUNT];
++static uint8_t g_encoderState[ENCODER_ID_COUNT];
++
++static const int8_t g_quadratureDelta[16] = {
++    0, 1, -1, 0, -1, 0, 0, 1, 1, 0, 0, -1, 0, -1, 1, 0,
++};
++
++static uint8_t Encoder_ReadState(Encoder_Id encoder)
++{
++    uint32_t pinsA;
++    uint32_t pinsB;
++
++    switch (encoder) {
++        case ENCODER_M1:
++            pinsA = DL_GPIO_readPins(GPIOA, ENCODER_ENC1_A_PIN);
++            pinsB = DL_GPIO_readPins(GPIOA, ENCODER_ENC1_B_PIN);
++            break;
++        case ENCODER_M2:
++            pinsA = DL_GPIO_readPins(GPIOA, ENCODER_ENC2_A_PIN);
++            pinsB = DL_GPIO_readPins(GPIOA, ENCODER_ENC2_B_PIN);
++            break;
++        case ENCODER_M3:
++            pinsA = DL_GPIO_readPins(GPIOA, ENCODER_ENC3_A_PIN);
++            pinsB = DL_GPIO_readPins(GPIOA, ENCODER_ENC3_B_PIN);
++            break;
++        case ENCODER_M4:
++            pinsA = DL_GPIO_readPins(GPIOA, ENCODER_ENC4_A_PIN);
++            pinsB = DL_GPIO_readPins(GPIOB, ENCODER_ENC4_B_PIN);
++            break;
++        default:
++            return 0U;
++    }
++    return ((pinsA != 0U) ? 2U : 0U) | ((pinsB != 0U) ? 1U : 0U);
++}
++
++static void Encoder_Process(Encoder_Id encoder)
++{
++    const uint8_t current = Encoder_ReadState(encoder);
++    g_encoderCount[encoder] += g_quadratureDelta[(g_encoderState[encoder] << 2U) | current];
++    g_encoderState[encoder] = current;
++}
++
++void Encoder_Init(void)
++{
++    uint8_t encoder;
++    for (encoder = 0U; encoder < (uint8_t)ENCODER_ID_COUNT; encoder++) {
++        g_encoderCount[encoder] = 0;
++        g_encoderState[encoder] = Encoder_ReadState((Encoder_Id)encoder);
++    }
++    NVIC_EnableIRQ(ENCODER_GPIOA_INT_IRQN);
++    NVIC_EnableIRQ(ENCODER_GPIOB_INT_IRQN);
++}
++
++int32_t Encoder_GetCount(Encoder_Id encoder)
++{
++    return ((uint8_t)encoder < (uint8_t)ENCODER_ID_COUNT) ? g_encoderCount[encoder] : 0;
++}
++
++void Encoder_ResetCount(Encoder_Id encoder)
++{
++    if ((uint8_t)encoder < (uint8_t)ENCODER_ID_COUNT) {
++        g_encoderCount[encoder] = 0;
++        g_encoderState[encoder] = Encoder_ReadState(encoder);
++    }
++}
++
++void GPIOA_IRQHandler(void)
++{
++    const uint32_t pins = ENCODER_ENC1_A_PIN | ENCODER_ENC1_B_PIN |
++                          ENCODER_ENC2_A_PIN | ENCODER_ENC2_B_PIN |
++                          ENCODER_ENC3_A_PIN | ENCODER_ENC3_B_PIN | ENCODER_ENC4_A_PIN;
++    const uint32_t status = DL_GPIO_getEnabledInterruptStatus(GPIOA, pins);
++    DL_GPIO_clearInterruptStatus(GPIOA, status);
++    if ((status & (ENCODER_ENC1_A_PIN | ENCODER_ENC1_B_PIN)) != 0U) Encoder_Process(ENCODER_M1);
++    if ((status & (ENCODER_ENC2_A_PIN | ENCODER_ENC2_B_PIN)) != 0U) Encoder_Process(ENCODER_M2);
++    if ((status & (ENCODER_ENC3_A_PIN | ENCODER_ENC3_B_PIN)) != 0U) Encoder_Process(ENCODER_M3);
++    if ((status & ENCODER_ENC4_A_PIN) != 0U) Encoder_Process(ENCODER_M4);
++}
++
++void GPIOB_IRQHandler(void)
++{
++    const uint32_t status = DL_GPIO_getEnabledInterruptStatus(GPIOB, ENCODER_ENC4_B_PIN);
++    DL_GPIO_clearInterruptStatus(GPIOB, status);
++    if ((status & ENCODER_ENC4_B_PIN) != 0U) Encoder_Process(ENCODER_M4);
++}
+diff --git a/2025e/m0_controller/src/encoder_adapter.c b/2025e/m0_controller/src/encoder_adapter.c
+new file mode 100644
+index 0000000..4bb4dcd
+--- /dev/null
++++ b/2025e/m0_controller/src/encoder_adapter.c
+@@ -0,0 +1,75 @@
++/**
++ * @file encoder_adapter.c
++ * @brief Encoder adapter for Motion Control - implementation
++ * @date 2026-07-18
++ */
++
++#include "encoder_adapter.h"
++#include "encoder_hw_bridge.h"
++
++/**
++ * @brief Physical encoder mapping:
++ * - ENCODER_LEFT_FRONT  (0) -> M1 (physical 0)
++ * - ENCODER_LEFT_REAR   (1) -> M2 (physical 1)
++ * - ENCODER_RIGHT_FRONT (2) -> M3 (physical 2)
++ * - ENCODER_RIGHT_REAR  (3) -> M4 (physical 3)
++ */
++
++static int32_t EncoderAdapter_GetCount(EncoderId_t id)
++{
++    uint8_t physical_id;
++    
++    switch (id) {
++        case ENCODER_LEFT_FRONT:
++            physical_id = 0; /* M1 */
++            break;
++        case ENCODER_LEFT_REAR:
++            physical_id = 1; /* M2 */
++            break;
++        case ENCODER_RIGHT_FRONT:
++            physical_id = 2; /* M3 */
++            break;
++        case ENCODER_RIGHT_REAR:
++            physical_id = 3; /* M4 */
++            break;
++        default:
++            return 0;
++    }
++    
++    return EncoderHwBridge_GetCount(physical_id);
++}
++
++static void EncoderAdapter_ResetCount(EncoderId_t id)
++{
++    uint8_t physical_id;
++    
++    switch (id) {
++        case ENCODER_LEFT_FRONT:
++            physical_id = 0; /* M1 */
++            break;
++        case ENCODER_LEFT_REAR:
++            physical_id = 1; /* M2 */
++            break;
++        case ENCODER_RIGHT_FRONT:
++            physical_id = 2; /* M3 */
++            break;
++        case ENCODER_RIGHT_REAR:
++            physical_id = 3; /* M4 */
++            break;
++        default:
++            return;
++    }
++    
++    EncoderHwBridge_ResetCount(physical_id);
++}
++
++/* Static interface instance - module-owned, non-const for Motion Control */
++static EncoderInterface_t g_encoder_interface = {
++    .getCount = EncoderAdapter_GetCount,
++    .resetCount = EncoderAdapter_ResetCount
++};
++
++EncoderInterface_t *EncoderAdapter_GetInterface(void)
++{
++    return &g_encoder_interface;
++}
+diff --git a/2025e/m0_controller/src/encoder_hw_bridge.c b/2025e/m0_controller/src/encoder_hw_bridge.c
+new file mode 100644
+index 0000000..a41e8cf
+--- /dev/null
++++ b/2025e/m0_controller/src/encoder_hw_bridge.c
+@@ -0,0 +1,40 @@
++/**
++ * @file encoder_hw_bridge.c
++ * @brief Hardware bridge for encoder - implementation
++ * @date 2026-07-18
++ */
++
++#include "encoder_hw_bridge.h"
++#include "encoder.h"
++
++/* Platform-specific interrupt control for critical sections */
++#if defined(_MSC_VER) || defined(__MINGW32__) || defined(__MINGW64__)
++/* Host test build - no actual interrupts */
++#define ENTER_CRITICAL_SECTION() do {} while(0)
++#define EXIT_CRITICAL_SECTION() do {} while(0)
++#else
++/* Target build - disable interrupts during reset */
++#include "ti_msp_dl_config.h"
++#define ENTER_CRITICAL_SECTION() __disable_irq()
++#define EXIT_CRITICAL_SECTION() __enable_irq()
++#endif
++
++int32_t EncoderHwBridge_GetCount(uint8_t physical_id)
++{
++    if (physical_id >= ENCODER_ID_COUNT) {
++        return 0;
++    }
++    return Encoder_GetCount((Encoder_Id)physical_id);
++}
++
++void EncoderHwBridge_ResetCount(uint8_t physical_id)
++{
++    if (physical_id >= ENCODER_ID_COUNT) {
++        return;
++    }
++    
++    /* Critical section to protect against GPIO ISR races */
++    ENTER_CRITICAL_SECTION();
++    Encoder_ResetCount((Encoder_Id)physical_id);
++    EXIT_CRITICAL_SECTION();
++}
+diff --git a/2025e/m0_controller/src/motor_adapter.c b/2025e/m0_controller/src/motor_adapter.c
+new file mode 100644
+index 0000000..0855a93
+--- /dev/null
++++ b/2025e/m0_controller/src/motor_adapter.c
+@@ -0,0 +1,29 @@
++/**
++ * @file motor_adapter.c
++ * @brief Motor adapter for Motion Control - implementation
++ * @date 2026-07-18
++ */
++
++#include "motor_adapter.h"
++#include "motor.h"
++
++/**
++ * @brief Motor mapping:
++ * - Left side: M1, M2
++ * - Right side: M3, M4
++ * 
++ * Motor_SetSpeed(left, right) already handles this fan-out internally,
++ * so we can directly forward the differential PWM commands.
++ */
++
++/* Static interface instance */
++static MotorInterface_t g_motor_interface = {
++    .setDifferentialPWM = Motor_SetSpeed,
++    .stop = Motor_Stop,
++    .init = Motor_Init
++};
++
++MotorInterface_t *MotorAdapter_GetInterface(void)
++{
++    return &g_motor_interface;
++}
+diff --git a/2025e/m0_controller/src/sensor_adapter.c b/2025e/m0_controller/src/sensor_adapter.c
+new file mode 100644
+index 0000000..a5c1b42
+--- /dev/null
++++ b/2025e/m0_controller/src/sensor_adapter.c
+@@ -0,0 +1,109 @@
++/**
++ * @file sensor_adapter.c
++ * @brief Sensor HAL adapter for Sens-Decision - implementation
++ * @date 2026-07-18
++ */
++
++#include "sensor_adapter.h"
++#include "encoder_hw_bridge.h"
++#include "../modules/ICM42688/inc/icm42688_hal.h"
++#include "../modules/MCP23017/inc/mcp23017.h"
++
++/**
++ * @brief Read encoder count via HAL
++ * @param index Encoder index (0-3)
++ * @param count Output pointer for encoder count
++ * @return SD_OK on success, SD_ERR_INVALID_ARGUMENT if invalid
++ */
++static sd_status_t ReadEncoder(uint8_t index, int32_t *count)
++{
++    if (count == NULL || index >= 4) {
++        return SD_ERR_INVALID_ARGUMENT;
++    }
++    
++    *count = EncoderHwBridge_GetCount(index);
++    return SD_OK;
++}
++
++/**
++ * @brief Read IMU raw data
++ * @param data Output pointer for IMU raw data
++ * @return SD_OK on success, SD_ERR_READ on failure, SD_ERR_INVALID_ARGUMENT if NULL
++ * 
++ * @note Only copies raw LSB values (temperature_raw, acc_raw, gyro_raw).
++ *       Does NOT copy converted values (acc_g, gyro_dps).
++ */
++static sd_status_t ReadImu(imu_raw_data_t *data)
++{
++    if (data == NULL) {
++        return SD_ERR_INVALID_ARGUMENT;
++    }
++    
++    icm42688_data_t icm_data;
++    icm42688_status_t status = icm42688_read(&icm_data);
++    
++    if (status != ICM42688_STATUS_OK) {
++        return SD_ERR_READ;
++    }
++    
++    /* Copy only raw LSB data */
++    data->accel[0] = icm_data.acc_raw.x;
++    data->accel[1] = icm_data.acc_raw.y;
++    data->accel[2] = icm_data.acc_raw.z;
++    data->gyro[0] = icm_data.gyro_raw.x;
++    data->gyro[1] = icm_data.gyro_raw.y;
++    data->gyro[2] = icm_data.gyro_raw.z;
++    data->temperature = icm_data.temperature_raw;
++    
++    return SD_OK;
++}
++
++/**
++ * @brief Read IR sensor mask
++ * @param active_mask Output pointer for 12-bit IR mask
++ * @return SD_OK on success, error codes on failure
++ * 
++ * @note Converts MCP23017 status codes:
++ *       - MCP23017_STATUS_OK -> SD_OK
++ *       - MCP23017_STATUS_TIMEOUT -> SD_ERR_TIMEOUT
++ *       - Other failures -> SD_ERR_READ
++ *       Masks result to 12 bits (0x0FFF).
++ */
++static sd_status_t ReadIr(uint16_t *active_mask)
++{
++    if (active_mask == NULL) {
++        return SD_ERR_INVALID_ARGUMENT;
++    }
++    
++    uint16_t raw_inputs;
++    mcp23017_status_t status = MCP23017_ReadInputs(&raw_inputs);
++    
++    switch (status) {
++        case MCP23017_STATUS_OK:
++            /* Mask to 12 bits for IR channels */
++            *active_mask = raw_inputs & 0x0FFF;
++            return SD_OK;
++            
++        case MCP23017_STATUS_TIMEOUT:
++            return SD_ERR_TIMEOUT;
++            
++        case MCP23017_STATUS_INVALID_ARGUMENT:
++            return SD_ERR_INVALID_ARGUMENT;
++            
++        case MCP23017_STATUS_IO_ERROR:
++        default:
++            return SD_ERR_READ;
++    }
++}
++
++/* Static HAL instance */
++static const sensor_hal_t g_sensor_hal = {
++    .read_encoder_count = ReadEncoder,
++    .read_imu_raw = ReadImu,
++    .read_ir_mask = ReadIr
++};
++
++const sensor_hal_t *SensorAdapter_GetHal(void)
++{
++    return &g_sensor_hal;
++}
+diff --git a/2025e/m0_controller/tests/run_tests.ps1 b/2025e/m0_controller/tests/run_tests.ps1
+index 66b5b4c..2b15e91 100644
+--- a/2025e/m0_controller/tests/run_tests.ps1
++++ b/2025e/m0_controller/tests/run_tests.ps1
+@@ -58,11 +58,30 @@ Invoke-TestBuild -Name "test_motion_control" -Arguments @(
+     "-Werror",
+     "-pedantic",
+     "-I$root\modules\Motion Control\inc",
+     "$PSScriptRoot\test_motion_control.c",
+     "$root\modules\Motion Control\src\motion_control.c",
+     "$root\modules\Motion Control\src\motion_feedback.c",
+     "$root\modules\Motion Control\src\motion_feedforward.c",
+     "$root\modules\Motion Control\src\motion_kinematics.c"
+ )
+ 
++# Test: Target Adapters (encoder, motor, sensor)
++Invoke-TestBuild -Name "test_target_adapters" -Arguments @(
++    "-std=c99",
++    "-Wall",
++    "-Wextra",
++    "-Werror",
++    "-pedantic",
++    "-I$root\inc",
++    "-I$root\modules\Motion Control\inc",
++    "-I$root\modules\Sens-Decision\inc",
++    "-I$root\modules\ICM42688\inc",
++    "-I$root\modules\MCP23017\inc",
++    "$PSScriptRoot\test_target_adapters.c",
++    "$root\src\encoder_hw_bridge.c",
++    "$root\src\encoder_adapter.c",
++    "$root\src\motor_adapter.c",
++    "$root\src\sensor_adapter.c"
++)
++
+ Write-Host "Host tests: PASS"
+diff --git a/2025e/m0_controller/tests/test_target_adapters.c b/2025e/m0_controller/tests/test_target_adapters.c
+new file mode 100644
+index 0000000..db3ddd6
+--- /dev/null
++++ b/2025e/m0_controller/tests/test_target_adapters.c
+@@ -0,0 +1,350 @@
++/**
++ * @file test_target_adapters.c
++ * @brief Target adapter tests: encoder, motor, and sensor HAL
++ * @date 2026-07-18
++ */
++
++#include <assert.h>
++#include <stdint.h>
++#include <stdbool.h>
++#include <string.h>
++#include <stdio.h>
++
++/* Motion Control interfaces */
++#include "../modules/Motion Control/inc/motion_feedback.h"
++#include "../modules/Motion Control/inc/motion_control.h"
++
++/* Sens-Decision interfaces */
++#include "../modules/Sens-Decision/inc/interface.h"
++#include "../modules/Sens-Decision/inc/config.h"
++
++/* Adapter headers (to be created) */
++#include "../inc/encoder_adapter.h"
++#include "../inc/motor_adapter.h"
++#include "../inc/sensor_adapter.h"
++
++/* ============================================================================
++ * Fake hardware state for testing
++ * ============================================================================ */
++
++static int32_t g_fake_encoder_count[4] = {0};
++static int16_t g_fake_motor_speeds[4] = {0};
++static bool g_fake_motor_stopped = false;
++static bool g_fake_motor_initialized = false;
++
++/* ICM42688 fake data */
++static int16_t g_fake_icm_accel[3] = {100, 200, 300};
++static int16_t g_fake_icm_gyro[3] = {10, 20, 30};
++static int16_t g_fake_icm_temperature = 2500;
++static bool g_fake_icm_fail = false;
++
++/* MCP23017 fake data */
++static uint16_t g_fake_mcp_inputs = 0x0FFF;
++static int g_fake_mcp_status = 0; /* 0=OK, 1=TIMEOUT, 2=IO_ERROR */
++
++/* ============================================================================
++ * Fake low-level driver implementations
++ * ============================================================================ */
++
++#include "../inc/encoder.h"
++#include "../inc/motor.h"
++#include "../modules/ICM42688/inc/icm42688_hal.h"
++#include "../modules/MCP23017/inc/mcp23017.h"
++
++/* Override encoder functions */
++int32_t Encoder_GetCount(Encoder_Id encoder) {
++    if ((uint8_t)encoder < 4) {
++        return g_fake_encoder_count[encoder];
++    }
++    return 0;
++}
++
++void Encoder_ResetCount(Encoder_Id encoder) {
++    if ((uint8_t)encoder < 4) {
++        g_fake_encoder_count[encoder] = 0;
++    }
++}
++
++/* Override motor functions */
++void Motor_Init(void) {
++    g_fake_motor_initialized = true;
++}
++
++void Motor_SetSpeed(int16_t leftSpeed, int16_t rightSpeed) {
++    g_fake_motor_speeds[0] = leftSpeed;
++    g_fake_motor_speeds[1] = leftSpeed;
++    g_fake_motor_speeds[2] = rightSpeed;
++    g_fake_motor_speeds[3] = rightSpeed;
++}
++
++void Motor_Stop(void) {
++    g_fake_motor_stopped = true;
++    memset(g_fake_motor_speeds, 0, sizeof(g_fake_motor_speeds));
++}
++
++/* Override ICM42688 function */
++icm42688_status_t icm42688_read(icm42688_data_t *data) {
++    if (g_fake_icm_fail || data == NULL) {
++        return ICM42688_STATUS_NOT_READY;
++    }
++    data->temperature_raw = g_fake_icm_temperature;
++    data->acc_raw.x = g_fake_icm_accel[0];
++    data->acc_raw.y = g_fake_icm_accel[1];
++    data->acc_raw.z = g_fake_icm_accel[2];
++    data->gyro_raw.x = g_fake_icm_gyro[0];
++    data->gyro_raw.y = g_fake_icm_gyro[1];
++    data->gyro_raw.z = g_fake_icm_gyro[2];
++    /* acc_g and gyro_dps are not used by sensor_adapter */
++    return ICM42688_STATUS_OK;
++}
++
++/* Override MCP23017 function */
++mcp23017_status_t MCP23017_ReadInputs(uint16_t *inputs) {
++    if (inputs == NULL) {
++        return MCP23017_STATUS_INVALID_ARGUMENT;
++    }
++    if (g_fake_mcp_status == 1) {
++        return MCP23017_STATUS_TIMEOUT;
++    }
++    if (g_fake_mcp_status == 2) {
++        return MCP23017_STATUS_IO_ERROR;
++    }
++    *inputs = g_fake_mcp_inputs;
++    return MCP23017_STATUS_OK;
++}
++
++/* ============================================================================
++ * Test: Encoder Adapter Mapping
++ * ============================================================================ */
++
++static void test_encoder_adapter_mapping(void) {
++    printf("TEST: Encoder adapter logical-to-physical mapping\n");
++    
++    /* Setup fake encoder counts */
++    g_fake_encoder_count[0] = 1000;  /* M1 = LEFT_FRONT */
++    g_fake_encoder_count[1] = 2000;  /* M2 = LEFT_REAR */
++    g_fake_encoder_count[2] = 3000;  /* M3 = RIGHT_FRONT */
++    g_fake_encoder_count[3] = 4000;  /* M4 = RIGHT_REAR */
++    
++    EncoderInterface_t *encoder = EncoderAdapter_GetInterface();
++    assert(encoder != NULL);
++    assert(encoder->getCount != NULL);
++    assert(encoder->resetCount != NULL);
++    
++    /* Verify explicit mappings */
++    assert(encoder->getCount(ENCODER_LEFT_FRONT) == 1000);
++    assert(encoder->getCount(ENCODER_LEFT_REAR) == 2000);
++    assert(encoder->getCount(ENCODER_RIGHT_FRONT) == 3000);
++    assert(encoder->getCount(ENCODER_RIGHT_REAR) == 4000);
++    
++    /* Test reset */
++    encoder->resetCount(ENCODER_LEFT_FRONT);
++    assert(g_fake_encoder_count[0] == 0);
++    assert(encoder->getCount(ENCODER_LEFT_FRONT) == 0);
++    
++    printf("  PASS: All four encoder mappings verified\n");
++}
++
++/* ============================================================================
++ * Test: Motor Adapter Differential Fan-out
++ * ============================================================================ */
++
++static void test_motor_adapter_fanout(void) {
++    printf("TEST: Motor adapter differential PWM fan-out\n");
++    
++    memset(g_fake_motor_speeds, 0, sizeof(g_fake_motor_speeds));
++    g_fake_motor_stopped = false;
++    g_fake_motor_initialized = false;
++    
++    MotorInterface_t *motor = MotorAdapter_GetInterface();
++    assert(motor != NULL);
++    assert(motor->setDifferentialPWM != NULL);
++    assert(motor->stop != NULL);
++    assert(motor->init != NULL);
++    
++    /* Test initialization */
++    motor->init();
++    assert(g_fake_motor_initialized == true);
++    
++    /* Test differential PWM: left=321, right=-456 */
++    motor->setDifferentialPWM(321, -456);
++    assert(g_fake_motor_speeds[0] == 321);  /* M1 left */
++    assert(g_fake_motor_speeds[1] == 321);  /* M2 left */
++    assert(g_fake_motor_speeds[2] == -456); /* M3 right */
++    assert(g_fake_motor_speeds[3] == -456); /* M4 right */
++    
++    /* Test stop */
++    motor->stop();
++    assert(g_fake_motor_stopped == true);
++    
++    printf("  PASS: Motor fan-out (M1/M2=left, M3/M4=right) verified\n");
++}
++
++/* ============================================================================
++ * Test: Sensor HAL - IMU Raw Data Passthrough
++ * ============================================================================ */
++
++static void test_sensor_hal_imu_raw(void) {
++    printf("TEST: Sensor HAL IMU raw data passthrough\n");
++    
++    g_fake_icm_accel[0] = 123;
++    g_fake_icm_accel[1] = 456;
++    g_fake_icm_accel[2] = 789;
++    g_fake_icm_gyro[0] = -100;
++    g_fake_icm_gyro[1] = -200;
++    g_fake_icm_gyro[2] = -300;
++    g_fake_icm_temperature = 3210;
++    g_fake_icm_fail = false;
++    
++    const sensor_hal_t *hal = SensorAdapter_GetHal();
++    assert(hal != NULL);
++    assert(hal->read_imu_raw != NULL);
++    
++    imu_raw_data_t imu;
++    sd_status_t status = hal->read_imu_raw(&imu);
++    
++    assert(status == SD_OK);
++    assert(imu.accel[0] == 123);
++    assert(imu.accel[1] == 456);
++    assert(imu.accel[2] == 789);
++    assert(imu.gyro[0] == -100);
++    assert(imu.gyro[1] == -200);
++    assert(imu.gyro[2] == -300);
++    assert(imu.temperature == 3210);
++    
++    printf("  PASS: IMU raw LSB values preserved\n");
++}
++
++/* ============================================================================
++ * Test: Sensor HAL - IMU Failure Propagation
++ * ============================================================================ */
++
++static void test_sensor_hal_imu_failure(void) {
++    printf("TEST: Sensor HAL IMU failure propagation\n");
++    
++    g_fake_icm_fail = true;
++    
++    const sensor_hal_t *hal = SensorAdapter_GetHal();
++    imu_raw_data_t imu;
++    sd_status_t status = hal->read_imu_raw(&imu);
++    
++    assert(status == SD_ERR_READ);
++    
++    /* Test NULL argument */
++    status = hal->read_imu_raw(NULL);
++    assert(status == SD_ERR_INVALID_ARGUMENT);
++    
++    g_fake_icm_fail = false;
++    printf("  PASS: IMU failure propagated as SD_ERR_READ\n");
++}
++
++/* ============================================================================
++ * Test: Sensor HAL - IR Mask with Active Polarity
++ * ============================================================================ */
++
++static void test_sensor_hal_ir_polarity(void) {
++    printf("TEST: Sensor HAL IR mask with active polarity\n");
++    
++    g_fake_mcp_inputs = 0x0ABC;  /* 12-bit value */
++    g_fake_mcp_status = 0;
++    
++    const sensor_hal_t *hal = SensorAdapter_GetHal();
++    assert(hal != NULL);
++    assert(hal->read_ir_mask != NULL);
++    
++    uint16_t mask;
++    sd_status_t status = hal->read_ir_mask(&mask);
++    
++    assert(status == SD_OK);
++    /* Mask should be limited to 12 bits */
++    assert(mask == 0x0ABC);
++    
++    printf("  PASS: IR mask masked to 12 bits\n");
++}
++
++/* ============================================================================
++ * Test: Sensor HAL - IR Failure Propagation
++ * ============================================================================ */
++
++static void test_sensor_hal_ir_failure(void) {
++    printf("TEST: Sensor HAL IR failure propagation\n");
++    
++    const sensor_hal_t *hal = SensorAdapter_GetHal();
++    uint16_t mask;
++    
++    /* Test timeout */
++    g_fake_mcp_status = 1;
++    sd_status_t status = hal->read_ir_mask(&mask);
++    assert(status == SD_ERR_TIMEOUT);
++    
++    /* Test IO error */
++    g_fake_mcp_status = 2;
++    status = hal->read_ir_mask(&mask);
++    assert(status == SD_ERR_READ);
++    
++    /* Test NULL argument */
++    g_fake_mcp_status = 0;
++    status = hal->read_ir_mask(NULL);
++    assert(status == SD_ERR_INVALID_ARGUMENT);
++    
++    printf("  PASS: IR failures propagated correctly\n");
++}
++
++/* ============================================================================
++ * Test: Sensor HAL - Encoder via HAL
++ * ============================================================================ */
++
++static void test_sensor_hal_encoder(void) {
++    printf("TEST: Sensor HAL encoder reading\n");
++    
++    g_fake_encoder_count[0] = 100;
++    g_fake_encoder_count[1] = 200;
++    g_fake_encoder_count[2] = 300;
++    g_fake_encoder_count[3] = 400;
++    
++    const sensor_hal_t *hal = SensorAdapter_GetHal();
++    assert(hal != NULL);
++    assert(hal->read_encoder_count != NULL);
++    
++    int32_t count;
++    
++    /* Test valid indices */
++    assert(hal->read_encoder_count(0, &count) == SD_OK);
++    assert(count == 100);
++    
++    assert(hal->read_encoder_count(1, &count) == SD_OK);
++    assert(count == 200);
++    
++    assert(hal->read_encoder_count(2, &count) == SD_OK);
++    assert(count == 300);
++    
++    assert(hal->read_encoder_count(3, &count) == SD_OK);
++    assert(count == 400);
++    
++    /* Test invalid index */
++    assert(hal->read_encoder_count(4, &count) == SD_ERR_INVALID_ARGUMENT);
++    
++    /* Test NULL argument */
++    assert(hal->read_encoder_count(0, NULL) == SD_ERR_INVALID_ARGUMENT);
++    
++    printf("  PASS: Encoder HAL validated\n");
++}
++
++/* ============================================================================
++ * Main Test Runner
++ * ============================================================================ */
++
++int main(void) {
++    printf("=== Target Adapter Tests ===\n\n");
++    
++    test_encoder_adapter_mapping();
++    test_motor_adapter_fanout();
++    test_sensor_hal_imu_raw();
++    test_sensor_hal_imu_failure();
++    test_sensor_hal_ir_polarity();
++    test_sensor_hal_ir_failure();
++    test_sensor_hal_encoder();
++    
++    printf("\n=== All Tests PASSED ===\n");
++    return 0;
++}

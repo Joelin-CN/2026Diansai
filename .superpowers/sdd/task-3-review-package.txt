@@ -1,0 +1,411 @@
+﻿ee59097 Add MCP23017 status returns with timeout and error handling
+
+--- STAT ---
+
+ .../m0_controller/modules/MCP23017/inc/mcp23017.h  |  15 ++-
+ .../m0_controller/modules/MCP23017/src/mcp23017.c  |  49 +++++---
+ 2025e/m0_controller/src/line_sensor.c              |  39 ++++++
+ 2025e/m0_controller/tests/fakes/ti_msp_dl_config.h |  43 +++++++
+ 2025e/m0_controller/tests/run_tests.ps1            |  10 ++
+ 2025e/m0_controller/tests/test_mcp23017.c          | 135 +++++++++++++++++++++
+ 6 files changed, 273 insertions(+), 18 deletions(-)
+
+--- DIFF ---
+
+diff --git a/2025e/m0_controller/modules/MCP23017/inc/mcp23017.h b/2025e/m0_controller/modules/MCP23017/inc/mcp23017.h
+index 076b9e7..7b537da 100644
+--- a/2025e/m0_controller/modules/MCP23017/inc/mcp23017.h
++++ b/2025e/m0_controller/modules/MCP23017/inc/mcp23017.h
+@@ -1,12 +1,23 @@
+ #ifndef MCP23017_H_
+ #define MCP23017_H_
+ 
+ #include <stdbool.h>
+ #include <stdint.h>
+ 
+ #define MCP23017_I2C_ADDRESS (0x20U)
+ 
+-bool MCP23017_Init(void);
+-bool MCP23017_ReadInputs(uint16_t *inputs);
++typedef enum {
++    MCP23017_STATUS_OK = 0,
++    MCP23017_STATUS_INVALID_ARGUMENT,
++    MCP23017_STATUS_TIMEOUT,
++    MCP23017_STATUS_IO_ERROR
++} mcp23017_status_t;
++
++mcp23017_status_t MCP23017_Init(void);
++mcp23017_status_t MCP23017_ReadInputs(uint16_t *inputs);
++
++/* Legacy compatibility - deprecated */
++bool MCP23017_Init_Legacy(void);
++bool MCP23017_ReadInputs_Legacy(uint16_t *inputs);
+ 
+ #endif
+diff --git a/2025e/m0_controller/modules/MCP23017/src/mcp23017.c b/2025e/m0_controller/modules/MCP23017/src/mcp23017.c
+index b52b46f..8408d04 100644
+--- a/2025e/m0_controller/modules/MCP23017/src/mcp23017.c
++++ b/2025e/m0_controller/modules/MCP23017/src/mcp23017.c
+@@ -2,68 +2,85 @@
+ 
+ #include "ti_msp_dl_config.h"
+ 
+ #define MCP23017_REG_IODIRA (0x00U)
+ #define MCP23017_REG_IODIRB (0x01U)
+ #define MCP23017_REG_GPIOA  (0x12U)
+ #define MCP23017_I2C_TIMEOUT (100000U)
+ #define MCP23017_I2C_ERRORS \
+     (DL_I2C_INTERRUPT_CONTROLLER_NACK | DL_I2C_INTERRUPT_CONTROLLER_ARBITRATION_LOST)
+ 
+-static bool MCP23017_WaitFor(uint32_t completeMask)
++static mcp23017_status_t MCP23017_WaitFor(uint32_t completeMask)
+ {
+     uint32_t timeout = MCP23017_I2C_TIMEOUT;
+     while (timeout-- != 0U) {
+         const uint32_t flags = DL_I2C_getRawInterruptStatus(I2C0_INST, completeMask | MCP23017_I2C_ERRORS);
+         if ((flags & MCP23017_I2C_ERRORS) != 0U) {
+             DL_I2C_clearInterruptStatus(I2C0_INST, flags & MCP23017_I2C_ERRORS);
+-            return false;
++            return MCP23017_STATUS_IO_ERROR;
+         }
+         if ((flags & completeMask) != 0U) {
+             DL_I2C_clearInterruptStatus(I2C0_INST, flags & completeMask);
+-            return true;
++            return MCP23017_STATUS_OK;
+         }
+     }
+-    return false;
++    return MCP23017_STATUS_TIMEOUT;
+ }
+ 
+-static bool MCP23017_Write(const uint8_t *data, uint16_t length)
++static mcp23017_status_t MCP23017_Write(const uint8_t *data, uint16_t length)
+ {
+     const uint32_t clearMask = DL_I2C_INTERRUPT_CONTROLLER_TX_DONE | MCP23017_I2C_ERRORS;
+     DL_I2C_clearInterruptStatus(I2C0_INST, clearMask);
+-    if (DL_I2C_fillControllerTXFIFO(I2C0_INST, data, length) != length) return false;
++    if (DL_I2C_fillControllerTXFIFO(I2C0_INST, data, length) != length) {
++        return MCP23017_STATUS_IO_ERROR;
++    }
+     DL_I2C_startControllerTransfer(I2C0_INST, MCP23017_I2C_ADDRESS,
+                                    DL_I2C_CONTROLLER_DIRECTION_TX, length);
+     return MCP23017_WaitFor(DL_I2C_INTERRUPT_CONTROLLER_TX_DONE);
+ }
+ 
+-static bool MCP23017_SetRegister(uint8_t reg, uint8_t value)
++static mcp23017_status_t MCP23017_SetRegister(uint8_t reg, uint8_t value)
+ {
+     const uint8_t data[2] = {reg, value};
+     return MCP23017_Write(data, sizeof(data));
+ }
+ 
+-bool MCP23017_Init(void)
++mcp23017_status_t MCP23017_Init(void)
+ {
+-    return MCP23017_SetRegister(MCP23017_REG_IODIRA, 0xFFU) &&
+-           MCP23017_SetRegister(MCP23017_REG_IODIRB, 0xFFU);
++    mcp23017_status_t status;
++    
++    status = MCP23017_SetRegister(MCP23017_REG_IODIRA, 0xFFU);
++    if (status != MCP23017_STATUS_OK) return status;
++    
++    status = MCP23017_SetRegister(MCP23017_REG_IODIRB, 0xFFU);
++    return status;
+ }
+ 
+-bool MCP23017_ReadInputs(uint16_t *inputs)
++mcp23017_status_t MCP23017_ReadInputs(uint16_t *inputs)
+ {
+     const uint8_t reg = MCP23017_REG_GPIOA;
+     const uint32_t clearMask = DL_I2C_INTERRUPT_CONTROLLER_RX_DONE | MCP23017_I2C_ERRORS;
++    mcp23017_status_t status;
+     uint8_t portA;
+     uint8_t portB;
+ 
+-    if (inputs == 0 || !MCP23017_Write(&reg, 1U)) return false;
++    if (inputs == NULL) return MCP23017_STATUS_INVALID_ARGUMENT;
++    
++    status = MCP23017_Write(&reg, 1U);
++    if (status != MCP23017_STATUS_OK) return status;
++    
+     DL_I2C_clearInterruptStatus(I2C0_INST, clearMask);
+     DL_I2C_startControllerTransfer(I2C0_INST, MCP23017_I2C_ADDRESS,
+                                    DL_I2C_CONTROLLER_DIRECTION_RX, 2U);
+-    if (!MCP23017_WaitFor(DL_I2C_INTERRUPT_CONTROLLER_RX_DONE)) return false;
+-    if (DL_I2C_isControllerRXFIFOEmpty(I2C0_INST)) return false;
++    
++    status = MCP23017_WaitFor(DL_I2C_INTERRUPT_CONTROLLER_RX_DONE);
++    if (status != MCP23017_STATUS_OK) return status;
++    
++    if (DL_I2C_isControllerRXFIFOEmpty(I2C0_INST)) return MCP23017_STATUS_IO_ERROR;
+     portA = DL_I2C_receiveControllerData(I2C0_INST);
+-    if (DL_I2C_isControllerRXFIFOEmpty(I2C0_INST)) return false;
++    
++    if (DL_I2C_isControllerRXFIFOEmpty(I2C0_INST)) return MCP23017_STATUS_IO_ERROR;
+     portB = DL_I2C_receiveControllerData(I2C0_INST);
++    
+     *inputs = (uint16_t)portA | ((uint16_t)portB << 8U);
+-    return true;
++    return MCP23017_STATUS_OK;
+ }
+diff --git a/2025e/m0_controller/src/line_sensor.c b/2025e/m0_controller/src/line_sensor.c
+new file mode 100644
+index 0000000..ff51111
+--- /dev/null
++++ b/2025e/m0_controller/src/line_sensor.c
+@@ -0,0 +1,39 @@
++#include "line_sensor.h"
++
++#include "mcp23017.h"
++
++uint16_t LineSensor_ReadMask(void)
++{
++    uint16_t mask;
++
++    if (MCP23017_ReadInputs(&mask) != MCP23017_STATUS_OK) return 0U;
++#if LINE_SENSOR_ACTIVE_HIGH
++    return mask & LINE_SENSOR_USED_MASK;
++#else
++    return (~mask) & LINE_SENSOR_USED_MASK;
++#endif
++}
++
++bool LineSensor_GetError(uint16_t mask, int16_t *error)
++{
++    static const int16_t weights[LINE_SENSOR_COUNT] = {
++        -1100, -900, -700, -500, -300, -100, 100, 300, 500, 700, 900, 1100,
++    };
++    int32_t sum = 0;
++    uint8_t activeCount = 0U;
++    uint8_t i;
++
++    mask &= LINE_SENSOR_USED_MASK;
++    for (i = 0U; i < LINE_SENSOR_COUNT; i++) {
++        if ((mask & (1U << i)) != 0U) {
++            sum += weights[i];
++            activeCount++;
++        }
++    }
++
++    if (activeCount == 0U) return false;
++
++    *error = (int16_t)(sum / activeCount);
++    return true;
++}
++
+diff --git a/2025e/m0_controller/tests/fakes/ti_msp_dl_config.h b/2025e/m0_controller/tests/fakes/ti_msp_dl_config.h
+new file mode 100644
+index 0000000..636022c
+--- /dev/null
++++ b/2025e/m0_controller/tests/fakes/ti_msp_dl_config.h
+@@ -0,0 +1,43 @@
++#ifndef TI_MSP_DL_CONFIG_H_
++#define TI_MSP_DL_CONFIG_H_
++
++#include <stdbool.h>
++#include <stdint.h>
++
++/* Fake I2C peripheral instance */
++#define I2C0_INST ((void *)0)
++
++/* I2C interrupt flags */
++#define DL_I2C_INTERRUPT_CONTROLLER_TX_DONE         (1U << 0)
++#define DL_I2C_INTERRUPT_CONTROLLER_RX_DONE         (1U << 1)
++#define DL_I2C_INTERRUPT_CONTROLLER_NACK            (1U << 2)
++#define DL_I2C_INTERRUPT_CONTROLLER_ARBITRATION_LOST (1U << 3)
++
++/* I2C transfer direction */
++typedef enum {
++    DL_I2C_CONTROLLER_DIRECTION_TX,
++    DL_I2C_CONTROLLER_DIRECTION_RX
++} DL_I2C_CONTROLLER_DIRECTION;
++
++/* Fake I2C state for test control */
++typedef enum {
++    FAKE_I2C_STATE_NORMAL,
++    FAKE_I2C_STATE_TX_BUSY_FOREVER,
++    FAKE_I2C_STATE_NACK
++} fake_i2c_state_t;
++
++extern fake_i2c_state_t g_fake_i2c_state;
++extern uint32_t g_fake_i2c_timeout_counter;
++extern uint8_t g_fake_i2c_rx_data[2];
++
++void fake_i2c_reset(void);
++
++/* Fake I2C DriverLib API */
++uint32_t DL_I2C_getRawInterruptStatus(void *i2c, uint32_t mask);
++void DL_I2C_clearInterruptStatus(void *i2c, uint32_t mask);
++uint32_t DL_I2C_fillControllerTXFIFO(void *i2c, const uint8_t *data, uint32_t length);
++void DL_I2C_startControllerTransfer(void *i2c, uint32_t target, DL_I2C_CONTROLLER_DIRECTION dir, uint32_t length);
++bool DL_I2C_isControllerRXFIFOEmpty(void *i2c);
++uint8_t DL_I2C_receiveControllerData(void *i2c);
++
++#endif
+diff --git a/2025e/m0_controller/tests/run_tests.ps1 b/2025e/m0_controller/tests/run_tests.ps1
+index f01cb1b..5feff50 100644
+--- a/2025e/m0_controller/tests/run_tests.ps1
++++ b/2025e/m0_controller/tests/run_tests.ps1
+@@ -33,11 +33,21 @@ Invoke-TestBuild -Name "test_platform_time" -Arguments @(
+ # Test: ICM42688 HAL (temperature + accel + gyro)
+ Invoke-TestBuild -Name "test_icm42688" -Arguments @(
+     "-std=c99",
+     "-Wall",
+     "-Wextra",
+     "-I$root\modules\ICM42688\inc",
+     "$PSScriptRoot\test_icm42688.c",
+     "$root\modules\ICM42688\src\icm42688_hal.c"
+ )
+ 
++# Test: MCP23017 driver with fake I2C
++Invoke-TestBuild -Name "test_mcp23017" -Arguments @(
++    "-std=c99",
++    "-Wall",
++    "-Wextra",
++    "-I$root\modules\MCP23017\inc",
++    "-I$PSScriptRoot\fakes",
++    "$PSScriptRoot\test_mcp23017.c"
++)
++
+ Write-Host "Host tests: PASS"
+diff --git a/2025e/m0_controller/tests/test_mcp23017.c b/2025e/m0_controller/tests/test_mcp23017.c
+new file mode 100644
+index 0000000..6858c9d
+--- /dev/null
++++ b/2025e/m0_controller/tests/test_mcp23017.c
+@@ -0,0 +1,135 @@
++#include <assert.h>
++#include <stddef.h>
++#include <stdint.h>
++#include <stdio.h>
++#include "ti_msp_dl_config.h"
++
++/* Fake I2C state management - definitions */
++fake_i2c_state_t g_fake_i2c_state = FAKE_I2C_STATE_NORMAL;
++uint32_t g_fake_i2c_timeout_counter = 0;
++uint8_t g_fake_i2c_rx_data[2] = {0x55, 0x0A}; /* Default: 0x0A55 */
++
++void fake_i2c_reset(void)
++{
++    g_fake_i2c_state = FAKE_I2C_STATE_NORMAL;
++    g_fake_i2c_timeout_counter = 0;
++    g_fake_i2c_rx_data[0] = 0x55;
++    g_fake_i2c_rx_data[1] = 0x0A;
++}
++
++/* Fake I2C DriverLib implementation */
++
++static uint32_t s_pending_flags = 0;
++static uint8_t s_rx_index = 0;
++
++uint32_t DL_I2C_getRawInterruptStatus(void *i2c, uint32_t mask)
++{
++    (void)i2c;
++    
++    if (g_fake_i2c_state == FAKE_I2C_STATE_TX_BUSY_FOREVER) {
++        g_fake_i2c_timeout_counter++;
++        return 0;
++    }
++    
++    if (g_fake_i2c_state == FAKE_I2C_STATE_NACK) {
++        return DL_I2C_INTERRUPT_CONTROLLER_NACK & mask;
++    }
++    
++    return s_pending_flags & mask;
++}
++
++void DL_I2C_clearInterruptStatus(void *i2c, uint32_t mask)
++{
++    (void)i2c;
++    s_pending_flags &= ~mask;
++}
++
++uint32_t DL_I2C_fillControllerTXFIFO(void *i2c, const uint8_t *data, uint32_t length)
++{
++    (void)i2c;
++    (void)data;
++    return length;
++}
++
++void DL_I2C_startControllerTransfer(void *i2c, uint32_t target, DL_I2C_CONTROLLER_DIRECTION dir, uint32_t length)
++{
++    (void)i2c;
++    (void)target;
++    (void)length;
++    
++    if (dir == DL_I2C_CONTROLLER_DIRECTION_TX) {
++        s_pending_flags = DL_I2C_INTERRUPT_CONTROLLER_TX_DONE;
++    } else {
++        s_pending_flags = DL_I2C_INTERRUPT_CONTROLLER_RX_DONE;
++        s_rx_index = 0;
++    }
++}
++
++bool DL_I2C_isControllerRXFIFOEmpty(void *i2c)
++{
++    (void)i2c;
++    return s_rx_index >= 2;
++}
++
++uint8_t DL_I2C_receiveControllerData(void *i2c)
++{
++    (void)i2c;
++    if (s_rx_index < 2) {
++        return g_fake_i2c_rx_data[s_rx_index++];
++    }
++    return 0;
++}
++
++/* Include MCP23017 implementation */
++#include "../modules/MCP23017/src/mcp23017.c"
++
++/* Test helpers */
++static void test_invalid_argument(void)
++{
++    fake_i2c_reset();
++    assert(MCP23017_ReadInputs(NULL) == MCP23017_STATUS_INVALID_ARGUMENT);
++    printf("PASS: test_invalid_argument\n");
++}
++
++static void test_normal_operation(void)
++{
++    uint16_t mask = 0;
++    fake_i2c_reset();
++    
++    assert(MCP23017_Init() == MCP23017_STATUS_OK);
++    assert(MCP23017_ReadInputs(&mask) == MCP23017_STATUS_OK);
++    assert(mask == UINT16_C(0x0A55));
++    printf("PASS: test_normal_operation\n");
++}
++
++static void test_timeout(void)
++{
++    uint16_t mask = 0;
++    fake_i2c_reset();
++    g_fake_i2c_state = FAKE_I2C_STATE_TX_BUSY_FOREVER;
++    
++    assert(MCP23017_Init() == MCP23017_STATUS_TIMEOUT);
++    assert(g_fake_i2c_timeout_counter > 0);
++    printf("PASS: test_timeout\n");
++}
++
++static void test_nack(void)
++{
++    uint16_t mask = 0;
++    fake_i2c_reset();
++    g_fake_i2c_state = FAKE_I2C_STATE_NACK;
++    
++    assert(MCP23017_Init() == MCP23017_STATUS_IO_ERROR);
++    printf("PASS: test_nack\n");
++}
++
++int main(void)
++{
++    test_invalid_argument();
++    test_normal_operation();
++    test_timeout();
++    test_nack();
++    
++    printf("All MCP23017 tests passed!\n");
++    return 0;
++}

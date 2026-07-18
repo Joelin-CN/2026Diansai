@@ -18,6 +18,7 @@
 - `src/task/`：基础与发挥部分任务编排。
 - `tests/`：按源码层级组织的单元测试。
 - `docs/`：题目资料、设计文档与交接记录。
+- `m0_controller`: 主控m0的代码存放
 
 实时测试入口是 `scripts/test/test_pi_camera_live.py`，当前直接处理原始摄像头画面，
 不执行整帧去畸变。

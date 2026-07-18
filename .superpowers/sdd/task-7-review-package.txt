@@ -1,0 +1,706 @@
+﻿da734bb Task 7: Restore EIDE/SysConfig project definition
+
+--- STAT ---
+
+ 2025e/m0_controller/.eide/eide.yml                 | 220 +++++++++++++++++++++
+ 2025e/m0_controller/.eide/files.options.yml        |  21 ++
+ 2025e/m0_controller/.gitignore                     |  15 ++
+ 2025e/m0_controller/.vscode/launch.json            |  38 ++++
+ 2025e/m0_controller/.vscode/openocd_mspm0g3507.cfg |  11 ++
+ 2025e/m0_controller/.vscode/settings.json          |  52 +++++
+ 2025e/m0_controller/.vscode/tasks.json             |  82 ++++++++
+ 2025e/m0_controller/NewProject1.syscfg             | 203 +++++++++++++++++++
+ 8 files changed, 642 insertions(+)
+
+--- DIFF ---
+
+diff --git a/2025e/m0_controller/.eide/eide.yml b/2025e/m0_controller/.eide/eide.yml
+new file mode 100644
+index 0000000..8a5b15f
+--- /dev/null
++++ b/2025e/m0_controller/.eide/eide.yml
+@@ -0,0 +1,220 @@
++version: "4.1"
++name: NewProject1
++type: ARM
++deviceName: MSPM0G3507
++packDir: .pack/TexasInstruments/MSPM0G_DFP.1.2.1
++srcDirs:
++  - src
++  - Debug
++  - modules/MCP23017/src
++  - modules/ICM42688/src
++  - modules/Motion Control/src
++  - modules/Sens-Decision/src
++virtualFolder:
++  name: <virtual_root>
++  files:
++    - path: RTE_Components.h
++    - path: ../../controller/documents/sdk/source/ti/devices/msp/m0p/startup_system_files/keil/startup_mspm0g350x_uvision.s
++    - path: ../../controller/documents/sdk/source/ti/driverlib/lib/keil/m0p/mspm0g1x0x_g3x0x/driverlib.a
++    - path: ../../controller/documents/sdk/kernel/freertos/Source/tasks.c
++    - path: ../../controller/documents/sdk/kernel/freertos/Source/list.c
++    - path: ../../controller/documents/sdk/kernel/freertos/Source/queue.c
++    - path: ../../controller/documents/sdk/kernel/freertos/Source/portable/GCC/ARM_CM0/port.c
++    - path: ../../controller/documents/sdk/kernel/freertos/Source/portable/GCC/ARM_CM0/portasm.c
++    - path: ../../controller/documents/sdk/kernel/freertos/Source/portable/MemMang/heap_4.c
++  folders: []
++dependenceList: []
++outDir: build
++miscInfo:
++  uid: 976a898e783e1ced75b883a03a986be7
++targets:
++  Debug:
++    cppPreprocessAttrs:
++      defineList:
++        - __MSPM0G3507__
++      incList:
++        - .
++        - inc
++        - Debug
++        - modules/MCP23017/inc
++        - modules/ICM42688/inc
++        - modules/Motion Control/inc
++        - modules/Sens-Decision/inc
++        - ../../controller/documents/sdk/source
++        - ../../controller/documents/sdk/source/third_party/CMSIS/Core/Include
++        - ../../controller/documents/sdk/kernel/freertos/Source/include
++        - ../../controller/documents/sdk/kernel/freertos/Source/portable/GCC/ARM_CM0
++      libList: []
++    excludeList:
++      - "**/example_usage.c"
++      - "**/temp/**"
++      - "**/OLED*"
++    settings:
++      debugger: cortex-debug
++    toolchain: AC6
++    toolchainConfigMap:
++      AC6:
++        archExtensions: ""
++        cpuType: Cortex-M0+
++        floatingPointHardware: none
++        options:
++          version: 3
++          afterBuildTasks: []
++          asm-compiler:
++            $use: asm-auto
++            misc-controls: ""
++          beforeBuildTasks:
++            - name: Generate SysConfig
++              command: C:/ti/sysconfig_1.26.2/sysconfig_cli.bat
++              args: >-
++                --product "${WorkspaceRoot}/../../controller/documents/sdk/.metadata/product.json"
++                --device MSPM0G3507
++                --package "LQFP-48(PT)"
++                --script "${WorkspaceRoot}/NewProject1.syscfg"
++                --output "${WorkspaceRoot}/Debug"
++                --compiler keil
++              stopBuildAfterFailed: true
++          c/cpp-compiler:
++            C_FLAGS:
++              - -fshort-enums
++              - -fshort-wchar
++            language-c: c99
++            language-cpp: c++11
++            link-time-optimization: false
++            optimization: level-image-size
++          global:
++            output-debug-info: enable
++            use-microLIB: true
++          linker:
++            $outputTaskExcludes:
++              - .bin
++            misc-controls: --diag_suppress=L6329
++            output-format: elf
++        scatterFilePath: mspm0g3507.sct
++        storageLayout:
++          RAM:
++            - id: 1
++              isChecked: false
++              mem:
++                size: "0x8000"
++                startAddr: "0x20200000"
++              noInit: false
++              tag: RAM
++            - id: 2
++              isChecked: false
++              mem:
++                size: "0x8000"
++                startAddr: "0x20300000"
++              noInit: false
++              tag: RAM
++            - id: 3
++              isChecked: false
++              mem:
++                size: "0x0"
++                startAddr: "0x0"
++              noInit: false
++              tag: RAM
++            - id: 1
++              isChecked: true
++              mem:
++                size: "0x8000"
++                startAddr: "0x20000000"
++              noInit: false
++              tag: IRAM
++            - id: 2
++              isChecked: false
++              mem:
++                size: "0x8000"
++                startAddr: "0x20100000"
++              noInit: false
++              tag: IRAM
++          ROM:
++            - id: 1
++              isChecked: false
++              isStartup: false
++              mem:
++                size: "0x0"
++                startAddr: "0x0"
++              tag: ROM
++            - id: 2
++              isChecked: false
++              isStartup: false
++              mem:
++                size: "0x0"
++                startAddr: "0x0"
++              tag: ROM
++            - id: 3
++              isChecked: false
++              isStartup: false
++              mem:
++                size: "0x0"
++                startAddr: "0x0"
++              tag: ROM
++            - id: 1
++              isChecked: true
++              isStartup: true
++              mem:
++                size: "0x20000"
++                startAddr: "0x0"
++              tag: IROM
++            - id: 2
++              isChecked: false
++              isStartup: false
++              mem:
++                size: "0x20000"
++                startAddr: "0x400000"
++              tag: IROM
++        useCustomScatterFile: false
++      GCC:
++        archExtensions: ""
++        cpuType: Cortex-M0+
++        floatingPointHardware: none
++        options:
++          version: 5
++          afterBuildTasks: []
++          asm-compiler:
++            ASM_FLAGS: ""
++          beforeBuildTasks: []
++          c/cpp-compiler:
++            CXX_FLAGS: ""
++            C_FLAGS: ""
++            language-c: c11
++            language-cpp: c++11
++            one-elf-section-per-data: true
++            one-elf-section-per-function: true
++            optimization: level-debug
++            warnings: all-warnings
++          global:
++            $float-abi-type: hard
++            misc-control: ""
++            not-use-syscalls: true
++            output-debug-info: enable
++            use-newlib-nano: true
++          linker:
++            $outputTaskExcludes:
++              - .bin
++            LD_FLAGS: ""
++            LIB_FLAGS: -lm
++            output-format: elf
++            remove-unused-input-sections: true
++        scatterFilePath: <YOUR_LINKER_SCRIPT>.lds
++        storageLayout:
++          RAM: []
++          ROM: []
++        useCustomScatterFile: true
++    uploadConfigMap:
++      JLink:
++        baseAddr: ""
++        bin: ""
++        cpuInfo:
++          cpuName: "null"
++          vendor: "null"
++        otherCmds: ""
++        proType: 1
++        speed: 8000
++      OpenOCD:
++        baseAddr: "0x00000000"
++        bin: ""
++        interface: cmsis-dap
++        target: ti_mspm0
++    uploader: OpenOCD
+diff --git a/2025e/m0_controller/.eide/files.options.yml b/2025e/m0_controller/.eide/files.options.yml
+new file mode 100644
+index 0000000..db35553
+--- /dev/null
++++ b/2025e/m0_controller/.eide/files.options.yml
+@@ -0,0 +1,21 @@
++##########################################################################################
++#                        Append Compiler Options For Source Files
++##########################################################################################
++
++# syntax:
++#   <your pattern>: <compiler options>
++# For get pattern syntax, please refer to: https://www.npmjs.com/package/micromatch
++#
++# examples:
++#   'main.cpp':           --cpp11 -Og ...
++#   'src/*.c':            -gnu -O2 ...
++#   'src/lib/**/*.cpp':   --cpp11 -Os ...
++#   '!Application/*.c':   -O0
++#   '**/*.c':             -O2 -gnu ...
++
++version: "2.1"
++options:
++    Debug:
++        files:
++            "**/*.c": -fshort-enums -fshort-wchar
++        virtualPathFiles: {}
+diff --git a/2025e/m0_controller/.gitignore b/2025e/m0_controller/.gitignore
+new file mode 100644
+index 0000000..0d8950e
+--- /dev/null
++++ b/2025e/m0_controller/.gitignore
+@@ -0,0 +1,15 @@
++# dot files
++/.settings
++
++# Keep .vscode/ and .eide/ tracked for reproducible builds
++# Build artifacts in Debug/ will be excluded by SysConfig generation patterns
++
++# project out
++/build
++/bin
++/obj
++/out
++
++# eide template
++*.ept
++*.eide-template
+diff --git a/2025e/m0_controller/.vscode/launch.json b/2025e/m0_controller/.vscode/launch.json
+new file mode 100644
+index 0000000..c0a4d15
+--- /dev/null
++++ b/2025e/m0_controller/.vscode/launch.json
+@@ -0,0 +1,38 @@
++{
++  "version": "0.2.0",
++  "configurations": [
++    {
++      "name": "MSPM0G3507 Debug",
++      "type": "cppdbg",
++      "request": "launch",
++      "preLaunchTask": "build",
++      "program": "${workspaceFolder}/build/Debug/NewProject1.axf",
++      "cwd": "${workspaceFolder}",
++      "MIMode": "gdb",
++      "miDebuggerPath": "arm-none-eabi-gdb.exe",
++      "miDebuggerServerAddress": "localhost:50000",
++      "debugServerPath": "openocd.exe",
++      "debugServerArgs": "-c \"gdb_port 50000\" -c \"tcl_port 50001\" -c \"telnet_port 50002\" -s \"${workspaceFolder}\" -f \"${workspaceFolder}/.vscode/openocd_mspm0g3507.cfg\"",
++      "serverStarted": "Listening on port 50000 for gdb connections",
++      "serverLaunchTimeout": 20000,
++      "filterStdout": true,
++      "filterStderr": true,
++      "stopAtEntry": false,
++      "launchCompleteCommand": "None",
++      "setupCommands": [
++        {
++          "text": "set mem inaccessible-by-default off",
++          "ignoreFailures": true
++        },
++        {
++          "text": "monitor reset halt",
++          "ignoreFailures": true
++        },
++        {
++          "text": "break main",
++          "ignoreFailures": true
++        }
++      ]
++    }
++  ]
++}
+diff --git a/2025e/m0_controller/.vscode/openocd_mspm0g3507.cfg b/2025e/m0_controller/.vscode/openocd_mspm0g3507.cfg
+new file mode 100644
+index 0000000..8158434
+--- /dev/null
++++ b/2025e/m0_controller/.vscode/openocd_mspm0g3507.cfg
+@@ -0,0 +1,11 @@
++adapter speed 50
++
++source [find interface/cmsis-dap.cfg]
++
++transport select swd
++
++set DAP_SWD_ID 0x6ba02477
++
++reset_config srst_only srst_nogate
++
++source [find target/ti_mspm0.cfg]
+diff --git a/2025e/m0_controller/.vscode/settings.json b/2025e/m0_controller/.vscode/settings.json
+new file mode 100644
+index 0000000..31c90a5
+--- /dev/null
++++ b/2025e/m0_controller/.vscode/settings.json
+@@ -0,0 +1,52 @@
++{
++  "C_Cpp.default.configurationProvider": "",
++  "C_Cpp.default.intelliSenseMode": "windows-clang-arm",
++  "C_Cpp.default.cStandard": "c99",
++  "C_Cpp.default.cppStandard": "c++11",
++  "C_Cpp.errorSquiggles": "disabled",
++  "C_Cpp.configurationWarnings": "disabled",
++  
++  // IMPORTANT: Users must configure these paths for their local machine
++  // Install ARMCC6 (Keil MDK) and set the installation directory below
++  "EIDE.ARM.ARMCC6.InstallDirectory": "C:/Keil_v5/ARM/ARMCLANG",
++  
++  // Install OpenOCD and set the executable path below
++  "EIDE.OpenOCD.ExePath": "C:/openocd/bin/openocd.exe",
++  
++  "terminal.integrated.env.windows": {
++    "PATH": "C:/Keil_v5/ARM/ARMCLANG/bin;${env:PATH}"
++  },
++  "C_Cpp_Runner.cCompilerPath": "C:/Keil_v5/ARM/ARMCLANG/bin/armclang.exe",
++  "C_Cpp_Runner.cppCompilerPath": "C:/Keil_v5/ARM/ARMCLANG/bin/armclang.exe",
++  "C_Cpp_Runner.debuggerPath": "gdb",
++  "C_Cpp_Runner.cStandard": "c99",
++  "C_Cpp_Runner.cppStandard": "c++11",
++  "C_Cpp_Runner.useMsvc": false,
++  "C_Cpp_Runner.warnings": [
++    "-Wall",
++    "-Wextra",
++    "-Wpedantic"
++  ],
++  "C_Cpp_Runner.enableWarnings": true,
++  "C_Cpp_Runner.warningsAsError": false,
++  "C_Cpp_Runner.compilerArgs": [],
++  "C_Cpp_Runner.linkerArgs": [],
++  "C_Cpp_Runner.includePaths": [],
++  "C_Cpp_Runner.includeSearch": [
++    "*",
++    "**/*"
++  ],
++  "C_Cpp_Runner.excludeSearch": [
++    "**/build",
++    "**/build/**",
++    "**/.*",
++    "**/.*/**",
++    "**/.vscode",
++    "**/.vscode/**"
++  ],
++  "C_Cpp_Runner.useAddressSanitizer": false,
++  "C_Cpp_Runner.useUndefinedSanitizer": false,
++  "C_Cpp_Runner.useLeakSanitizer": false,
++  "C_Cpp_Runner.showCompilationTime": false,
++  "C_Cpp_Runner.useLinkTimeOptimization": false
++}
+diff --git a/2025e/m0_controller/.vscode/tasks.json b/2025e/m0_controller/.vscode/tasks.json
+new file mode 100644
+index 0000000..a379de2
+--- /dev/null
++++ b/2025e/m0_controller/.vscode/tasks.json
+@@ -0,0 +1,82 @@
++{
++    "version": "2.0.0",
++    "tasks": [
++        {
++            "label": "sysconfig: open gui",
++            "type": "shell",
++            "command": "C:/ti/sysconfig_1.26.2/sysconfig_gui.bat",
++            "args": [
++                "--product",
++                "${workspaceFolder}/../../controller/documents/sdk/.metadata/product.json",
++                "--device",
++                "MSPM0G3507",
++                "--package",
++                {
++                    "value": "LQFP-48(PT)",
++                    "quoting": "strong"
++                },
++                "--script",
++                "${workspaceFolder}/NewProject1.syscfg"
++            ],
++            "problemMatcher": []
++        },
++        {
++            "label": "sysconfig: generate",
++            "type": "shell",
++            "command": "C:/ti/sysconfig_1.26.2/sysconfig_cli.bat",
++            "args": [
++                "--product",
++                "${workspaceFolder}/../../controller/documents/sdk/.metadata/product.json",
++                "--device",
++                "MSPM0G3507",
++                "--package",
++                {
++                    "value": "LQFP-48(PT)",
++                    "quoting": "strong"
++                },
++                "--script",
++                "${workspaceFolder}/NewProject1.syscfg",
++                "--output",
++                "${workspaceFolder}/Debug",
++                "--compiler",
++                "keil"
++            ],
++            "problemMatcher": []
++        },
++        {
++            "label": "build",
++            "type": "shell",
++            "command": "${command:eide.project.build}",
++            "group": "build",
++            "problemMatcher": []
++        },
++        {
++            "label": "flash",
++            "type": "shell",
++            "command": "${command:eide.project.uploadToDevice}",
++            "group": "build",
++            "problemMatcher": []
++        },
++        {
++            "label": "build and flash",
++            "type": "shell",
++            "command": "${command:eide.project.buildAndFlash}",
++            "group": "build",
++            "problemMatcher": []
++        },
++        {
++            "label": "rebuild",
++            "type": "shell",
++            "command": "${command:eide.project.rebuild}",
++            "group": "build",
++            "problemMatcher": []
++        },
++        {
++            "label": "clean",
++            "type": "shell",
++            "command": "${command:eide.project.clean}",
++            "group": "build",
++            "problemMatcher": []
++        }
++    ]
++}
+diff --git a/2025e/m0_controller/NewProject1.syscfg b/2025e/m0_controller/NewProject1.syscfg
+new file mode 100644
+index 0000000..ff3c0c3
+--- /dev/null
++++ b/2025e/m0_controller/NewProject1.syscfg
+@@ -0,0 +1,203 @@
++/**
++ * MSPM0G3507 LQFP-48 comprehensive pin plan.
++ *
++ * Corrections required by the official MSPM0G3507 IOMUX definitions:
++ *   M3_IN2: PB11 -> PB9
++ *   M4_IN1: PB12 -> PB19
++ *   M4_IN2: PB13 -> PB24
++ *   SPI1_SCLK: PA15 -> PA17
++ *   SPI1_PICO: PA17 -> PA18
++ *   M3_IN1: PA18 -> PA15
++ *   ENC2_A: PA14 -> PA2 (PA14 is wired to the on-board LED)
++ *   ENC4_A: PB17 -> PA31 (PB17 is wired to the on-board Flash CS)
++ */
++//@cliArgs --device "MSPM0G350X" --package "LQFP-48(PT)" --part "Default" --rtos freertos
++//@v2CliArgs --device "MSPM0G3507" --package "LQFP-48(PT)"
++
++const ProjectConfig = scripting.addModule("/ti/project_config/ProjectConfig");
++const GPIO = scripting.addModule("/ti/driverlib/GPIO", {}, false);
++const MOTOR_DIR = GPIO.addInstance();
++const ENCODER = GPIO.addInstance();
++const ICM42688 = GPIO.addInstance();
++const I2C = scripting.addModule("/ti/driverlib/I2C", {}, false);
++const I2C0 = I2C.addInstance();
++const PWM = scripting.addModule("/ti/driverlib/PWM", {}, false);
++const MOTOR_PWM_A = PWM.addInstance();
++const MOTOR_PWM_B = PWM.addInstance();
++const SPI = scripting.addModule("/ti/driverlib/SPI", {}, false);
++const SPI1 = SPI.addInstance();
++const UART = scripting.addModule("/ti/driverlib/UART", {}, false);
++const UART0 = UART.addInstance();
++const UART1 = UART.addInstance();
++const UART3 = UART.addInstance();
++const TIMER = scripting.addModule("/ti/driverlib/TIMER", {}, false);
++const CONTROL_TIMER = TIMER.addInstance();
++const ICM42688_TIMER = TIMER.addInstance();
++const SYSCTL = scripting.addModule("/ti/driverlib/SYSCTL");
++const Board = scripting.addModule("/ti/driverlib/Board", {}, false);
++
++/* The application supplies the FreeRTOS kernel and configuration. */
++ProjectConfig.genDisable = true;
++
++/* TIMG0 wakes the high-priority control task every 2 ms (500 Hz). */
++CONTROL_TIMER.$name = "CONTROL_TIMER";
++CONTROL_TIMER.timerMode = "PERIODIC";
++CONTROL_TIMER.timerPeriod = "2 ms";
++CONTROL_TIMER.timerStartTimer = false;
++CONTROL_TIMER.interrupts = ["ZERO"];
++CONTROL_TIMER.peripheral.$assign = "TIMG0";
++
++/* TIMG12 provides 1 MHz timebase for ICM42688 sensor timing. */
++ICM42688_TIMER.$name = "ICM42688_TIMER";
++ICM42688_TIMER.timerMode = "PERIODIC";
++ICM42688_TIMER.timerClkSrc = "BUSCLK";
++ICM42688_TIMER.timerClkDiv = 1;
++ICM42688_TIMER.timerClkPrescale = 32;
++ICM42688_TIMER.timerPeriod = "4294967295";
++ICM42688_TIMER.timerStartTimer = false;
++ICM42688_TIMER.interrupts = [];
++ICM42688_TIMER.peripheral.$assign = "TIMG12";
++
++/* SPI1: PA16/PA17/PA18, software-controlled ICM42688 CS on PB20. */
++SPI1.$name = "SPI1";
++SPI1.mode = "CONTROLLER";
++SPI1.targetBitRate = 1000000;
++SPI1.dataSize = 8;
++SPI1.frameFormat = "MOTO3";
++SPI1.chipSelect = [];
++SPI1.peripheral.$assign = "SPI1";
++SPI1.peripheral.misoPin.$assign = "PA16";
++SPI1.peripheral.mosiPin.$assign = "PA18";
++SPI1.peripheral.sclkPin.$assign = "PA17";
++SPI1.enabledDMAEvent1Triggers = "DL_SPI_DMA_INTERRUPT_RX";
++SPI1.enableDMAEvent1 = true;
++SPI1.enabledDMAEvent2Triggers = "DL_SPI_DMA_INTERRUPT_TX";
++SPI1.enableDMAEvent2 = true;
++SPI1.DMA_CHANNEL_EVENT1.$name = "DMA_SPI1_RX";
++SPI1.DMA_CHANNEL_EVENT1.addressMode = "f2b";
++SPI1.DMA_CHANNEL_EVENT1.srcLength = "BYTE";
++SPI1.DMA_CHANNEL_EVENT1.dstLength = "BYTE";
++SPI1.DMA_CHANNEL_EVENT1.peripheral.$assign = "DMA_CH2";
++SPI1.DMA_CHANNEL_EVENT2.$name = "DMA_SPI1_TX";
++SPI1.DMA_CHANNEL_EVENT2.addressMode = "b2f";
++SPI1.DMA_CHANNEL_EVENT2.srcLength = "BYTE";
++SPI1.DMA_CHANNEL_EVENT2.dstLength = "BYTE";
++SPI1.DMA_CHANNEL_EVENT2.peripheral.$assign = "DMA_CH3";
++
++/* ICM42688 software chip select. Keep high whenever no SPI transaction is active. */
++ICM42688.$name = "ICM42688";
++ICM42688.associatedPins.create(1);
++ICM42688.associatedPins[0].$name = "CS";
++ICM42688.associatedPins[0].direction = "OUTPUT";
++ICM42688.associatedPins[0].initialValue = "SET";
++ICM42688.associatedPins[0].assignedPort = "PORTB";
++ICM42688.associatedPins[0].assignedPin = "20";
++ICM42688.associatedPins[0].pin.$assign = "PB20";
++
++/* I2C0 controller on PA0/PA1. */
++I2C0.$name = "I2C0";
++I2C0.basicEnableController = true;
++I2C0.peripheral.$assign = "I2C0";
++I2C0.peripheral.sdaPin.$assign = "PA0";
++I2C0.peripheral.sclPin.$assign = "PA1";
++I2C0.sdaPinConfig.enableConfig = true;
++I2C0.sclPinConfig.enableConfig = true;
++
++/* UART3 is reserved for the ATK-BLE02 Bluetooth test connection. */
++const uartConfig = [
++    [UART0, "UART0", "PA10", "PA11"],
++    [UART1, "UART1", "PA8", "PA9"],
++    [UART3, "UART3", "PB2", "PB3"],
++];
++for (let i = 0; i < uartConfig.length; i++) {
++    const instance = uartConfig[i][0];
++    instance.$name = uartConfig[i][1];
++    instance.targetBaudRate = 115200;
++    instance.enableFIFO = true;
++    instance.peripheral.$assign = uartConfig[i][1];
++    instance.peripheral.txPin.$assign = uartConfig[i][2];
++    instance.peripheral.rxPin.$assign = uartConfig[i][3];
++}
++
++/* TIMA0 provides M1/M2/M4 PWM on CC0/CC1/CC3. */
++MOTOR_PWM_A.$name = "MOTOR_PWM_A";
++MOTOR_PWM_A.ccIndex = [0, 1, 3];
++MOTOR_PWM_A.timerCount = 1000;
++MOTOR_PWM_A.timerStartTimer = true;
++MOTOR_PWM_A.enableShadowLoad = true;
++MOTOR_PWM_A.dutyArgs = "[0,0,0,0]";
++MOTOR_PWM_A.clockDivider = 1;
++MOTOR_PWM_A.clockPrescale = 1;
++MOTOR_PWM_A.peripheral.$assign = "TIMA0";
++MOTOR_PWM_A.peripheral.ccp0Pin.$assign = "PA21";
++MOTOR_PWM_A.peripheral.ccp1Pin.$assign = "PA22";
++MOTOR_PWM_A.peripheral.ccp3Pin.$assign = "PA25";
++MOTOR_PWM_A.PWM_CHANNEL_0.$name = "M1_PWM_CC0";
++MOTOR_PWM_A.PWM_CHANNEL_1.$name = "M2_PWM_CC1";
++MOTOR_PWM_A.PWM_CHANNEL_3.$name = "M4_PWM_CC3";
++
++/* TIMA1 provides M3 PWM on CC1. */
++MOTOR_PWM_B.$name = "MOTOR_PWM_B";
++MOTOR_PWM_B.ccIndex = [1];
++MOTOR_PWM_B.timerCount = 1000;
++MOTOR_PWM_B.timerStartTimer = true;
++MOTOR_PWM_B.enableShadowLoad = true;
++MOTOR_PWM_B.dutyArgs = "[0,0,0,0]";
++MOTOR_PWM_B.clockDivider = 1;
++MOTOR_PWM_B.clockPrescale = 1;
++MOTOR_PWM_B.peripheral.$assign = "TIMA1";
++MOTOR_PWM_B.peripheral.ccp1Pin.$assign = "PA24";
++MOTOR_PWM_B.PWM_CHANNEL_1.$name = "M3_PWM_CC1";
++
++/* Eight TB6612 direction outputs. STBY is externally pulled up to 3.3 V. */
++MOTOR_DIR.$name = "MOTOR_DIR";
++MOTOR_DIR.associatedPins.create(8);
++const motorDirPins = [
++    ["M1_IN1", "PORTB", "6", "PB6"],
++    ["M1_IN2", "PORTB", "7", "PB7"],
++    ["M2_IN1", "PORTB", "8", "PB8"],
++    ["M2_IN2", "PORTA", "7", "PA7"],
++    ["M3_IN1", "PORTA", "15", "PA15"],
++    ["M3_IN2", "PORTB", "9", "PB9"],
++    ["M4_IN1", "PORTB", "19", "PB19"],
++    ["M4_IN2", "PORTB", "24", "PB24"],
++];
++for (let i = 0; i < motorDirPins.length; i++) {
++    MOTOR_DIR.associatedPins[i].$name = motorDirPins[i][0];
++    MOTOR_DIR.associatedPins[i].direction = "OUTPUT";
++    MOTOR_DIR.associatedPins[i].initialValue = "CLEARED";
++    MOTOR_DIR.associatedPins[i].assignedPort = motorDirPins[i][1];
++    MOTOR_DIR.associatedPins[i].assignedPin = motorDirPins[i][2];
++    MOTOR_DIR.associatedPins[i].pin.$assign = motorDirPins[i][3];
++}
++
++/* Four quadrature encoders, decoded by GPIO both-edge interrupts. */
++ENCODER.$name = "ENCODER";
++ENCODER.associatedPins.create(8);
++const encoderPins = [
++    ["ENC1_A", "PORTA", "12", "PA12"],
++    ["ENC1_B", "PORTA", "13", "PA13"],
++    ["ENC2_A", "PORTA", "2", "PA2"],
++    ["ENC2_B", "PORTA", "26", "PA26"],
++    ["ENC3_A", "PORTA", "27", "PA27"],
++    ["ENC3_B", "PORTA", "28", "PA28"],
++    ["ENC4_A", "PORTA", "31", "PA31"],
++    ["ENC4_B", "PORTB", "18", "PB18"],
++];
++for (let i = 0; i < encoderPins.length; i++) {
++    ENCODER.associatedPins[i].$name = encoderPins[i][0];
++    ENCODER.associatedPins[i].direction = "INPUT";
++    ENCODER.associatedPins[i].interruptEn = true;
++    ENCODER.associatedPins[i].polarity = "RISE_FALL";
++    ENCODER.associatedPins[i].assignedPort = encoderPins[i][1];
++    ENCODER.associatedPins[i].assignedPin = encoderPins[i][2];
++    ENCODER.associatedPins[i].pin.$assign = encoderPins[i][3];
++}
++
++SYSCTL.forceDefaultClkConfig = true;
++SYSCTL.clockTreeEn = true;
++
++/* Keep the debugger and reset functions reserved. */
++Board.peripheral.$suggestSolution = "DEBUGSS";
++Board.peripheral.swclkPin.$suggestSolution = "PA20";
++Board.peripheral.swdioPin.$suggestSolution = "PA19";

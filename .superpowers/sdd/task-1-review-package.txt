@@ -1,0 +1,4747 @@
+﻿bd072f8 Task 1: Establish migrated source baseline and host test runner
+
+--- STAT ---
+
+ .../m0_controller/modules/ICM42688/inc/ahrs_hal.h  |  78 +++++
+ .../modules/ICM42688/inc/icm42688_hal.h            | 195 ++++++++++++
+ .../modules/ICM42688/inc/icm42688_mspm0.h          |  60 ++++
+ .../m0_controller/modules/ICM42688/src/ahrs_hal.c  | 267 ++++++++++++++++
+ .../modules/ICM42688/src/icm42688_hal.c            | 279 +++++++++++++++++
+ .../modules/ICM42688/src/icm42688_mspm0.c          | 148 +++++++++
+ .../m0_controller/modules/MCP23017/inc/mcp23017.h  |  12 +
+ .../m0_controller/modules/MCP23017/src/mcp23017.c  |  69 +++++
+ .../modules/Motion Control/inc/motion_config.h     | 170 ++++++++++
+ .../modules/Motion Control/inc/motion_control.h    | 262 ++++++++++++++++
+ .../modules/Motion Control/inc/motion_feedback.h   | 185 +++++++++++
+ .../Motion Control/inc/motion_feedforward.h        |  95 ++++++
+ .../modules/Motion Control/inc/motion_kinematics.h | 100 ++++++
+ .../modules/Motion Control/src/motion_control.c    | 344 +++++++++++++++++++++
+ .../modules/Motion Control/src/motion_feedback.c   | 180 +++++++++++
+ .../Motion Control/src/motion_feedforward.c        |  68 ++++
+ .../modules/Motion Control/src/motion_kinematics.c |  64 ++++
+ .../m0_controller/modules/Sens-Decision/inc/EKF.h  |  25 ++
+ .../modules/Sens-Decision/inc/behavior_planner.h   |  64 ++++
+ .../modules/Sens-Decision/inc/config.h             | 109 +++++++
+ .../modules/Sens-Decision/inc/interface.h          |  73 +++++
+ .../modules/Sens-Decision/inc/perception.h         |  48 +++
+ .../modules/Sens-Decision/inc/preprocess.h         |  21 ++
+ .../modules/Sens-Decision/inc/state_evaluate.h     |  42 +++
+ .../Sens-Decision/inc/trajectory_generate.h        |  57 ++++
+ .../modules/Sens-Decision/inc/utils.h              |  23 ++
+ .../m0_controller/modules/Sens-Decision/src/EKF.c  | 248 +++++++++++++++
+ .../modules/Sens-Decision/src/behavior_planner.c   | 173 +++++++++++
+ .../modules/Sens-Decision/src/config.c             | 197 ++++++++++++
+ .../modules/Sens-Decision/src/interface.c          | 302 ++++++++++++++++++
+ .../modules/Sens-Decision/src/perception.c         | 114 +++++++
+ .../modules/Sens-Decision/src/preprocess.c         |  40 +++
+ .../modules/Sens-Decision/src/state_evaluate.c     | 146 +++++++++
+ .../Sens-Decision/src/trajectory_generate.c        | 248 +++++++++++++++
+ .../modules/Sens-Decision/src/utils.c              |  61 ++++
+ 2025e/m0_controller/tests/run_tests.ps1            |  23 ++
+ 36 files changed, 4590 insertions(+)
+
+--- DIFF ---
+
+diff --git a/2025e/m0_controller/modules/ICM42688/inc/ahrs_hal.h b/2025e/m0_controller/modules/ICM42688/inc/ahrs_hal.h
+new file mode 100644
+index 0000000..9602b9a
+--- /dev/null
++++ b/2025e/m0_controller/modules/ICM42688/inc/ahrs_hal.h
+@@ -0,0 +1,78 @@
++/**
++ * @file      ahrs_hal.h
++ * @brief     Portable six-axis Mahony AHRS hardware abstraction layer
++ * @note      Platform-independent. No STM32/MSPM0 dependencies.
++ */
++
++#ifndef _AHRS_HAL_H_
++#define _AHRS_HAL_H_
++
++#include <stdint.h>
++#include <math.h>
++#include <stddef.h>
++
++#define AHRS_PI (float)3.1415926535
++
++/**
++ * @brief  Euler angle data (degrees)
++ */
++typedef struct
++{
++    float yaw;   /**< Yaw   (rotation about z) */
++    float pitch; /**< Pitch (rotation about y) */
++    float roll;  /**< Roll  (rotation about x) */
++} ahrs_euler_angle_t;
++
++/**
++ * @brief  Timer interface supplied by the platform
++ */
++typedef struct
++{
++    uint32_t (*get_time_us)(void); /**< Current microsecond timestamp */
++    void (*init)(void);            /**< Initialize the timer */
++    void (*start)(void);           /**< Start the timer */
++} ahrs_timer_t;
++
++/**
++ * @brief      Bind the platform timer to the AHRS layer
++ * @param      timer  Timer interface (may be NULL to unbind)
++ */
++void ahrs_hal_init(const ahrs_timer_t *timer);
++
++/**
++ * @brief Initialize the AHRS: identity quaternion, reference vectors, baseline timestamp
++ */
++void ahrs_init(void);
++
++/**
++ * @brief      Update the attitude estimate (Mahony, six-axis)
++ * @param      gx_rad_s  Gyro X rate (rad/s)
++ * @param      gy_rad_s  Gyro Y rate (rad/s)
++ * @param      gz_rad_s  Gyro Z rate (rad/s)
++ * @param      ax_g      Accel X (g, may be 0)
++ * @param      ay_g      Accel Y (g, may be 0)
++ * @param      az_g      Accel Z (g, may be 0)
++ */
++void ahrs_update_6axis(float gx_rad_s, float gy_rad_s, float gz_rad_s,
++                       float ax_g, float ay_g, float az_g);
++
++/**
++ * @brief      Get the current Euler angles (degrees)
++ * @param      angle  Output pointer (NULL is safe, no-op)
++ */
++void ahrs_get_attitude(ahrs_euler_angle_t *angle);
++
++/**
++ * @brief Reset quaternion to identity and clear integral error terms
++ */
++void ahrs_reset_parameters(void);
++
++/**
++ * @brief      Unsigned microsecond difference with automatic wrap
++ * @param      previous  Earlier timestamp
++ * @param      current   Later timestamp
++ * @return     current - previous (wraps on uint32_t overflow)
++ */
++uint32_t ahrs_elapsed_us(uint32_t previous, uint32_t current);
++
++#endif /* _AHRS_HAL_H_ */
+diff --git a/2025e/m0_controller/modules/ICM42688/inc/icm42688_hal.h b/2025e/m0_controller/modules/ICM42688/inc/icm42688_hal.h
+new file mode 100644
+index 0000000..18cf38e
+--- /dev/null
++++ b/2025e/m0_controller/modules/ICM42688/inc/icm42688_hal.h
+@@ -0,0 +1,195 @@
++/**
++ * @file      icm42688_hal.h
++ * @brief     ICM42688 sensor Hardware Abstraction Layer - platform-independent
++ * @author    AzureHalcyon (original STM32), ported to portable C99 HAL
++ * @date      2025-03-28 (original), 2026-07-17 (port)
++ * @note      This header is 100% platform-independent. All hardware dependencies
++ *            are injected via callback-interface structs.
++ */
++
++#ifndef _ICM42688_HAL_H_
++#define _ICM42688_HAL_H_
++
++#include <stdint.h>
++#include <stddef.h>
++#include <stdbool.h>
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++/* ======================================================================
++ * Register Map
++ * ====================================================================== */
++
++#define ICM42688_DEVICE_CONFIG             0x11
++#define ICM42688_DRIVE_CONFIG              0x13
++#define ICM42688_INT_CONFIG                0x14
++#define ICM42688_FIFO_CONFIG               0x16
++#define ICM42688_TEMP_DATA1                0x1D
++#define ICM42688_TEMP_DATA0                0x1E
++#define ICM42688_ACCEL_DATA_X1             0x1F
++#define ICM42688_ACCEL_DATA_X0             0x20
++#define ICM42688_ACCEL_DATA_Y1             0x21
++#define ICM42688_ACCEL_DATA_Y0             0x22
++#define ICM42688_ACCEL_DATA_Z1             0x23
++#define ICM42688_ACCEL_DATA_Z0             0x24
++#define ICM42688_GYRO_DATA_X1              0x25
++#define ICM42688_GYRO_DATA_X0              0x26
++#define ICM42688_GYRO_DATA_Y1              0x27
++#define ICM42688_GYRO_DATA_Y0              0x28
++#define ICM42688_GYRO_DATA_Z1              0x29
++#define ICM42688_GYRO_DATA_Z0              0x2A
++#define ICM42688_INT_STATUS                0x2D
++#define ICM42688_PWR_MGMT0                 0x4E
++#define ICM42688_GYRO_CONFIG0              0x4F
++#define ICM42688_ACCEL_CONFIG0             0x50
++#define ICM42688_GYRO_CONFIG1              0x51
++#define ICM42688_ACCEL_CONFIG1             0x53
++#define ICM42688_WHO_AM_I                  0x75
++#define ICM42688_REG_BANK_SEL              0x76
++
++#define ICM42688_ID                        0x47
++
++/* ======================================================================
++ * Enums (retained from original header)
++ * ====================================================================== */
++
++typedef enum {
++    ICM42688_STATUS_OK = 0,
++    ICM42688_STATUS_NOT_READY,
++    ICM42688_STATUS_BAD_ID,
++    ICM42688_STATUS_INVALID_ARGUMENT
++} icm42688_status_t;
++
++typedef enum {
++    ICM42688_INTERFACE_SPI,
++    ICM42688_INTERFACE_IIC
++} icm42688_interface_type_t;
++
++typedef enum {
++    ICM42688_ACC_SAMPLE_SGN_2G,
++    ICM42688_ACC_SAMPLE_SGN_4G,
++    ICM42688_ACC_SAMPLE_SGN_8G,
++    ICM42688_ACC_SAMPLE_SGN_16G
++} icm42688_acc_sample_t;
++
++typedef enum {
++    ICM42688_GYRO_SAMPLE_SGN_15_125DPS,
++    ICM42688_GYRO_SAMPLE_SGN_31_25DPS,
++    ICM42688_GYRO_SAMPLE_SGN_62_5DPS,
++    ICM42688_GYRO_SAMPLE_SGN_125DPS,
++    ICM42688_GYRO_SAMPLE_SGN_250DPS,
++    ICM42688_GYRO_SAMPLE_SGN_500DPS,
++    ICM42688_GYRO_SAMPLE_SGN_1000DPS,
++    ICM42688_GYRO_SAMPLE_SGN_2000DPS
++} icm42688_gyro_sample_t;
++
++typedef enum {
++    ICM42688_SAMPLE_RATE_8000,
++    ICM42688_SAMPLE_RATE_4000,
++    ICM42688_SAMPLE_RATE_2000,
++    ICM42688_SAMPLE_RATE_1000,
++    ICM42688_SAMPLE_RATE_200,
++    ICM42688_SAMPLE_RATE_100,
++    ICM42688_SAMPLE_RATE_50,
++    ICM42688_SAMPLE_RATE_25,
++    ICM42688_SAMPLE_RATE_12_5,
++    ICM42688_SAMPLE_RATE_500
++} icm42688_sample_rate_t;
++
++/* ======================================================================
++ * Data types
++ * ====================================================================== */
++
++typedef struct {
++    int16_t x;
++    int16_t y;
++    int16_t z;
++} icm42688_axis_data_t;
++
++typedef struct {
++    float x;
++    float y;
++    float z;
++} icm42688_vector3f_t;
++
++typedef struct {
++    icm42688_axis_data_t acc_raw;
++    icm42688_axis_data_t gyro_raw;
++    icm42688_vector3f_t  acc_g;
++    icm42688_vector3f_t  gyro_dps;
++} icm42688_data_t;
++
++typedef struct {
++    icm42688_interface_type_t interface_type;
++    icm42688_acc_sample_t     acc_sample;
++    icm42688_gyro_sample_t    gyro_sample;
++    icm42688_sample_rate_t    sample_rate;
++} icm42688_config_t;
++
++/* ======================================================================
++ * Callback interface structs (platform-independent injection)
++ * ====================================================================== */
++
++typedef struct {
++    void     (*init)(void);
++    uint8_t  (*read_reg)(uint8_t reg);
++    void     (*write_reg)(uint8_t reg, uint8_t value);
++    void     (*read_regs)(uint8_t reg, uint8_t *data, uint8_t len);
++} icm42688_comm_t;
++
++typedef struct {
++    void (*delay_ms)(uint16_t ms);
++} icm42688_system_t;
++
++/* ======================================================================
++ * Public API
++ * ====================================================================== */
++
++/**
++ * @brief  Bind communication, system, and configuration interfaces.
++ * @note   Must be called before icm42688_init().
++ */
++void icm42688_hal_init(const icm42688_comm_t   *comm,
++                       const icm42688_system_t *system,
++                       const icm42688_config_t *config);
++
++/**
++ * @brief  Initialize the sensor: reset, wake, configure, verify ID.
++ * @return ICM42688_STATUS_OK on success.
++ */
++icm42688_status_t icm42688_init(void);
++
++/**
++ * @brief  Read 12 bytes from ACCEL_DATA_X1 in one burst; fill acc_raw,
++ *         gyro_raw, acc_g, and gyro_dps.
++ * @param  data  Pointer to output struct.
++ * @return ICM42688_STATUS_OK on success.
++ */
++icm42688_status_t icm42688_read(icm42688_data_t *data);
++
++/**
++ * @brief  Average N gyro reads while stationary to compute bias.
++ * @param  samples     Number of samples to average (>0).
++ * @param  interval_ms Delay between samples in ms (0 = no extra delay).
++ * @return ICM42688_STATUS_OK on success.
++ */
++icm42688_status_t icm42688_calibrate_gyro(uint16_t samples,
++                                          uint16_t interval_ms);
++
++/**
++ * @brief  Convert raw ADC reading to acceleration in g.
++ */
++float icm42688_acc_transition(int16_t raw);
++
++/**
++ * @brief  Convert raw ADC reading to angular rate in dps.
++ */
++float icm42688_gyro_transition(int16_t raw);
++
++#ifdef __cplusplus
++}
++#endif
++
++#endif /* _ICM42688_HAL_H_ */
+diff --git a/2025e/m0_controller/modules/ICM42688/inc/icm42688_mspm0.h b/2025e/m0_controller/modules/ICM42688/inc/icm42688_mspm0.h
+new file mode 100644
+index 0000000..b2b9502
+--- /dev/null
++++ b/2025e/m0_controller/modules/ICM42688/inc/icm42688_mspm0.h
+@@ -0,0 +1,60 @@
++/**
++ * @file      icm42688_mspm0.h
++ * @brief     MSPM0G3507 DriverLib adapter for the portable ICM42688 / AHRS HAL
++ * @author    Port task 3
++ * @date      2026-07-17
++ *
++ * @note      This adapter binds the platform-independent core (icm42688_hal /
++ *            ahrs_hal) to TI MSPM0 DriverLib using SysConfig-generated symbols.
++ *            The controller MUST call SYSCFG_DL_init() (system init) before
++ *            icm42688_mspm0_bind(). SysConfig must provide:
++ *              - SPI peripheral named SPI1            -> SPI1_INST
++ *              - GPIO output for ICM42688 CS          -> ICM42688_PORT, ICM42688_CS_PIN
++ *              - Timer (TIMG0) named ICM42688_TIMER   -> ICM42688_TIMER_INST
++ *            and CPUCLK_FREQ (default 32000000).
++ */
++
++#ifndef _ICM42688_MSPM0_H_
++#define _ICM42688_MSPM0_H_
++
++#include "ti_msp_dl_config.h"
++
++#include "icm42688_hal.h"
++#include "ahrs_hal.h"
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++/* ----------------------------------------------------------------------
++ * Exported interface instances
++ * ---------------------------------------------------------------------- */
++
++/** SPI + GPIO backed communication interface (init/read_reg/write_reg/read_regs). */
++extern const icm42688_comm_t icm42688_mspm0_comm;
++
++/** delay_ms backed by delay_cycles() loop. */
++extern const icm42688_system_t icm42688_mspm0_system;
++
++/** TIMG0-backed microsecond timer. init/start are no-ops (SysConfig owns them). */
++extern const ahrs_timer_t icm42688_mspm0_timer;
++
++/* ----------------------------------------------------------------------
++ * Binding
++ * ---------------------------------------------------------------------- */
++
++/**
++ * @brief Bind the MSPM0 DriverLib adapter to the platform-independent core.
++ * @param config  Sensor configuration (acc/gyro range, sample rate). Must not
++ *                be NULL; icm42688_init() will return ICM42688_STATUS_NOT_READY
++ *                if config is NULL (the core has no platform-default path).
++ * @note  Does NOT call SYSCFG_DL_init(); the controller must perform system
++ *        initialization first. Only binds interface pointers.
++ */
++void icm42688_mspm0_bind(const icm42688_config_t *config);
++
++#ifdef __cplusplus
++}
++#endif
++
++#endif /* _ICM42688_MSPM0_H_ */
+diff --git a/2025e/m0_controller/modules/ICM42688/src/ahrs_hal.c b/2025e/m0_controller/modules/ICM42688/src/ahrs_hal.c
+new file mode 100644
+index 0000000..f070695
+--- /dev/null
++++ b/2025e/m0_controller/modules/ICM42688/src/ahrs_hal.c
+@@ -0,0 +1,267 @@
++/**
++ * @file      ahrs_hal.c
++ * @brief     Portable six-axis Mahony AHRS implementation
++ * @note      Ported from the original STM32 ICM42688 driver with hardening:
++ *            - C99 memcpy invSqrt (no type-punning)
++ *            - unsigned timestamp wrap handling
++ *            - timestamp updated before elapsed check; 1..100000 us accepted
++ *            - zero accel magnitude skips gravity feedback, gyro still integrates
++ *            - quaternion sum-of-squares checked before normalizing
++ *            - asinf input clamped to [-1, 1]
++ */
++
++#include "ahrs_hal.h"
++#include <string.h>
++
++/* PI gains per axis (kept from original driver) */
++#define KP_ROLL     3.2f
++#define KP_PITCH    2.95f
++#define KP_YAW      1.0f
++
++#define KI_ROLL     0.095f
++#define KI_PITCH    0.085f
++#define KI_YAW      0.065f
++
++/* Deadbands */
++#define GYRO_DEADBAND     0.01f
++#define ERROR_DEADBAND    0.0050f
++
++/* Integral limits */
++#define INT_LIMIT        0.1f
++#define INT_LIMIT_FACTOR 0.5f
++
++#define US_TO_S           1000000.0f
++#define HALF_PERIOD_SCALE 2.0f
++
++/* Accepted dt window (microseconds) */
++#define DT_MIN_US 1U
++#define DT_MAX_US 100000U
++
++/* Quaternion state */
++static float q0 = 1.0f, q1 = 0.0f, q2 = 0.0f, q3 = 0.0f;
++
++/* Integral error terms */
++static float exInt = 0.0f, eyInt = 0.0f, ezInt = 0.0f;
++
++/* Output attitude */
++static ahrs_euler_angle_t attitude = {0.0f, 0.0f, 0.0f};
++
++/* Platform timer (NULL until bound) */
++static const ahrs_timer_t *p_timer = NULL;
++
++/* Last sample timestamp; 0 means "baseline not yet established" */
++static uint32_t lastTime = 0U;
++
++/**
++ * @brief  Fast inverse square root using C99 memcpy (no aliasing)
++ */
++static float inv_sqrt(float value)
++{
++    float result;
++    uint32_t bits;
++    memcpy(&bits, &value, sizeof(bits));
++    bits = 0x5F3759DFU - (bits >> 1U);
++    memcpy(&result, &bits, sizeof(result));
++    return result * (1.5f - (0.5f * value * result * result));
++}
++
++/**
++ * @brief  Clamp the integral term with a dynamic limit based on gyro magnitude
++ */
++static float limit_integral(float value, float limit, float gx, float gy, float gz)
++{
++    float dynamic_limit = limit + fabsf(gx + gy + gz) * INT_LIMIT_FACTOR;
++    return fminf(fmaxf(value, -dynamic_limit), dynamic_limit);
++}
++
++/**
++ * @brief  Apply a symmetric deadband
++ */
++static float apply_deadband(float value, float deadband)
++{
++    if (fabsf(value) < deadband) {
++        return 0.0f;
++    }
++    return value;
++}
++
++void ahrs_hal_init(const ahrs_timer_t *timer)
++{
++    p_timer = timer;
++}
++
++uint32_t ahrs_elapsed_us(uint32_t previous, uint32_t current)
++{
++    return current - previous;
++}
++
++void ahrs_reset_parameters(void)
++{
++    q0 = 1.0f;
++    q1 = 0.0f;
++    q2 = 0.0f;
++    q3 = 0.0f;
++
++    exInt = 0.0f;
++    eyInt = 0.0f;
++    ezInt = 0.0f;
++}
++
++void ahrs_init(void)
++{
++    if (p_timer == NULL) {
++        return;
++    }
++
++    if (p_timer->init != NULL) {
++        p_timer->init();
++    }
++    if (p_timer->start != NULL) {
++        p_timer->start();
++    }
++
++    ahrs_reset_parameters();
++
++    attitude.yaw = 0.0f;
++    attitude.pitch = 0.0f;
++    attitude.roll = 0.0f;
++
++    /* Mark baseline as not yet established */
++    lastTime = 0U;
++}
++
++void ahrs_update_6axis(float gx, float gy, float gz,
++                       float ax, float ay, float az)
++{
++    float norm;
++    float vx, vy, vz;
++    float ex, ey, ez, halfT;
++    float tempq0, tempq1, tempq2, tempq3;
++    uint32_t currentTime;
++    uint32_t previous;
++    uint32_t elapsed;
++    float accel_mag_sq;
++    float sum_sq;
++    float sin_val;
++
++    if (p_timer == NULL) {
++        return;
++    }
++
++    /* Gyro deadband */
++    gx = apply_deadband(gx, GYRO_DEADBAND);
++    gy = apply_deadband(gy, GYRO_DEADBAND);
++    gz = apply_deadband(gz, GYRO_DEADBAND);
++
++    /* Quaternion products */
++    float q0q0 = q0 * q0;
++    float q0q1 = q0 * q1;
++    float q0q2 = q0 * q2;
++    float q1q1 = q1 * q1;
++    float q1q3 = q1 * q3;
++    float q2q2 = q2 * q2;
++    float q2q3 = q2 * q3;
++    float q3q3 = q3 * q3;
++
++    /* Sample timestamp */
++    currentTime = p_timer->get_time_us();
++    previous = lastTime;
++    /* Update timestamp BEFORE validating elapsed (keeps wrap-safe baseline) */
++    lastTime = currentTime;
++
++    /* First frame only establishes the time baseline */
++    if (previous == 0U) {
++        return;
++    }
++
++    elapsed = ahrs_elapsed_us(previous, currentTime);
++    if (elapsed < DT_MIN_US || elapsed > DT_MAX_US) {
++        return;
++    }
++
++    halfT = (float)elapsed / (US_TO_S * HALF_PERIOD_SCALE);
++
++    /* Gravity feedback only when accel magnitude is non-zero */
++    accel_mag_sq = ax * ax + ay * ay + az * az;
++    if (accel_mag_sq > 0.0f) {
++        norm = inv_sqrt(accel_mag_sq);
++        ax = ax * norm;
++        ay = ay * norm;
++        az = az * norm;
++
++        /* Estimated gravity direction from current quaternion */
++        vx = 2.0f * (q1q3 - q0q2);
++        vy = 2.0f * (q0q1 + q2q3);
++        vz = q0q0 - q1q1 - q2q2 + q3q3;
++
++        /* Cross product of measured and estimated gravity = error */
++        ex = (ay * vz - az * vy);
++        ey = (az * vx - ax * vz);
++        ez = (ax * vy - ay * vx);
++
++        ex = apply_deadband(ex, ERROR_DEADBAND);
++        ey = apply_deadband(ey, ERROR_DEADBAND);
++        ez = apply_deadband(ez, ERROR_DEADBAND);
++
++        if (ex != 0.0f) {
++            exInt = exInt + ex * KI_ROLL * halfT;
++            exInt = limit_integral(exInt, INT_LIMIT, gx, gy, gz);
++            gx = gx + KP_ROLL * ex + exInt;
++        }
++        if (ey != 0.0f) {
++            eyInt = eyInt + ey * KI_PITCH * halfT;
++            eyInt = limit_integral(eyInt, INT_LIMIT, gx, gy, gz);
++            gy = gy + KP_PITCH * ey + eyInt;
++        }
++        if (ez != 0.0f) {
++            ezInt = ezInt + ez * KI_YAW * halfT;
++            ezInt = limit_integral(ezInt, INT_LIMIT, gx, gy, gz);
++            gz = gz + KP_YAW * ez + ezInt;
++        }
++    }
++
++    /* Quaternion integration (pure gyro when accel is zero) */
++    tempq0 = q0 + (-q1 * gx - q2 * gy - q3 * gz) * halfT;
++    tempq1 = q1 + ( q0 * gx + q2 * gz - q3 * gy) * halfT;
++    tempq2 = q2 + ( q0 * gy - q1 * gz + q3 * gx) * halfT;
++    tempq3 = q3 + ( q0 * gz + q1 * gy - q2 * gx) * halfT;
++
++    /* Normalize only when the sum of squares is positive */
++    sum_sq = tempq0 * tempq0 + tempq1 * tempq1 + tempq2 * tempq2 + tempq3 * tempq3;
++    if (sum_sq > 0.0f) {
++        norm = inv_sqrt(sum_sq);
++        q0 = tempq0 * norm;
++        q1 = tempq1 * norm;
++        q2 = tempq2 * norm;
++        q3 = tempq3 * norm;
++    }
++
++    /* Euler angles (degrees) */
++    attitude.yaw = -atan2f(2.0f * q1 * q2 + 2.0f * q0 * q3,
++                           -2.0f * q2 * q2 - 2.0f * q3 * q3 + 1.0f) * 180.0f / AHRS_PI;
++
++    sin_val = -2.0f * q1 * q3 + 2.0f * q0 * q2;
++    if (sin_val > 1.0f) {
++        sin_val = 1.0f;
++    } else if (sin_val < -1.0f) {
++        sin_val = -1.0f;
++    }
++    attitude.pitch = -asinf(sin_val) * 180.0f / AHRS_PI;
++
++    attitude.roll = atan2f(2.0f * q2 * q3 + 2.0f * q0 * q1,
++                           -2.0f * q1 * q1 - 2.0f * q2 * q2 + 1.0f) * 180.0f / AHRS_PI;
++
++    if (attitude.yaw < 0.0f) {
++        attitude.yaw += 360.0f;
++    }
++}
++
++void ahrs_get_attitude(ahrs_euler_angle_t *angle)
++{
++    if (angle == NULL) {
++        return;
++    }
++    angle->roll = attitude.roll;
++    angle->pitch = attitude.pitch;
++    angle->yaw = attitude.yaw;
++}
+diff --git a/2025e/m0_controller/modules/ICM42688/src/icm42688_hal.c b/2025e/m0_controller/modules/ICM42688/src/icm42688_hal.c
+new file mode 100644
+index 0000000..810be89
+--- /dev/null
++++ b/2025e/m0_controller/modules/ICM42688/src/icm42688_hal.c
+@@ -0,0 +1,279 @@
++/**
++ * @file      icm42688_hal.c
++ * @brief     ICM42688 sensor HAL - platform-independent implementation
++ * @note      No STM32 dependencies. All hardware access via injected callbacks.
++ */
++
++#include "icm42688_hal.h"
++#include <math.h>
++#include <string.h>
++
++/* --------------------------------------------------------------------------
++ * Static state - injected via icm42688_hal_init()
++ * -------------------------------------------------------------------------- */
++
++static const icm42688_comm_t   *p_comm   = NULL;
++static const icm42688_system_t *p_system = NULL;
++static const icm42688_config_t *p_config = NULL;
++
++static float acc_factor  = 1.0f;   /* LSB-to-g conversion factor  */
++static float gyro_factor = 1.0f;   /* LSB-to-dps conversion factor */
++
++/* Calibrated gyro bias, subtracted in icm42688_gyro_transition() */
++static float gyro_bias_x = 0.0f;
++static float gyro_bias_y = 0.0f;
++static float gyro_bias_z = 0.0f;
++
++/* --------------------------------------------------------------------------
++ * Helpers
++ * -------------------------------------------------------------------------- */
++
++/**
++ * @brief  Decode a 16-bit big-endian value to signed int16.
++ */
++static int16_t decode_be16(const uint8_t *bytes)
++{
++    return (int16_t)(((uint16_t)bytes[0] << 8) | (uint16_t)bytes[1]);
++}
++
++/**
++ * @brief  Check whether comm interface is fully bound.
++ */
++static bool comm_is_bound(void)
++{
++    return (p_comm != NULL)
++        && (p_comm->init != NULL)
++        && (p_comm->read_reg != NULL)
++        && (p_comm->write_reg != NULL)
++        && (p_comm->read_regs != NULL);
++}
++
++/**
++ * @brief  Check whether system interface is fully bound.
++ */
++static bool system_is_bound(void)
++{
++    return (p_system != NULL)
++        && (p_system->delay_ms != NULL);
++}
++
++/* --------------------------------------------------------------------------
++ * Scale-factor tables (matching original driver)
++ * -------------------------------------------------------------------------- */
++
++static float acc_transition_factor(icm42688_acc_sample_t range)
++{
++    switch (range) {
++        case ICM42688_ACC_SAMPLE_SGN_2G:  return  2.0f  / 32768.0f;
++        case ICM42688_ACC_SAMPLE_SGN_4G:  return  4.0f  / 32768.0f;
++        case ICM42688_ACC_SAMPLE_SGN_8G:  return  8.0f  / 32768.0f;
++        case ICM42688_ACC_SAMPLE_SGN_16G: return 16.0f  / 32768.0f;
++        default:                          return  8.0f  / 32768.0f;
++    }
++}
++
++static float gyro_transition_factor(icm42688_gyro_sample_t range)
++{
++    switch (range) {
++        case ICM42688_GYRO_SAMPLE_SGN_15_125DPS: return  15.125f / 32768.0f;
++        case ICM42688_GYRO_SAMPLE_SGN_31_25DPS:  return  31.25f  / 32768.0f;
++        case ICM42688_GYRO_SAMPLE_SGN_62_5DPS:   return  62.5f   / 32768.0f;
++        case ICM42688_GYRO_SAMPLE_SGN_125DPS:    return 125.0f   / 32768.0f;
++        case ICM42688_GYRO_SAMPLE_SGN_250DPS:    return 250.0f   / 32768.0f;
++        case ICM42688_GYRO_SAMPLE_SGN_500DPS:    return 500.0f   / 32768.0f;
++        case ICM42688_GYRO_SAMPLE_SGN_1000DPS:   return 1000.0f  / 32768.0f;
++        case ICM42688_GYRO_SAMPLE_SGN_2000DPS:   return 2000.0f  / 32768.0f;
++        default:                                 return 2000.0f  / 32768.0f;
++    }
++}
++
++static uint8_t sample_rate_odr(icm42688_sample_rate_t rate)
++{
++    switch (rate) {
++        case ICM42688_SAMPLE_RATE_8000: return 0x03;
++        case ICM42688_SAMPLE_RATE_4000: return 0x04;
++        case ICM42688_SAMPLE_RATE_2000: return 0x05;
++        case ICM42688_SAMPLE_RATE_1000: return 0x06;
++        case ICM42688_SAMPLE_RATE_500:  return 0x0F;
++        case ICM42688_SAMPLE_RATE_200:  return 0x07;
++        case ICM42688_SAMPLE_RATE_100:  return 0x08;
++        case ICM42688_SAMPLE_RATE_50:   return 0x09;
++        case ICM42688_SAMPLE_RATE_25:   return 0x0A;
++        case ICM42688_SAMPLE_RATE_12_5: return 0x0B;
++        default:                        return 0x06;
++    }
++}
++
++/* --------------------------------------------------------------------------
++ * Public: bind interfaces
++ * -------------------------------------------------------------------------- */
++
++void icm42688_hal_init(const icm42688_comm_t   *comm,
++                       const icm42688_system_t *system,
++                       const icm42688_config_t *config)
++{
++    p_comm   = comm;
++    p_system = system;
++    p_config = config;
++
++    /* Reset bias on re-bind */
++    gyro_bias_x = 0.0f;
++    gyro_bias_y = 0.0f;
++    gyro_bias_z = 0.0f;
++}
++
++/* --------------------------------------------------------------------------
++ * Public: sensor init (reset, wake, configure, verify ID)
++ * -------------------------------------------------------------------------- */
++
++icm42688_status_t icm42688_init(void)
++{
++    uint8_t id;
++
++    if (!comm_is_bound() || !system_is_bound() || (p_config == NULL)) {
++        return ICM42688_STATUS_NOT_READY;
++    }
++
++    /* Init hardware interface */
++    p_comm->init();
++    p_system->delay_ms(10);
++
++    /* Verify sensor ID */
++    id = p_comm->read_reg(ICM42688_WHO_AM_I);
++    if (id != ICM42688_ID) {
++        return ICM42688_STATUS_BAD_ID;
++    }
++
++    /* Soft reset */
++    p_comm->write_reg(ICM42688_DEVICE_CONFIG, 0x01);
++    p_system->delay_ms(50);
++
++    /* Wake sensor (enable accel + gyro) */
++    p_comm->write_reg(ICM42688_PWR_MGMT0, 0x0F);
++    p_system->delay_ms(1);
++
++    /* Configure scale factors */
++    acc_factor  = acc_transition_factor(p_config->acc_sample);
++    gyro_factor = gyro_transition_factor(p_config->gyro_sample);
++
++    /* Set ODR for accel and gyro */
++    {
++        uint8_t odr = sample_rate_odr(p_config->sample_rate);
++        p_comm->write_reg(ICM42688_ACCEL_CONFIG0,
++                          odr | (uint8_t)(p_config->acc_sample << 5));
++        p_comm->write_reg(ICM42688_GYRO_CONFIG0,
++                          odr | (uint8_t)(p_config->gyro_sample << 5));
++    }
++
++    /* Low-pass filter config */
++    p_comm->write_reg(ICM42688_GYRO_CONFIG1,  0x01);
++    p_comm->write_reg(ICM42688_ACCEL_CONFIG1, 0x01);
++
++    p_system->delay_ms(5);
++
++    return ICM42688_STATUS_OK;
++}
++
++/* --------------------------------------------------------------------------
++ * Public: read 12 bytes from ACCEL_DATA_X1
++ * -------------------------------------------------------------------------- */
++
++icm42688_status_t icm42688_read(icm42688_data_t *data)
++{
++    uint8_t buf[12];
++
++    if (!comm_is_bound()) {
++        return ICM42688_STATUS_NOT_READY;
++    }
++    if (data == NULL) {
++        return ICM42688_STATUS_INVALID_ARGUMENT;
++    }
++
++    p_comm->read_regs(ICM42688_ACCEL_DATA_X1, buf, 12);
++
++    /* Big-endian decode */
++    data->acc_raw.x  = decode_be16(&buf[0]);   /* ACCEL_X1/X0  */
++    data->acc_raw.y  = decode_be16(&buf[2]);   /* ACCEL_Y1/Y0  */
++    data->acc_raw.z  = decode_be16(&buf[4]);   /* ACCEL_Z1/Z0  */
++    data->gyro_raw.x = decode_be16(&buf[6]);   /* GYRO_X1/X0   */
++    data->gyro_raw.y = decode_be16(&buf[8]);   /* GYRO_Y1/Y0   */
++    data->gyro_raw.z = decode_be16(&buf[10]);  /* GYRO_Z1/Z0   */
++
++    /* Convert to physical units */
++    data->acc_g.x    = (float)data->acc_raw.x  * acc_factor;
++    data->acc_g.y    = (float)data->acc_raw.y  * acc_factor;
++    data->acc_g.z    = (float)data->acc_raw.z  * acc_factor;
++    data->gyro_dps.x = (float)data->gyro_raw.x * gyro_factor - gyro_bias_x;
++    data->gyro_dps.y = (float)data->gyro_raw.y * gyro_factor - gyro_bias_y;
++    data->gyro_dps.z = (float)data->gyro_raw.z * gyro_factor - gyro_bias_z;
++
++    return ICM42688_STATUS_OK;
++}
++
++/* --------------------------------------------------------------------------
++ * Public: gyro calibration (average N samples while stationary)
++ * -------------------------------------------------------------------------- */
++
++icm42688_status_t icm42688_calibrate_gyro(uint16_t samples,
++                                          uint16_t interval_ms)
++{
++    icm42688_data_t data;
++    double sum_x = 0.0, sum_y = 0.0, sum_z = 0.0;
++
++    if (samples == 0) {
++        return ICM42688_STATUS_INVALID_ARGUMENT;
++    }
++    if (!comm_is_bound() || !system_is_bound()) {
++        return ICM42688_STATUS_NOT_READY;
++    }
++
++    for (uint16_t i = 0; i < samples; i++) {
++        icm42688_status_t st;
++
++        /* Temporarily remove bias so calibration average is unbiased */
++        float save_bx = gyro_bias_x;
++        float save_by = gyro_bias_y;
++        float save_bz = gyro_bias_z;
++        gyro_bias_x = 0.0f;
++        gyro_bias_y = 0.0f;
++        gyro_bias_z = 0.0f;
++
++        st = icm42688_read(&data);
++
++        gyro_bias_x = save_bx;
++        gyro_bias_y = save_by;
++        gyro_bias_z = save_bz;
++
++        if (st != ICM42688_STATUS_OK) {
++            return st;
++        }
++
++        sum_x += (double)data.gyro_raw.x * (double)gyro_factor;
++        sum_y += (double)data.gyro_raw.y * (double)gyro_factor;
++        sum_z += (double)data.gyro_raw.z * (double)gyro_factor;
++
++        if (interval_ms > 0) {
++            p_system->delay_ms(interval_ms);
++        }
++    }
++
++    gyro_bias_x = (float)(sum_x / (double)samples);
++    gyro_bias_y = (float)(sum_y / (double)samples);
++    gyro_bias_z = (float)(sum_z / (double)samples);
++
++    return ICM42688_STATUS_OK;
++}
++
++/* --------------------------------------------------------------------------
++ * Public: raw-to-physical unit conversions
++ * -------------------------------------------------------------------------- */
++
++float icm42688_acc_transition(int16_t raw)
++{
++    return (float)raw * acc_factor;
++}
++
++float icm42688_gyro_transition(int16_t raw)
++{
++    return (float)raw * gyro_factor;
++}
+diff --git a/2025e/m0_controller/modules/ICM42688/src/icm42688_mspm0.c b/2025e/m0_controller/modules/ICM42688/src/icm42688_mspm0.c
+new file mode 100644
+index 0000000..212d738
+--- /dev/null
++++ b/2025e/m0_controller/modules/ICM42688/src/icm42688_mspm0.c
+@@ -0,0 +1,148 @@
++/**
++ * @file      icm42688_mspm0.c
++ * @brief     MSPM0G3507 DriverLib adapter implementation
++ * @date      2026-07-17
++ */
++
++#include "icm42688_mspm0.h"
++
++/* ======================================================================
++ * Private SPI / GPIO primitives
++ * ====================================================================== */
++
++/** Pull the ICM42688 chip-select line low (active). */
++static inline void cs_low(void)
++{
++    DL_GPIO_clearPins(ICM42688_PORT, ICM42688_CS_PIN);
++}
++
++/** Release the ICM42688 chip-select line (high / idle). */
++static inline void cs_high(void)
++{
++    DL_GPIO_setPins(ICM42688_PORT, ICM42688_CS_PIN);
++}
++
++/** Blocking full-duplex single-byte SPI exchange. */
++static uint8_t spi_exchange(uint8_t value)
++{
++    DL_SPI_transmitDataBlocking8(SPI1_INST, value);
++    return DL_SPI_receiveDataBlocking8(SPI1_INST);
++}
++
++/* ======================================================================
++ * icm42688_comm_t implementation
++ * ====================================================================== */
++
++/** Comm init: ensure CS is idle-high. SysConfig owns peripheral setup. */
++static void comm_init(void)
++{
++    cs_high();
++}
++
++/** Single-register read: addr | 0x80, then dummy 0xFF to clock data out. */
++static uint8_t read_reg(uint8_t reg)
++{
++    uint8_t value;
++
++    cs_low();
++    (void)spi_exchange((uint8_t)(reg | 0x80U));
++    value = spi_exchange(0xFFU);
++    cs_high();
++
++    return value;
++}
++
++/** Single-register write: addr & 0x7F, then data byte. */
++static void write_reg(uint8_t reg, uint8_t value)
++{
++    cs_low();
++    (void)spi_exchange((uint8_t)(reg & 0x7FU));
++    (void)spi_exchange(value);
++    cs_high();
++}
++
++/**
++ * Burst read: assert CS once, send address | 0x80, then clock out len dummy
++ * bytes in a single CS-low window.
++ */
++static void read_regs(uint8_t reg, uint8_t *data, uint8_t len)
++{
++    if (data == NULL || len == 0U) {
++        return;
++    }
++
++    cs_low();
++    (void)spi_exchange((uint8_t)(reg | 0x80U));
++    for (uint8_t i = 0U; i < len; i++) {
++        data[i] = spi_exchange(0xFFU);
++    }
++    cs_high();
++}
++
++/* ======================================================================
++ * icm42688_system_t implementation
++ * ====================================================================== */
++
++/**
++ * Millisecond delay built on delay_cycles().
++ * Loops per-millisecond to avoid (ms * cycles_per_ms) overflow at large ms.
++ */
++static void delay_ms(uint16_t ms)
++{
++    const uint32_t cycles_per_ms = CPUCLK_FREQ / 1000U;
++
++    for (uint16_t i = 0U; i < ms; i++) {
++        delay_cycles(cycles_per_ms);
++    }
++}
++
++/* ======================================================================
++ * ahrs_timer_t implementation
++ * ====================================================================== */
++
++/**
++ * TIMG0 is configured and started by SysConfig; init/start are no-ops.
++ * The timer counter directly yields a microsecond timestamp.
++ */
++static uint32_t timer_get_time_us(void)
++{
++    return DL_TimerG_getTimerCount(ICM42688_TIMER_INST);
++}
++
++static void timer_noop(void)
++{
++    /* SysConfig owns TIMG0 init/start - nothing to do here. */
++}
++
++/* ======================================================================
++ * Exported interface instances
++ * ====================================================================== */
++
++const icm42688_comm_t icm42688_mspm0_comm = {
++    .init      = comm_init,
++    .read_reg  = read_reg,
++    .write_reg = write_reg,
++    .read_regs = read_regs,
++};
++
++const icm42688_system_t icm42688_mspm0_system = {
++    .delay_ms = delay_ms,
++};
++
++const ahrs_timer_t icm42688_mspm0_timer = {
++    .get_time_us = timer_get_time_us,
++    .init        = timer_noop,
++    .start       = timer_noop,
++};
++
++/* ======================================================================
++ * Binding
++ * ====================================================================== */
++
++void icm42688_mspm0_bind(const icm42688_config_t *config)
++{
++    icm42688_hal_init(&icm42688_mspm0_comm,
++                      &icm42688_mspm0_system,
++                      config);
++    ahrs_hal_init(&icm42688_mspm0_timer);
++}
+diff --git a/2025e/m0_controller/modules/MCP23017/inc/mcp23017.h b/2025e/m0_controller/modules/MCP23017/inc/mcp23017.h
+new file mode 100644
+index 0000000..076b9e7
+--- /dev/null
++++ b/2025e/m0_controller/modules/MCP23017/inc/mcp23017.h
+@@ -0,0 +1,12 @@
++#ifndef MCP23017_H_
++#define MCP23017_H_
++
++#include <stdbool.h>
++#include <stdint.h>
++
++#define MCP23017_I2C_ADDRESS (0x20U)
++
++bool MCP23017_Init(void);
++bool MCP23017_ReadInputs(uint16_t *inputs);
++
++#endif
+diff --git a/2025e/m0_controller/modules/MCP23017/src/mcp23017.c b/2025e/m0_controller/modules/MCP23017/src/mcp23017.c
+new file mode 100644
+index 0000000..b52b46f
+--- /dev/null
++++ b/2025e/m0_controller/modules/MCP23017/src/mcp23017.c
+@@ -0,0 +1,69 @@
++#include "mcp23017.h"
++
++#include "ti_msp_dl_config.h"
++
++#define MCP23017_REG_IODIRA (0x00U)
++#define MCP23017_REG_IODIRB (0x01U)
++#define MCP23017_REG_GPIOA  (0x12U)
++#define MCP23017_I2C_TIMEOUT (100000U)
++#define MCP23017_I2C_ERRORS \
++    (DL_I2C_INTERRUPT_CONTROLLER_NACK | DL_I2C_INTERRUPT_CONTROLLER_ARBITRATION_LOST)
++
++static bool MCP23017_WaitFor(uint32_t completeMask)
++{
++    uint32_t timeout = MCP23017_I2C_TIMEOUT;
++    while (timeout-- != 0U) {
++        const uint32_t flags = DL_I2C_getRawInterruptStatus(I2C0_INST, completeMask | MCP23017_I2C_ERRORS);
++        if ((flags & MCP23017_I2C_ERRORS) != 0U) {
++            DL_I2C_clearInterruptStatus(I2C0_INST, flags & MCP23017_I2C_ERRORS);
++            return false;
++        }
++        if ((flags & completeMask) != 0U) {
++            DL_I2C_clearInterruptStatus(I2C0_INST, flags & completeMask);
++            return true;
++        }
++    }
++    return false;
++}
++
++static bool MCP23017_Write(const uint8_t *data, uint16_t length)
++{
++    const uint32_t clearMask = DL_I2C_INTERRUPT_CONTROLLER_TX_DONE | MCP23017_I2C_ERRORS;
++    DL_I2C_clearInterruptStatus(I2C0_INST, clearMask);
++    if (DL_I2C_fillControllerTXFIFO(I2C0_INST, data, length) != length) return false;
++    DL_I2C_startControllerTransfer(I2C0_INST, MCP23017_I2C_ADDRESS,
++                                   DL_I2C_CONTROLLER_DIRECTION_TX, length);
++    return MCP23017_WaitFor(DL_I2C_INTERRUPT_CONTROLLER_TX_DONE);
++}
++
++static bool MCP23017_SetRegister(uint8_t reg, uint8_t value)
++{
++    const uint8_t data[2] = {reg, value};
++    return MCP23017_Write(data, sizeof(data));
++}
++
++bool MCP23017_Init(void)
++{
++    return MCP23017_SetRegister(MCP23017_REG_IODIRA, 0xFFU) &&
++           MCP23017_SetRegister(MCP23017_REG_IODIRB, 0xFFU);
++}
++
++bool MCP23017_ReadInputs(uint16_t *inputs)
++{
++    const uint8_t reg = MCP23017_REG_GPIOA;
++    const uint32_t clearMask = DL_I2C_INTERRUPT_CONTROLLER_RX_DONE | MCP23017_I2C_ERRORS;
++    uint8_t portA;
++    uint8_t portB;
++
++    if (inputs == 0 || !MCP23017_Write(&reg, 1U)) return false;
++    DL_I2C_clearInterruptStatus(I2C0_INST, clearMask);
++    DL_I2C_startControllerTransfer(I2C0_INST, MCP23017_I2C_ADDRESS,
++                                   DL_I2C_CONTROLLER_DIRECTION_RX, 2U);
++    if (!MCP23017_WaitFor(DL_I2C_INTERRUPT_CONTROLLER_RX_DONE)) return false;
++    if (DL_I2C_isControllerRXFIFOEmpty(I2C0_INST)) return false;
++    portA = DL_I2C_receiveControllerData(I2C0_INST);
++    if (DL_I2C_isControllerRXFIFOEmpty(I2C0_INST)) return false;
++    portB = DL_I2C_receiveControllerData(I2C0_INST);
++    *inputs = (uint16_t)portA | ((uint16_t)portB << 8U);
++    return true;
++}
+diff --git a/2025e/m0_controller/modules/Motion Control/inc/motion_config.h b/2025e/m0_controller/modules/Motion Control/inc/motion_config.h
+new file mode 100644
+index 0000000..4a75b3f
+--- /dev/null
++++ b/2025e/m0_controller/modules/Motion Control/inc/motion_config.h	
+@@ -0,0 +1,170 @@
++/**
++ * @file motion_config.h
++ * @brief 杩愬姩鎺у埗灞傚弬鏁伴厤缃?+ * @date 2026-07-14
++ * 
++ * 闆嗕腑绠＄悊鎵€鏈夌墿鐞嗗弬鏁般€佹帶鍒跺弬鏁般€佺害鏉熷弬鏁?+ * 娉ㄦ剰: 鏈枃浠跺彧鍖呭惈缂栬瘧鏈熷父閲忥紙#define锛夛紝杩愯鏃跺弬鏁伴€氳繃API璁剧疆
++ * 璋冨弬鏃跺彧闇€淇敼鏈枃浠朵腑鐨勬暟鍊煎苟閲嶆柊缂栬瘧鍗冲彲
++ */
++
++#ifndef MOTION_CONFIG_H
++#define MOTION_CONFIG_H
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++/* ============================================================================
++ * 鐗╃悊鍙傛暟閰嶇疆
++ * ---------------------------------------------------------------------------
++ * 杩欎簺鍙傛暟涓庣‖浠剁浉鍏筹紝鏇存崲搴曠洏/鐢垫満/缂栫爜鍣ㄥ悗闇€瑕侀噸鏂版爣瀹?+ * ============================================================================ */
++
++/** @brief 杞窛 (m) - 宸﹀彸杞腑蹇冭窛绂?*/
++#define WHEEL_BASE              0.150f
++
++/** @brief 杞崐寰?(m) - 鏍囧畾鍊?*/
++#define WHEEL_RADIUS            0.033f
++
++/** @brief 缂栫爜鍣ㄦ瘡杞剦鍐叉暟 (4鍊嶉鍚? */
++#define ENCODER_PPR             334
++
++/** @brief 鐢垫満鍑忛€熸瘮 */
++#define GEAR_RATIO              28.0f
++
++/** @brief 杞懆闀?(m) */
++#define WHEEL_CIRCUMFERENCE     (2.0f * 3.14159265f * WHEEL_RADIUS)
++
++/* ============================================================================
++ * 鎺у埗棰戠巼閰嶇疆
++ * ============================================================================ */
++
++/** @brief 涓绘帶鍒跺惊鐜鐜?(Hz) - 鐢卞畾鏃跺櫒涓柇鍐冲畾 */
++#define CONTROL_FREQ_HZ         500
++
++/** @brief 鎺у埗鍛ㄦ湡 (绉? */
++#define CONTROL_PERIOD_S        (1.0f / CONTROL_FREQ_HZ)
++
++/* ============================================================================
++ * 杞€烶I鍙嶉鍙傛暟
++ * ---------------------------------------------------------------------------
++ * 璋冨弬瑕佺偣:
++ *   - 鍏堣皟 SPEED_KP: 閫愭笎澧炲ぇ鐩村埌閫熷害鍝嶅簲蹇€熸棤鎸崱
++ *   - 鍐嶈皟 SPEED_KI: 娑堥櫎绋虫€佽宸紝涓嶅疁杩囧ぇ鍚﹀垯浼氫綆棰戞憜鍔?+ *   - 鍙嶉杈撳嚭闄愬箙 SPEED_OUTPUT_MAX 淇濇姢鐢垫満涓嶈繃娴?+ * ============================================================================ */
++
++/** @brief 杞€熸帶鍒舵瘮渚嬪鐩?*/
++#define SPEED_KP                200.0f
++
++/** @brief 杞€熸帶鍒剁Н鍒嗗鐩?*/
++#define SPEED_KI                50.0f
++
++/** @brief 杞€熷弽棣堣緭鍑洪檺骞?(PWM) */
++#define SPEED_OUTPUT_MAX        500.0f
++#define SPEED_OUTPUT_MIN        (-500.0f)
++
++/* ============================================================================
++ * 鍓嶉鎺у埗鍙傛暟
++ * ---------------------------------------------------------------------------
++ * 鍑嗙數娴佺幆鏁堟灉锛岃ˉ鍋跨數鏈洪潪绾挎€у拰鏈烘鎹熻€?+ *
++ * 璋冨弬瑕佺偣:
++ *   - FF_K_ACCEL: 鍔犻€熸椂棰濆澧炲姞鐨凱WM锛岃窡鍔犻€熷害鎴愭姣?+ *                 娴嬭瘯鏂规硶: 娴嬮噺涓嶅悓鍔犻€熷害涓嬬殑PWM闇€姹傦紝绾挎€ф嫙鍚?+ *   - FF_K_FRICTION: 鍖€閫熸椂闇€瑕佸厠鏈嶆懇鎿︾殑PWM锛岃窡閫熷害鎴愭姣?+ *                     娴嬭瘯鏂规硶: 璁板綍鎭掗€熺洿绾胯椹舵椂鐨凱WM骞冲潎鍊?+ *   - FF_K_STATIC: 浠庨潤姝㈠惎鍔ㄦ椂闇€瑕佺灛闂存柦鍔犵殑鏈€灏廝WM
++ *                   娴嬭瘯鏂规硶: 浠?寮€濮嬮€愭澧炲姞PWM鐩村埌杞瓙杞姩锛屽彇涓寸晫鍊?+ *
++ * 璋冨弬椤哄簭: K_STATIC 鈫?K_FRICTION 鈫?K_ACCEL
++ * ============================================================================ */
++
++/** @brief 鍔犻€熷害鍓嶉绯绘暟 (PWM/(m/s虏)) */
++#define FF_K_ACCEL              50.0f
++
++/** @brief 鎽╂摝鍓嶉绯绘暟 (PWM/(m/s)) */
++#define FF_K_FRICTION           300.0f
++
++/** @brief 闈欐懇鎿﹁ˉ鍋?(PWM) */
++#define FF_K_STATIC             80.0f
++
++/** @brief 闈欐懇鎿︽鍖洪€熷害 (m/s) - 浣庝簬姝ら€熷害涓嶆柦鍔犻潤鎽╂摝琛ュ伩 */
++#define FF_STATIC_DEADZONE      0.01f
++
++/* ============================================================================
++ * 閫熷害涓庡姞閫熷害绾︽潫
++ * ---------------------------------------------------------------------------
++ * 鏍规嵁璧涢亾闀垮害銆佸集閬撳崐寰勫拰鐢垫満鑳藉姏璁惧畾
++ * 鍔犻€熷害闄愬埗鐢ㄤ簬闃叉鎸囦护璺冲彉瀵艰嚧杞﹁疆鎵撴粦
++ * ============================================================================ */
++
++/** @brief 鏈€澶х嚎閫熷害 (m/s) */
++#define MAX_SPEED               1.00f
++
++/** @brief 鏈€灏忕嚎閫熷害 (m/s) */
++#define MIN_SPEED               0.10f
++
++/** @brief 鏈€澶у姞閫熷害闄愬埗 (m/s虏) - 瓒呰繃姝ゅ€肩殑鎸囦护浼氳鍓婂噺 */
++#define MAX_ACCELERATION        2.0f
++
++/** @brief 鏈€澶у噺閫熷害闄愬埗 (m/s虏) - 鍒跺姩鏃剁殑鏈€澶у噺閫?*/
++#define MAX_DECELERATION        3.0f
++
++/** @brief 鏈€澶ц閫熷害闄愬埗 (rad/s) - 淇濇姢宸€熸満鏋?*/
++#define MAX_OMEGA               6.0f
++
++/* ============================================================================
++ * 鎸囦护骞虫粦閰嶇疆
++ * ---------------------------------------------------------------------------
++ * 瀵逛笂灞傞€熷害鎸囦护鏂藉姞涓€闃朵綆閫氭护娉紝閬垮厤鎸囦护璺冲彉寮曡捣鍐插嚮
++ * 骞虫粦寮哄害 = 1.0 / (SMOOTH_TAU * CONTROL_FREQ + 1.0)
++ * TAU 瓒婂ぇ瓒婂钩婊戜絾鍝嶅簲瓒婃參锛岃秺灏忚秺璺熸寚浣嗗啿鍑昏秺澶?+ * ============================================================================ */
++
++/** @brief 閫熷害鎸囦护骞虫粦鏃堕棿甯告暟 (s) */
++#define CMD_SMOOTH_TAU          0.05f
++
++/** @brief 閫熷害鎸囦护骞虫粦绯绘暟 (鑷姩璁＄畻) */
++#define CMD_SMOOTH_ALPHA        (CONTROL_PERIOD_S / (CMD_SMOOTH_TAU + CONTROL_PERIOD_S))
++
++/* ============================================================================
++ * PWM杈撳嚭绾︽潫
++ * ============================================================================ */
++
++/** @brief PWM鏈€澶у€?*/
++#define PWM_MAX                 1000
++
++/** @brief PWM鏈€灏忓€?*/
++#define PWM_MIN                 (-1000)
++
++/* ============================================================================
++ * 鐘舵€佷及璁″櫒閰嶇疆
++ * ============================================================================ */
++
++/** @brief 閫熷害浣庨€氭护娉㈠櫒鎴棰戠巼 (Hz) */
++#define SPEED_FILTER_CUTOFF     50.0f
++
++/** @brief 閫熷害浣庨€氭护娉㈠櫒绯绘暟 (alpha) */
++#define SPEED_FILTER_ALPHA      (2.0f * 3.14159265f * SPEED_FILTER_CUTOFF * CONTROL_PERIOD_S / \
++                                 (1.0f + 2.0f * 3.14159265f * SPEED_FILTER_CUTOFF * CONTROL_PERIOD_S))
++
++/* ============================================================================
++ * 璋冭瘯涓庣洃鎺ч厤缃?+ * ============================================================================ */
++
++/** @brief 浣胯兘鎬ц兘鐩戞帶 */
++#define ENABLE_PERFORMANCE_MONITOR  1
++
++/** @brief 浣胯兘璋冭瘯杈撳嚭 */
++#define ENABLE_DEBUG_OUTPUT         0
++
++/** @brief 鏈€澶ф墽琛屾椂闂村憡璀﹂槇鍊?(us) */
++#define MAX_EXEC_TIME_WARNING       500
++
++#ifdef __cplusplus
++}
++#endif
++
++#endif /* MOTION_CONFIG_H */
+diff --git a/2025e/m0_controller/modules/Motion Control/inc/motion_control.h b/2025e/m0_controller/modules/Motion Control/inc/motion_control.h
+new file mode 100644
+index 0000000..abd35b9
+--- /dev/null
++++ b/2025e/m0_controller/modules/Motion Control/inc/motion_control.h	
+@@ -0,0 +1,262 @@
++/**
++ * @file motion_control.h
++ * @brief 杩愬姩鎺у埗灞備富鎺у埗鍣?- 杞ㄨ抗璺熻釜妯″紡
++ * @date 2026-07-14
++ * 
++ * 鏈ā鍧椾綔涓烘墽琛屽眰锛屾帴鏀朵笂灞傦紙Sens-Decision锛夌殑閫熷害鎸囦护 (v, 蠅)锛?+ * 閫氳繃宸€熻繍鍔ㄥ瑙ｇ畻 + 鍓嶉/鍙嶉杞€熸帶鍒讹紝杈撳嚭PWM鍒扮數鏈恒€?+ *
++ * 鏋舵瀯:
++ *   涓婂眰鍐崇瓥              鏈ā鍧?                   搴曞眰纭欢
++ *   鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€            鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€              鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
++ *   (v_cmd, 蠅_cmd)  鈫? 閫嗚繍鍔ㄥ      鈫? vL_target 鈹?+ *                            鈫?                  鈹?鍓嶉 + PI  鈫?PWM
++ *                       鐘舵€佷及璁?     鈫? 缂栫爜鍣?   鈹?+ *
++ * 鎺у埗娴佺▼ (500Hz):
++ *   1. 鐘舵€佷及璁? 缂栫爜鍣?鈫?瀹為檯杞€?+ *   2. 鎸囦护骞虫粦: 瀵?(v_cmd, 蠅_cmd) 鏂藉姞涓€闃朵綆閫氭护娉?+ *   3. 鍔犻€熷害闄愬箙: 闄愬埗閫熷害鍙樺寲鐜?+ *   4. 閫嗚繍鍔ㄥ: (v, 蠅) 鈫?(vL_target, vR_target)
++ *   5. 杞€熸帶鍒? 鍓嶉(鎯€?鎽╂摝) + PI鍙嶉 鈫?PWM
++ *   6. 杈撳嚭鍒扮數鏈?+ */
++
++#ifndef MOTION_CONTROL_H
++#define MOTION_CONTROL_H
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++#include <stdint.h>
++#include <stdbool.h>
++#include "motion_feedback.h"
++#include "motion_feedforward.h"
++
++/* ============================================================================
++ * 绫诲瀷瀹氫箟
++ * ============================================================================ */
++
++/**
++ * @brief 鎺у埗鐘舵€佹灇涓?+ */
++typedef enum {
++    CONTROL_STATE_INIT,         /**< 鍒濆鍖栫姸鎬?*/
++    CONTROL_STATE_IDLE,         /**< 绌洪棽鐘舵€?*/
++    CONTROL_STATE_RUNNING,      /**< 杩愯鐘舵€?*/
++    CONTROL_STATE_EMERGENCY,    /**< 绱ф€ュ仠姝㈢姸鎬?*/
++    CONTROL_STATE_ERROR         /**< 鏁呴殰鐘舵€?*/
++} ControlState_t;
++
++/**
++ * @brief 鐢垫満鎺ュ彛锛堣櫄琛級
++ */
++typedef struct {
++    void (*setDifferentialPWM)(int16_t left, int16_t right);
++    void (*stop)(void);
++    void (*init)(void);
++} MotorInterface_t;
++
++/**
++ * @brief 閫熷害鎸囦护锛堢敱涓婂眰鍐崇瓥妯″潡鎻愪緵锛?+ */
++typedef struct {
++    float v_linear;    /**< 绾块€熷害鎸囦护 (m/s) */
++    float omega;       /**< 瑙掗€熷害鎸囦护 (rad/s) */
++} VelocityCommand_t;
++
++/**
++ * @brief 杞€熸帶鍒跺櫒锛堝墠棣?鍙嶉缁勫悎锛?+ * 
++ * 姣忎釜杞瓙鐙珛涓€涓疄渚嬶紝鎺у埗閫昏緫:
++ *   PWM = 鍓嶉(鎯€?鎽╂摝+闈欐懇鎿? + PI鍙嶉(閫熷害璇樊)
++ */
++typedef struct {
++    PID_t pid;              /**< 閫熷害PI鎺у埗鍣?*/
++    Feedforward_t ff;       /**< 鍓嶉鎺у埗鍣?*/
++    
++    float target_velocity;  /**< 鐩爣閫熷害 (m/s) */
++    float actual_velocity;  /**< 瀹為檯閫熷害 (m/s) */
++    
++    int16_t pwm_output;     /**< 杈撳嚭PWM */
++} WheelController_t;
++
++/**
++ * @brief 杩愬姩鎺у埗鍣ㄤ富缁撴瀯
++ */
++typedef struct {
++    /* ---- 纭欢鎺ュ彛 ---- */
++    EncoderInterface_t *encoder;   /**< 缂栫爜鍣ㄦ帴鍙ｏ紙鐘舵€佷及璁＄敤锛?*/
++    MotorInterface_t *motor;       /**< 鐢垫満PWM杈撳嚭鎺ュ彛锛堢洿鎺ユ寔鏈夛紝鏃犳墽琛屽櫒灞傦級 */
++    
++    /* ---- 鐘舵€佷及璁″櫒 ---- */
++    StateEstimator_t state_estimator;
++    
++    /* ---- 鎺у埗鐘舵€?---- */
++    ControlState_t state;
++    
++    /* ---- 閫熷害鎸囦护 ---- */
++    VelocityCommand_t cmd;          /**< 褰撳墠閫熷害鎸囦护 */
++    
++    /* ---- 鎸囦护骞虫粦锛堜竴闃朵綆閫氭护娉級 ---- */
++    float smoothed_v;       /**< 骞虫粦鍚庣殑绾块€熷害 (m/s) */
++    float smoothed_omega;   /**< 骞虫粦鍚庣殑瑙掗€熷害 (rad/s) */
++    
++    /* ---- 鍐呯幆锛氬乏鍙宠疆閫熷害鎺у埗鍣紙鍓嶉+鍙嶉锛?---- */
++    WheelController_t wheel_left;
++    WheelController_t wheel_right;
++    
++    /* ---- 鎬ц兘鐩戞帶 ---- */
++    uint32_t loop_count;       /**< 寰幆璁℃暟 */
++    uint32_t max_exec_time;    /**< 鏈€澶ф墽琛屾椂闂?us) */
++    uint32_t last_stamp;       /**< 涓婃鏃堕棿鎴?us)锛岀敤浜庢€ц兘缁熻 */
++    
++} MotionControl_t;
++
++/**
++ * @brief 杩愬姩鎺у埗鍣ㄩ厤缃紙鍒濆鍖栨椂浼犲叆锛?+ */
++typedef struct {
++    float kp_speed;         /**< 杞€烶I姣斾緥澧炵泭 */
++    float ki_speed;         /**< 杞€烶I绉垎澧炵泭 */
++    float k_ff_accel;       /**< 鍓嶉鍔犻€熷害绯绘暟 */
++    float k_ff_friction;    /**< 鍓嶉鎽╂摝绯绘暟 */
++    float k_ff_static;      /**< 鍓嶉闈欐懇鎿﹁ˉ鍋?*/
++} MotionControlConfig_t;
++
++/* ============================================================================
++ * 鍏叡API
++ * ============================================================================ */
++
++/**
++ * @brief 鍒濆鍖栬繍鍔ㄦ帶鍒跺眰
++ * 
++ * @param ctrl           鎺у埗鍣ㄥ疄渚?+ * @param encoder        缂栫爜鍣ㄦ帴鍙ｏ紙涓嶈兘涓篘ULL锛?+ * @param motor          鐢垫満PWM杈撳嚭鎺ュ彛锛堜笉鑳戒负NULL锛?+ * @return true=鎴愬姛, false=澶辫触锛堝弬鏁颁负NULL锛?+ */
++bool MotionControl_Init(MotionControl_t *ctrl,
++                       EncoderInterface_t *encoder,
++                       MotorInterface_t *motor);
++
++/**
++ * @brief 涓绘帶鍒跺惊鐜紙500Hz瀹氭椂鍣ㄤ腑鏂腑璋冪敤锛?+ * 
++ * 鎺у埗娴佺▼:
++ *   1. 鐘舵€佷及璁? 璇诲彇缂栫爜鍣ㄨ绠楀疄闄呰疆閫?+ *   2. 鎸囦护骞虫粦: 涓€闃朵綆閫氭护娉?(v_cmd, 蠅_cmd)
++ *   3. 鍔犻€熷害闄愬箙: 闄愬埗閫熷害鍙樺寲鐜?+ *   4. 閫嗚繍鍔ㄥ: (v, 蠅) 鈫?(vL_target, vR_target)
++ *   5. 杞€熸帶鍒? 鍓嶉(鎯€?鎽╂摝+闈欐懇鎿? + PI鍙嶉
++ *   6. 杈撳嚭PWM鍒扮數鏈?+ * 
++ * @param ctrl 鎺у埗鍣ㄥ疄渚?+ */
++void MotionControl_Update(MotionControl_t *ctrl);
++
++/**
++ * @brief 璁剧疆閫熷害鎸囦护锛堢敱涓婂眰鍐崇瓥妯″潡鍛ㄦ湡鎬ц皟鐢級
++ * 
++ * 璇ュ嚱鏁板彧璁板綍鎸囦护锛屽疄闄呮墽琛屽湪 MotionControl_Update() 涓紝
++ * 浼氱粡杩囧钩婊戝拰闄愬箙澶勭悊鍚庡啀杈撳嚭銆?+ * 
++ * @param ctrl     鎺у埗鍣ㄥ疄渚?+ * @param v_linear 绾块€熷害鎸囦护 (m/s)
++ * @param omega    瑙掗€熷害鎸囦护 (rad/s)
++ */
++void MotionControl_SetVelocityCommand(MotionControl_t *ctrl,
++                                      float v_linear,
++                                      float omega);
++
++/**
++ * @brief 璁剧疆閫熷害PI鍙傛暟
++ * @param ctrl 鎺у埗鍣ㄥ疄渚?+ * @param kp   姣斾緥澧炵泭
++ * @param ki   绉垎澧炵泭
++ */
++void MotionControl_SetSpeedPI(MotionControl_t *ctrl,
++                              float kp, float ki);
++
++/**
++ * @brief 璁剧疆鍓嶉鍙傛暟
++ * @param ctrl       鎺у埗鍣ㄥ疄渚?+ * @param k_accel    鍔犻€熷害绯绘暟
++ * @param k_friction 鎽╂摝绯绘暟
++ * @param k_static   闈欐懇鎿﹁ˉ鍋?+ */
++void MotionControl_SetFeedforward(MotionControl_t *ctrl,
++                                  float k_accel,
++                                  float k_friction,
++                                  float k_static);
++
++/**
++ * @brief 鍚姩鎺у埗
++ * 
++ * 澶嶄綅鎵€鏈夋帶鍒跺櫒鐘舵€佸苟杩涘叆RUNNING鐘舵€併€?+ * 璋冪敤鍓嶉渶鍏堥€氳繃 SetVelocityCommand 璁剧疆鍒濆閫熷害鎸囦护銆?+ * 
++ * @param ctrl 鎺у埗鍣ㄥ疄渚?+ */
++void MotionControl_Start(MotionControl_t *ctrl);
++
++/**
++ * @brief 鍋滄鎺у埗
++ * 
++ * 鍋滄鐢垫満骞惰繘鍏DLE鐘舵€併€?+ * 
++ * @param ctrl 鎺у埗鍣ㄥ疄渚?+ */
++void MotionControl_Stop(MotionControl_t *ctrl);
++
++/**
++ * @brief 绱ф€ュ仠姝?+ * 
++ * 绔嬪嵆鍋滄鐢垫満骞惰繘鍏MERGENCY鐘舵€併€?+ * 闇€瑕佹樉寮忚皟鐢?MotionControl_Start() 鎵嶈兘鎭㈠銆?+ * 
++ * @param ctrl 鎺у埗鍣ㄥ疄渚?+ */
++void MotionControl_EmergencyStop(MotionControl_t *ctrl);
++
++/**
++ * @brief 鑾峰彇褰撳墠鐘舵€?+ * @param ctrl 鎺у埗鍣ㄥ疄渚?+ * @return 鎺у埗鐘舵€?+ */
++ControlState_t MotionControl_GetState(MotionControl_t *ctrl);
++
++/**
++ * @brief 鑾峰彇宸﹀彸杞疄闄呴€熷害
++ * @param ctrl  鎺у埗鍣ㄥ疄渚?+ * @param left  杈撳嚭宸﹁疆閫熷害 (m/s)
++ * @param right 杈撳嚭鍙宠疆閫熷害 (m/s)
++ */
++void MotionControl_GetWheelSpeed(MotionControl_t *ctrl,
++                                 float *left, float *right);
++
++/**
++ * @brief 鑾峰彇宸﹀彸杞洰鏍囬€熷害锛堣繍鍔ㄥ瑙ｇ畻鍚庯級
++ * @param ctrl  鎺у埗鍣ㄥ疄渚?+ * @param left  杈撳嚭宸﹁疆鐩爣閫熷害 (m/s)
++ * @param right 杈撳嚭鍙宠疆鐩爣閫熷害 (m/s)
++ */
++void MotionControl_GetTargetWheelSpeed(MotionControl_t *ctrl,
++                                       float *left, float *right);
++
++/**
++ * @brief 鑾峰彇鎬ц兘缁熻
++ * @param ctrl          鎺у埗鍣ㄥ疄渚?+ * @param loop_count    杈撳嚭寰幆璁℃暟
++ * @param max_exec_time 杈撳嚭鏈€澶ф墽琛屾椂闂?us)
++ */
++void MotionControl_GetPerformance(MotionControl_t *ctrl,
++                                  uint32_t *loop_count,
++                                  uint32_t *max_exec_time);
++
++#ifdef __cplusplus
++}
++#endif
++
++#endif /* MOTION_CONTROL_H */
+diff --git a/2025e/m0_controller/modules/Motion Control/inc/motion_feedback.h b/2025e/m0_controller/modules/Motion Control/inc/motion_feedback.h
+new file mode 100644
+index 0000000..6b2c669
+--- /dev/null
++++ b/2025e/m0_controller/modules/Motion Control/inc/motion_feedback.h	
+@@ -0,0 +1,185 @@
++/**
++ * @file motion_feedback.h
++ * @brief 鍙嶉鎺у埗妯″潡锛歅ID鎺у埗鍣?+ 鐘舵€佷及璁″櫒
++ * @date 2026-07-14
++ * 
++ * 鎻愪緵PID鎺у埗鍣ㄥ拰鍩轰簬缂栫爜鍣ㄧ殑鐘舵€佷及璁″姛鑳?+ */
++
++#ifndef MOTION_FEEDBACK_H
++#define MOTION_FEEDBACK_H
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++#include <stdint.h>
++#include <stdbool.h>
++
++/* ============================================================================
++ * 绫诲瀷瀹氫箟
++ * ============================================================================ */
++
++/**
++ * @brief PID鎺у埗鍣ㄧ粨鏋?+ */
++typedef struct {
++    float kp;              /**< 姣斾緥澧炵泭 */
++    float ki;              /**< 绉垎澧炵泭 */
++    float kd;              /**< 寰垎澧炵泭 */
++    
++    float integral;        /**< 绉垎绱 */
++    float prev_error;      /**< 涓婃璇樊 */
++    
++    float output_min;      /**< 杈撳嚭涓嬮檺 */
++    float output_max;      /**< 杈撳嚭涓婇檺 */
++    
++    float integral_min;    /**< 绉垎闄愬箙涓嬮檺 */
++    float integral_max;    /**< 绉垎闄愬箙涓婇檺 */
++} PID_t;
++
++/**
++ * @brief 缂栫爜鍣ㄦ帴鍙ｏ紙铏氳〃锛?+ */
++typedef enum {
++    ENCODER_LEFT_FRONT = 0,
++    ENCODER_LEFT_REAR = 1,
++    ENCODER_RIGHT_FRONT = 2,
++    ENCODER_RIGHT_REAR = 3,
++    ENCODER_COUNT
++} EncoderId_t;
++
++typedef struct {
++    int32_t (*getCount)(EncoderId_t id);
++    void (*resetCount)(EncoderId_t id);
++} EncoderInterface_t;
++
++/**
++ * @brief 鐘舵€佷及璁″櫒缁撴瀯
++ */
++typedef struct {
++    EncoderInterface_t *encoder;  /**< 缂栫爜鍣ㄦ帴鍙?*/
++    
++    // 缂栫爜鍣ㄥ巻鍙叉暟鎹?+    int32_t prev_count[ENCODER_COUNT];
++    
++    // 閫熷害浼拌
++    float wheel_speed[ENCODER_COUNT];  /**< 鍚勮疆閫熷害 (m/s) */
++    float wheel_speed_filtered[ENCODER_COUNT];  /**< 婊ゆ尝鍚庨€熷害 */
++    
++    // 搴曠洏閫熷害
++    float v_left;      /**< 宸︿晶閫熷害 (m/s) */
++    float v_right;     /**< 鍙充晶閫熷害 (m/s) */
++    
++    // 鐗╃悊鍙傛暟
++    float wheel_radius;
++    float encoder_ppr;
++    float update_freq;
++} StateEstimator_t;
++
++/* ============================================================================
++ * PID鎺у埗鍣ˋPI
++ * ============================================================================ */
++
++/**
++ * @brief 鍒濆鍖朠ID鎺у埗鍣?+ * @param pid PID瀹炰緥
++ * @param kp 姣斾緥澧炵泭
++ * @param ki 绉垎澧炵泭
++ * @param kd 寰垎澧炵泭
++ * @param out_min 杈撳嚭涓嬮檺
++ * @param out_max 杈撳嚭涓婇檺
++ */
++void PID_Init(PID_t *pid, float kp, float ki, float kd,
++              float out_min, float out_max);
++
++/**
++ * @brief PID鎺у埗鍣ㄦ洿鏂?+ * @param pid PID瀹炰緥
++ * @param setpoint 鐩爣鍊?+ * @param measurement 娴嬮噺鍊?+ * @param dt 鏃堕棿姝ラ暱 (绉?
++ * @return 鎺у埗杈撳嚭
++ */
++float PID_Update(PID_t *pid, float setpoint, float measurement, float dt);
++
++/**
++ * @brief 澶嶄綅PID鎺у埗鍣?+ * @param pid PID瀹炰緥
++ */
++void PID_Reset(PID_t *pid);
++
++/**
++ * @brief 璁剧疆PID鍙傛暟
++ * @param pid PID瀹炰緥
++ * @param kp 姣斾緥澧炵泭
++ * @param ki 绉垎澧炵泭
++ * @param kd 寰垎澧炵泭
++ */
++void PID_SetGains(PID_t *pid, float kp, float ki, float kd);
++
++/**
++ * @brief 璁剧疆绉垎闄愬箙
++ * @param pid PID瀹炰緥
++ * @param min 绉垎涓嬮檺
++ * @param max 绉垎涓婇檺
++ */
++void PID_SetIntegralLimits(PID_t *pid, float min, float max);
++
++/* ============================================================================
++ * 鐘舵€佷及璁″櫒API
++ * ============================================================================ */
++
++/**
++ * @brief 鍒濆鍖栫姸鎬佷及璁″櫒
++ * @param est 浼拌鍣ㄥ疄渚?+ * @param encoder 缂栫爜鍣ㄦ帴鍙?+ * @param wheel_radius 杞崐寰?(m)
++ * @param encoder_ppr 缂栫爜鍣ㄦ瘡杞剦鍐叉暟
++ * @param update_freq 鏇存柊棰戠巼 (Hz)
++ */
++void StateEst_Init(StateEstimator_t *est, 
++                   EncoderInterface_t *encoder,
++                   float wheel_radius,
++                   float encoder_ppr,
++                   float update_freq);
++
++/**
++ * @brief 鏇存柊鐘舵€佷及璁★紙璇诲彇缂栫爜鍣ㄥ苟璁＄畻閫熷害锛?+ * @param est 浼拌鍣ㄥ疄渚?+ */
++void StateEst_Update(StateEstimator_t *est);
++
++/**
++ * @brief 鑾峰彇宸︿晶閫熷害
++ * @param est 浼拌鍣ㄥ疄渚?+ * @return 宸︿晶閫熷害 (m/s)
++ */
++float StateEst_GetLeftSpeed(StateEstimator_t *est);
++
++/**
++ * @brief 鑾峰彇鍙充晶閫熷害
++ * @param est 浼拌鍣ㄥ疄渚?+ * @return 鍙充晶閫熷害 (m/s)
++ */
++float StateEst_GetRightSpeed(StateEstimator_t *est);
++
++/**
++ * @brief 鑾峰彇鍗曚釜杞瓙鐨勯€熷害
++ * @param est 浼拌鍣ㄥ疄渚?+ * @param id 缂栫爜鍣↖D
++ * @return 杞€?(m/s)
++ */
++float StateEst_GetWheelSpeed(StateEstimator_t *est, EncoderId_t id);
++
++/**
++ * @brief 澶嶄綅鐘舵€佷及璁″櫒
++ * @param est 浼拌鍣ㄥ疄渚?+ */
++void StateEst_Reset(StateEstimator_t *est);
++
++#ifdef __cplusplus
++}
++#endif
++
++#endif /* MOTION_FEEDBACK_H */
+diff --git a/2025e/m0_controller/modules/Motion Control/inc/motion_feedforward.h b/2025e/m0_controller/modules/Motion Control/inc/motion_feedforward.h
+new file mode 100644
+index 0000000..33a22f9
+--- /dev/null
++++ b/2025e/m0_controller/modules/Motion Control/inc/motion_feedforward.h	
+@@ -0,0 +1,95 @@
++/**
++ * @file motion_feedforward.h
++ * @brief 鍓嶉鎺у埗妯″潡锛氳浆鐭╁墠棣堬紙鍑嗙數娴佺幆鏁堟灉锛?+ * @date 2026-07-14
++ * 
++ * 鍩轰簬鐢垫満妯″瀷鐨勫墠棣堟帶鍒讹紝琛ュ伩鎯€с€佹懇鎿︾瓑闈炵嚎鎬у洜绱?+ */
++
++#ifndef MOTION_FEEDFORWARD_H
++#define MOTION_FEEDFORWARD_H
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++#include <stdint.h>
++#include <stdbool.h>
++
++/* ============================================================================
++ * 绫诲瀷瀹氫箟
++ * ============================================================================ */
++
++/**
++ * @brief 鍓嶉鎺у埗鍣ㄧ粨鏋?+ */
++typedef struct {
++    float k_accel;      /**< 鍔犻€熷害绯绘暟 (PWM/(m/s虏)) - 鎯€цˉ鍋?*/
++    float k_friction;   /**< 鎽╂摝绯绘暟 (PWM/(m/s)) - 榛忔€ф懇鎿﹁ˉ鍋?*/
++    float k_static;     /**< 闈欐懇鎿﹁ˉ鍋?(PWM) - 鍏嬫湇鍚姩闃诲姏 */
++    
++    float prev_velocity; /**< 涓婃閫熷害 (鐢ㄤ簬璁＄畻鍔犻€熷害) */
++} Feedforward_t;
++
++/* ============================================================================
++ * 鍏叡API
++ * ============================================================================ */
++
++/**
++ * @brief 鍒濆鍖栧墠棣堟帶鍒跺櫒
++ * @param ff 鍓嶉鎺у埗鍣ㄥ疄渚?+ * @param k_accel 鍔犻€熷害绯绘暟 (PWM/(m/s虏))
++ * @param k_friction 鎽╂摝绯绘暟 (PWM/(m/s))
++ * @param k_static 闈欐懇鎿﹁ˉ鍋?(PWM)
++ */
++void Feedforward_Init(Feedforward_t *ff, 
++                      float k_accel, 
++                      float k_friction,
++                      float k_static);
++
++/**
++ * @brief 鍓嶉鎺у埗鏇存柊
++ * 
++ * 鍓嶉杈撳嚭 = 鎯€цˉ鍋?+ 鎽╂摝琛ュ伩 + 闈欐懇鎿﹁ˉ鍋?+ * 
++ * 1. 鎯€цˉ鍋? PWM = k_accel * acceleration
++ *    - 琛ュ伩鐢垫満杞姩鎯噺鍜岃礋杞芥儻閲?+ * 
++ * 2. 鎽╂摝琛ュ伩: PWM = k_friction * velocity
++ *    - 琛ュ伩涓庨€熷害鎴愭姣旂殑榛忔€ф懇鎿?+ * 
++ * 3. 闈欐懇鎿﹁ˉ鍋? PWM = k_static * sign(velocity)
++ *    - 琛ュ伩鍚姩鏃剁殑闈欐懇鎿﹀姏
++ * 
++ * @param ff 鍓嶉鎺у埗鍣ㄥ疄渚?+ * @param target_velocity 鐩爣閫熷害 (m/s)
++ * @param dt 鏃堕棿姝ラ暱 (绉?
++ * @return 鍓嶉PWM杈撳嚭
++ */
++float Feedforward_Update(Feedforward_t *ff, 
++                        float target_velocity, 
++                        float dt);
++
++/**
++ * @brief 澶嶄綅鍓嶉鎺у埗鍣?+ * @param ff 鍓嶉鎺у埗鍣ㄥ疄渚?+ */
++void Feedforward_Reset(Feedforward_t *ff);
++
++/**
++ * @brief 璁剧疆鍓嶉鍙傛暟
++ * @param ff 鍓嶉鎺у埗鍣ㄥ疄渚?+ * @param k_accel 鍔犻€熷害绯绘暟
++ * @param k_friction 鎽╂摝绯绘暟
++ * @param k_static 闈欐懇鎿﹁ˉ鍋?+ */
++void Feedforward_SetParams(Feedforward_t *ff,
++                          float k_accel,
++                          float k_friction,
++                          float k_static);
++
++#ifdef __cplusplus
++}
++#endif
++
++#endif /* MOTION_FEEDFORWARD_H */
+diff --git a/2025e/m0_controller/modules/Motion Control/inc/motion_kinematics.h b/2025e/m0_controller/modules/Motion Control/inc/motion_kinematics.h
+new file mode 100644
+index 0000000..830d9ef
+--- /dev/null
++++ b/2025e/m0_controller/modules/Motion Control/inc/motion_kinematics.h	
+@@ -0,0 +1,100 @@
++/**
++ * @file motion_kinematics.h
++ * @brief 宸€熷簳鐩樿繍鍔ㄥ妯″潡
++ * @date 2026-07-14
++ * 
++ * 鎻愪緵宸€熷簳鐩樼殑姝ｈ繍鍔ㄥ鍜岄€嗚繍鍔ㄥ杞崲
++ */
++
++#ifndef MOTION_KINEMATICS_H
++#define MOTION_KINEMATICS_H
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++#include <stdint.h>
++#include <stdbool.h>
++
++/* ============================================================================
++ * 绫诲瀷瀹氫箟
++ * ============================================================================ */
++
++/**
++ * @brief 宸€熻繍鍔ㄥ閰嶇疆缁撴瀯
++ */
++typedef struct {
++    float wheel_base;      /**< 杞窛 (m) */
++    float wheel_radius;    /**< 杞崐寰?(m) */
++} DiffKinematicsConfig_t;
++
++/* ============================================================================
++ * 鍏叡API
++ * ============================================================================ */
++
++/**
++ * @brief 鍒濆鍖栧樊閫熻繍鍔ㄥ妯″潡
++ * @param wheel_base 杞窛 (m)
++ * @param wheel_radius 杞崐寰?(m)
++ */
++void DiffKin_Init(float wheel_base, float wheel_radius);
++
++/**
++ * @brief 閫嗚繍鍔ㄥ锛氬簳鐩橀€熷害 鈫?宸﹀彸杞€熷害
++ * 
++ * 鍏紡:
++ *   v_left  = v - (wheel_base/2) * omega
++ *   v_right = v + (wheel_base/2) * omega
++ * 
++ * @param v 搴曠洏绾块€熷害 (m/s)
++ * @param omega 搴曠洏瑙掗€熷害 (rad/s)
++ * @param v_left 杈撳嚭宸﹁疆閫熷害 (m/s)
++ * @param v_right 杈撳嚭鍙宠疆閫熷害 (m/s)
++ */
++void DiffKin_Inverse(float v, float omega, 
++                     float *v_left, float *v_right);
++
++/**
++ * @brief 姝ｈ繍鍔ㄥ锛氬乏鍙宠疆閫熷害 鈫?搴曠洏閫熷害
++ * 
++ * 鍏紡:
++ *   v     = (v_left + v_right) / 2
++ *   omega = (v_right - v_left) / wheel_base
++ * 
++ * @param v_left 宸﹁疆閫熷害 (m/s)
++ * @param v_right 鍙宠疆閫熷害 (m/s)
++ * @param v 杈撳嚭搴曠洏绾块€熷害 (m/s)
++ * @param omega 杈撳嚭搴曠洏瑙掗€熷害 (rad/s)
++ */
++void DiffKin_Forward(float v_left, float v_right,
++                     float *v, float *omega);
++
++/**
++ * @brief 鑾峰彇杞窛
++ * @return 杞窛 (m)
++ */
++float DiffKin_GetWheelBase(void);
++
++/**
++ * @brief 鑾峰彇杞崐寰?+ * @return 杞崐寰?(m)
++ */
++float DiffKin_GetWheelRadius(void);
++
++/**
++ * @brief 璁剧疆杞窛锛堢敤浜庢爣瀹氬悗鏇存柊锛?+ * @param wheel_base 杞窛 (m)
++ */
++void DiffKin_SetWheelBase(float wheel_base);
++
++/**
++ * @brief 璁剧疆杞崐寰勶紙鐢ㄤ簬鏍囧畾鍚庢洿鏂帮級
++ * @param wheel_radius 杞崐寰?(m)
++ */
++void DiffKin_SetWheelRadius(float wheel_radius);
++
++#ifdef __cplusplus
++}
++#endif
++
++#endif /* MOTION_KINEMATICS_H */
+diff --git a/2025e/m0_controller/modules/Motion Control/src/motion_control.c b/2025e/m0_controller/modules/Motion Control/src/motion_control.c
+new file mode 100644
+index 0000000..9364929
+--- /dev/null
++++ b/2025e/m0_controller/modules/Motion Control/src/motion_control.c	
+@@ -0,0 +1,344 @@
++/**
++ * @file motion_control.c
++ * @brief 杩愬姩鎺у埗灞備富鎺у埗鍣ㄥ疄鐜?- 杞ㄨ抗璺熻釜妯″紡
++ * @date 2026-07-14
++ */
++
++#include "motion_control.h"
++#include "motion_config.h"
++#include "motion_kinematics.h"
++#include <string.h>
++
++/* ============================================================================
++ * 鍐呴儴杈呭姪鍑芥暟
++ * ============================================================================ */
++
++static inline float clamp_float(float value, float min, float max) {
++    if (value > max) return max;
++    if (value < min) return min;
++    return value;
++}
++
++static inline int16_t clamp_int16(int16_t value, int16_t min, int16_t max) {
++    if (value > max) return max;
++    if (value < min) return min;
++    return value;
++}
++
++static inline float sign_float(float value) {
++    if (value > 0.0f) return 1.0f;
++    if (value < 0.0f) return -1.0f;
++    return 0.0f;
++}
++
++/**
++ * @brief 杞€熸帶鍒跺櫒鍒濆鍖?+ */
++static void WheelController_Init(WheelController_t *wheel,
++                                  float speed_kp, float speed_ki,
++                                  float ff_k_accel, float ff_k_friction,
++                                  float ff_k_static) {
++    PID_Init(&wheel->pid, speed_kp, speed_ki, 0.0f,
++             SPEED_OUTPUT_MIN, SPEED_OUTPUT_MAX);
++    Feedforward_Init(&wheel->ff, ff_k_accel, ff_k_friction, ff_k_static);
++    wheel->target_velocity = 0.0f;
++    wheel->actual_velocity = 0.0f;
++    wheel->pwm_output = 0;
++}
++
++/**
++ * @brief 杞€熸帶鍒跺櫒鏇存柊锛堝墠棣?鍙嶉鍚堟垚锛?+ * 
++ * PWM = 鍓嶉(鍔犻€熷害+鎽╂摝+闈欐懇鎿? + PI鍙嶉(閫熷害璇樊)
++ */
++static int16_t WheelController_Update(WheelController_t *wheel,
++                                       float target_velocity,
++                                       float actual_velocity,
++                                       float dt) {
++    wheel->target_velocity = target_velocity;
++    wheel->actual_velocity = actual_velocity;
++
++    /* 鍓嶉鎺у埗锛堝熀浜庢ā鍨嬬殑寮€鐜ˉ鍋匡級 */
++    float pwm_ff = Feedforward_Update(&wheel->ff, target_velocity, dt);
++
++    /* 鍙嶉鎺у埗锛堝熀浜庤宸殑闂幆淇锛?*/
++    float pwm_fb = PID_Update(&wheel->pid, target_velocity, actual_velocity, dt);
++
++    /* 鍓嶉+鍙嶉鍚堟垚 */
++    float pwm_total = pwm_ff + pwm_fb;
++    pwm_total = clamp_float(pwm_total, (float)PWM_MIN, (float)PWM_MAX);
++
++    wheel->pwm_output = (int16_t)pwm_total;
++    return wheel->pwm_output;
++}
++
++/**
++ * @brief 澶嶄綅杞€熸帶鍒跺櫒
++ */
++static void WheelController_Reset(WheelController_t *wheel) {
++    PID_Reset(&wheel->pid);
++    Feedforward_Reset(&wheel->ff);
++    wheel->target_velocity = 0.0f;
++    wheel->actual_velocity = 0.0f;
++    wheel->pwm_output = 0;
++}
++
++/* ============================================================================
++ * 鎸囦护骞虫粦涓庨檺骞?+ * ============================================================================ */
++
++/**
++ * @brief 閫熷害鎸囦护骞虫粦锛堜竴闃朵綆閫氭护娉級
++ *
++ * 閬垮厤鎸囦护璺冲彉瀵艰嚧杞﹁疆鎵撴粦鎴栨満姊板啿鍑汇€?+ * smoothed = alpha * new + (1-alpha) * old
++ * alpha 鐢?CMD_SMOOTH_TAU 鎺у埗
++ */
++static void SmoothCommand(MotionControl_t *ctrl) {
++    const float alpha = CMD_SMOOTH_ALPHA;
++    ctrl->smoothed_v     = alpha * ctrl->cmd.v_linear + (1.0f - alpha) * ctrl->smoothed_v;
++    ctrl->smoothed_omega = alpha * ctrl->cmd.omega    + (1.0f - alpha) * ctrl->smoothed_omega;
++}
++
++/**
++ * @brief 鍔犻€熷害闄愬箙
++ *
++ * 闄愬埗绾块€熷害鍙樺寲鐜囦笉瓒呰繃 MAX_ACCELERATION / MAX_DECELERATION銆?+ * 杩欏杞ㄨ抗璺熻釜鑷冲叧閲嶈锛氳繃澶х殑鍔犻€熷害鎸囦护浼氬鑷村墠棣堣緭鍑洪ケ鍜屻€佺Н鍒嗛ケ鍜屻€?+ */
++static float ClampAcceleration(float target, float previous, float dt) {
++    float delta = target - previous;
++    float max_delta_accel  = MAX_ACCELERATION  * dt;
++    float max_delta_decel  = MAX_DECELERATION  * dt;
++
++    if (delta > max_delta_accel) {
++        return previous + max_delta_accel;
++    } else if (delta < -max_delta_decel) {
++        return previous - max_delta_decel;
++    }
++    return target;  /* 鍦ㄨ寖鍥村唴锛岀洿鎺ヤ娇鐢?*/
++}
++
++/* ============================================================================
++ * 鍏叡鍑芥暟瀹炵幇
++ * ============================================================================ */
++
++bool MotionControl_Init(MotionControl_t *ctrl,
++                       EncoderInterface_t *encoder,
++                       MotorInterface_t *motor) {
++    if (ctrl == NULL || encoder == NULL || motor == NULL) {
++        return false;
++    }
++
++    ctrl->encoder = encoder;
++    ctrl->motor   = motor;
++
++    /* 杩愬姩瀛︽ā鍧?*/
++    DiffKin_Init(WHEEL_BASE, WHEEL_RADIUS);
++
++    /* 鐘舵€佷及璁″櫒 */
++    StateEst_Init(&ctrl->state_estimator,
++                  encoder,
++                  WHEEL_RADIUS,
++                  ENCODER_PPR,
++                  CONTROL_FREQ_HZ);
++
++    /* 宸﹀彸杞€熷害鎺у埗鍣紙鍓嶉+鍙嶉锛?*/
++    WheelController_Init(&ctrl->wheel_left,
++                        SPEED_KP, SPEED_KI,
++                        FF_K_ACCEL, FF_K_FRICTION, FF_K_STATIC);
++    WheelController_Init(&ctrl->wheel_right,
++                        SPEED_KP, SPEED_KI,
++                        FF_K_ACCEL, FF_K_FRICTION, FF_K_STATIC);
++
++    /* 鐘舵€佸彉閲?*/
++    ctrl->state        = CONTROL_STATE_IDLE;
++    ctrl->cmd.v_linear = 0.0f;
++    ctrl->cmd.omega    = 0.0f;
++    ctrl->smoothed_v   = 0.0f;
++    ctrl->smoothed_omega = 0.0f;
++    ctrl->loop_count   = 0;
++    ctrl->max_exec_time = 0;
++    ctrl->last_stamp   = 0;
++
++    return true;
++}
++
++/* ============================================================================
++ * 涓绘帶鍒跺惊鐜?+ * ============================================================================ */
++
++void MotionControl_Update(MotionControl_t *ctrl) {
++    if (ctrl->state != CONTROL_STATE_RUNNING) {
++        return;
++    }
++
++    const float dt = CONTROL_PERIOD_S;
++
++#if ENABLE_PERFORMANCE_MONITOR
++    /* 璁板綍寮€濮嬫椂闂?*/
++    uint32_t start_stamp = ctrl->last_stamp; /* 鐢卞畾鏃跺櫒鎴栧叾浠栬鏃舵簮鏇存柊 */
++    (void)start_stamp;
++#endif
++
++    /* ------------------------------------------------------------
++     * 姝ラ1: 鐘舵€佷及璁?- 璇诲彇缂栫爜鍣紝璁＄畻瀹為檯杞€?+     * ---------------------------------------------------------- */
++    StateEst_Update(&ctrl->state_estimator);
++    float v_left_actual  = StateEst_GetLeftSpeed(&ctrl->state_estimator);
++    float v_right_actual = StateEst_GetRightSpeed(&ctrl->state_estimator);
++
++    /* ------------------------------------------------------------
++     * 姝ラ2: 鎸囦护骞虫粦 - 瀵归€熷害鎸囦护鏂藉姞涓€闃朵綆閫氭护娉?+     * ---------------------------------------------------------- */
++    SmoothCommand(ctrl);
++
++    /* ------------------------------------------------------------
++     * 姝ラ3: 鍔犻€熷害闄愬箙
++     * ---------------------------------------------------------- */
++    /* 鑾峰彇涓婃骞虫粦鍚庣殑閫熷害鐢ㄤ簬璁＄畻 delta */
++    static float prev_smoothed_v = 0.0f;
++    float v_limited = ClampAcceleration(ctrl->smoothed_v, prev_smoothed_v, dt);
++    prev_smoothed_v = v_limited;
++
++    /* 绾块€熷害鍜岃閫熷害鍚勮嚜闄愬箙 */
++    v_limited = clamp_float(v_limited, MIN_SPEED, MAX_SPEED);
++    float omega_limited = clamp_float(ctrl->smoothed_omega, -MAX_OMEGA, MAX_OMEGA);
++
++    /* 濡傛灉閫熷害鎸囦护涓洪浂锛屽埞杞?*/
++    if (v_limited < 0.005f) {
++        v_limited = 0.0f;
++    }
++
++    /* ------------------------------------------------------------
++     * 姝ラ4: 閫嗚繍鍔ㄥ - (v, 蠅) 鈫?(vL_target, vR_target)
++     * ---------------------------------------------------------- */
++    float v_left_target = 0.0f;
++    float v_right_target = 0.0f;
++    DiffKin_Inverse(v_limited, omega_limited, &v_left_target, &v_right_target);
++
++    /* ------------------------------------------------------------
++     * 姝ラ5: 杞€熸帶鍒?- 鍓嶉+鍙嶉
++     * ---------------------------------------------------------- */
++    int16_t pwm_left  = WheelController_Update(&ctrl->wheel_left,
++                                               v_left_target,
++                                               v_left_actual,
++                                               dt);
++    int16_t pwm_right = WheelController_Update(&ctrl->wheel_right,
++                                               v_right_target,
++                                               v_right_actual,
++                                               dt);
++
++    /* ------------------------------------------------------------
++     * 姝ラ6: 杈撳嚭鍒扮數鏈?+     * ---------------------------------------------------------- */
++    ctrl->motor->setDifferentialPWM(pwm_left, pwm_right);
++
++    /* 鎬ц兘鐩戞帶 */
++    ctrl->loop_count++;
++
++#if ENABLE_PERFORMANCE_MONITOR
++    // uint32_t exec_time = now - start_stamp;
++    // if (exec_time > ctrl->max_exec_time) {
++    //     ctrl->max_exec_time = exec_time;
++    // }
++#endif
++}
++
++/* ============================================================================
++ * 鍙傛暟璁剧疆API
++ * ============================================================================ */
++
++void MotionControl_SetVelocityCommand(MotionControl_t *ctrl,
++                                      float v_linear,
++                                      float omega) {
++    ctrl->cmd.v_linear = v_linear;
++    ctrl->cmd.omega    = omega;
++}
++
++void MotionControl_SetSpeedPI(MotionControl_t *ctrl,
++                              float kp, float ki) {
++    PID_SetGains(&ctrl->wheel_left.pid,  kp, ki, 0.0f);
++    PID_SetGains(&ctrl->wheel_right.pid, kp, ki, 0.0f);
++}
++
++void MotionControl_SetFeedforward(MotionControl_t *ctrl,
++                                  float k_accel,
++                                  float k_friction,
++                                  float k_static) {
++    Feedforward_SetParams(&ctrl->wheel_left.ff,  k_accel, k_friction, k_static);
++    Feedforward_SetParams(&ctrl->wheel_right.ff, k_accel, k_friction, k_static);
++}
++
++/* ============================================================================
++ * 鎺у埗鐘舵€佺鐞?+ * ============================================================================ */
++
++void MotionControl_Start(MotionControl_t *ctrl) {
++    /* 鍙厑璁镐粠 IDLE 鍚姩 */
++    if (ctrl->state != CONTROL_STATE_IDLE) {
++        return;
++    }
++
++    /* 澶嶄綅鎵€鏈夋帶鍒跺櫒 */
++    WheelController_Reset(&ctrl->wheel_left);
++    WheelController_Reset(&ctrl->wheel_right);
++    StateEst_Reset(&ctrl->state_estimator);
++
++    /* 澶嶄綅骞虫粦鐘舵€侊紝浣跨敤褰撳墠鎸囦护鍊煎垵濮嬪寲 */
++    ctrl->smoothed_v     = ctrl->cmd.v_linear;
++    ctrl->smoothed_omega = ctrl->cmd.omega;
++
++    ctrl->state = CONTROL_STATE_RUNNING;
++}
++
++void MotionControl_Stop(MotionControl_t *ctrl) {
++    if (ctrl->motor != NULL) {
++        ctrl->motor->stop();
++    }
++
++    WheelController_Reset(&ctrl->wheel_left);
++    WheelController_Reset(&ctrl->wheel_right);
++
++    ctrl->cmd.v_linear   = 0.0f;
++    ctrl->cmd.omega      = 0.0f;
++    ctrl->smoothed_v     = 0.0f;
++    ctrl->smoothed_omega = 0.0f;
++
++    ctrl->state = CONTROL_STATE_IDLE;
++}
++
++void MotionControl_EmergencyStop(MotionControl_t *ctrl) {
++    if (ctrl->motor != NULL) {
++        ctrl->motor->stop();
++    }
++
++    ctrl->state = CONTROL_STATE_EMERGENCY;
++}
++
++/* ============================================================================
++ * 鐘舵€佹煡璇PI
++ * ============================================================================ */
++
++ControlState_t MotionControl_GetState(MotionControl_t *ctrl) {
++    return ctrl->state;
++}
++
++void MotionControl_GetWheelSpeed(MotionControl_t *ctrl,
++                                 float *left, float *right) {
++    if (left  != NULL) *left  = ctrl->wheel_left.actual_velocity;
++    if (right != NULL) *right = ctrl->wheel_right.actual_velocity;
++}
++
++void MotionControl_GetTargetWheelSpeed(MotionControl_t *ctrl,
++                                       float *left, float *right) {
++    if (left  != NULL) *left  = ctrl->wheel_left.target_velocity;
++    if (right != NULL) *right = ctrl->wheel_right.target_velocity;
++}
++
++void MotionControl_GetPerformance(MotionControl_t *ctrl,
++                                  uint32_t *loop_count,
++                                  uint32_t *max_exec_time) {
++    if (loop_count    != NULL) *loop_count    = ctrl->loop_count;
++    if (max_exec_time != NULL) *max_exec_time = ctrl->max_exec_time;
++}
+diff --git a/2025e/m0_controller/modules/Motion Control/src/motion_feedback.c b/2025e/m0_controller/modules/Motion Control/src/motion_feedback.c
+new file mode 100644
+index 0000000..0d84628
+--- /dev/null
++++ b/2025e/m0_controller/modules/Motion Control/src/motion_feedback.c	
+@@ -0,0 +1,180 @@
++/**
++ * @file motion_feedback.c
++ * @brief 鍙嶉鎺у埗妯″潡瀹炵幇
++ * @date 2026-07-14
++ */
++
++#include "motion_feedback.h"
++#include "motion_config.h"
++#include <string.h>
++
++/* ============================================================================
++ * 鍐呴儴杈呭姪鍑芥暟
++ * ============================================================================ */
++
++/**
++ * @brief 闄愬箙鍑芥暟
++ */
++static inline float clamp(float value, float min, float max) {
++    if (value > max) return max;
++    if (value < min) return min;
++    return value;
++}
++
++/* ============================================================================
++ * PID鎺у埗鍣ㄥ疄鐜?+ * ============================================================================ */
++
++void PID_Init(PID_t *pid, float kp, float ki, float kd,
++              float out_min, float out_max) {
++    pid->kp = kp;
++    pid->ki = ki;
++    pid->kd = kd;
++    
++    pid->integral = 0.0f;
++    pid->prev_error = 0.0f;
++    
++    pid->output_min = out_min;
++    pid->output_max = out_max;
++    
++    // 绉垎闄愬箙榛樿涓鸿緭鍑洪檺骞呯殑涓€鍗?+    pid->integral_min = out_min * 0.5f;
++    pid->integral_max = out_max * 0.5f;
++}
++
++float PID_Update(PID_t *pid, float setpoint, float measurement, float dt) {
++    // 璁＄畻璇樊
++    float error = setpoint - measurement;
++    
++    // 姣斾緥椤?+    float p_term = pid->kp * error;
++    
++    // 绉垎椤癸紙姊舰绉垎 + 鎶楅ケ鍜岋級
++    pid->integral += error * dt;
++    
++    // 绉垎闄愬箙锛堥槻姝㈢Н鍒嗛ケ鍜岋級
++    pid->integral = clamp(pid->integral, pid->integral_min, pid->integral_max);
++    
++    float i_term = pid->ki * pid->integral;
++    
++    // 寰垎椤?+    float d_term = 0.0f;
++    if (dt > 1e-6f) {  // 閬垮厤闄ら浂
++        float derivative = (error - pid->prev_error) / dt;
++        d_term = pid->kd * derivative;
++    }
++    pid->prev_error = error;
++    
++    // 杈撳嚭鍚堟垚
++    float output = p_term + i_term + d_term;
++    
++    // 杈撳嚭闄愬箙
++    output = clamp(output, pid->output_min, pid->output_max);
++    
++    return output;
++}
++
++void PID_Reset(PID_t *pid) {
++    pid->integral = 0.0f;
++    pid->prev_error = 0.0f;
++}
++
++void PID_SetGains(PID_t *pid, float kp, float ki, float kd) {
++    pid->kp = kp;
++    pid->ki = ki;
++    pid->kd = kd;
++}
++
++void PID_SetIntegralLimits(PID_t *pid, float min, float max) {
++    pid->integral_min = min;
++    pid->integral_max = max;
++}
++
++/* ============================================================================
++ * 鐘舵€佷及璁″櫒瀹炵幇
++ * ============================================================================ */
++
++void StateEst_Init(StateEstimator_t *est, 
++                   EncoderInterface_t *encoder,
++                   float wheel_radius,
++                   float encoder_ppr,
++                   float update_freq) {
++    est->encoder = encoder;
++    est->wheel_radius = wheel_radius;
++    est->encoder_ppr = encoder_ppr;
++    est->update_freq = update_freq;
++    
++    // 鍒濆鍖栧巻鍙叉暟鎹?+    memset(est->prev_count, 0, sizeof(est->prev_count));
++    memset(est->wheel_speed, 0, sizeof(est->wheel_speed));
++    memset(est->wheel_speed_filtered, 0, sizeof(est->wheel_speed_filtered));
++    
++    est->v_left = 0.0f;
++    est->v_right = 0.0f;
++}
++
++void StateEst_Update(StateEstimator_t *est) {
++    if (est->encoder == NULL) {
++        return;
++    }
++    
++    // 璁＄畻鍚勮疆閫熷害
++    for (int i = 0; i < ENCODER_COUNT; i++) {
++        // 璇诲彇褰撳墠缂栫爜鍣ㄨ鏁?+        int32_t current_count = est->encoder->getCount((EncoderId_t)i);
++        
++        // 璁＄畻鑴夊啿澧為噺
++        int32_t delta_count = current_count - est->prev_count[i];
++        est->prev_count[i] = current_count;
++        
++        // 鑴夊啿 鈫?閫熷害 (m/s)
++        // 閫熷害 = (鑴夊啿澧為噺 / PPR) * 杞懆闀?* 鏇存柊棰戠巼
++        float wheel_circumference = 2.0f * 3.14159265f * est->wheel_radius;
++        float speed = ((float)delta_count / est->encoder_ppr) * wheel_circumference * est->update_freq;
++        
++        est->wheel_speed[i] = speed;
++        
++        // 涓€闃朵綆閫氭护娉㈠噺灏戝櫔澹?+        // filtered = alpha * new + (1-alpha) * old
++        float alpha = SPEED_FILTER_ALPHA;
++        est->wheel_speed_filtered[i] = alpha * speed + (1.0f - alpha) * est->wheel_speed_filtered[i];
++    }
++    
++    // 璁＄畻宸﹀彸渚у钩鍧囬€熷害
++    est->v_left = (est->wheel_speed_filtered[ENCODER_LEFT_FRONT] + 
++                   est->wheel_speed_filtered[ENCODER_LEFT_REAR]) * 0.5f;
++    
++    est->v_right = (est->wheel_speed_filtered[ENCODER_RIGHT_FRONT] + 
++                    est->wheel_speed_filtered[ENCODER_RIGHT_REAR]) * 0.5f;
++}
++
++float StateEst_GetLeftSpeed(StateEstimator_t *est) {
++    return est->v_left;
++}
++
++float StateEst_GetRightSpeed(StateEstimator_t *est) {
++    return est->v_right;
++}
++
++float StateEst_GetWheelSpeed(StateEstimator_t *est, EncoderId_t id) {
++    if (id >= ENCODER_COUNT) {
++        return 0.0f;
++    }
++    return est->wheel_speed_filtered[id];
++}
++
++void StateEst_Reset(StateEstimator_t *est) {
++    memset(est->prev_count, 0, sizeof(est->prev_count));
++    memset(est->wheel_speed, 0, sizeof(est->wheel_speed));
++    memset(est->wheel_speed_filtered, 0, sizeof(est->wheel_speed_filtered));
++    
++    est->v_left = 0.0f;
++    est->v_right = 0.0f;
++    
++    // 澶嶄綅缂栫爜鍣ㄨ鏁?+    if (est->encoder != NULL) {
++        for (int i = 0; i < ENCODER_COUNT; i++) {
++            est->encoder->resetCount((EncoderId_t)i);
++        }
++    }
++}
+diff --git a/2025e/m0_controller/modules/Motion Control/src/motion_feedforward.c b/2025e/m0_controller/modules/Motion Control/src/motion_feedforward.c
+new file mode 100644
+index 0000000..ac727b0
+--- /dev/null
++++ b/2025e/m0_controller/modules/Motion Control/src/motion_feedforward.c	
+@@ -0,0 +1,68 @@
++/**
++ * @file motion_feedforward.c
++ * @brief 鍓嶉鎺у埗妯″潡瀹炵幇
++ * @date 2026-07-14
++ */
++
++#include "motion_feedforward.h"
++#include "motion_config.h"
++
++/* ============================================================================
++ * 鍏叡鍑芥暟瀹炵幇
++ * ============================================================================ */
++
++void Feedforward_Init(Feedforward_t *ff, 
++                      float k_accel, 
++                      float k_friction,
++                      float k_static) {
++    ff->k_accel = k_accel;
++    ff->k_friction = k_friction;
++    ff->k_static = k_static;
++    ff->prev_velocity = 0.0f;
++}
++
++float Feedforward_Update(Feedforward_t *ff, 
++                        float target_velocity, 
++                        float dt) {
++    // 1. 鍔犻€熷害鍓嶉锛堟儻鎬цˉ鍋匡級
++    float acceleration = 0.0f;
++    if (dt > 1e-6f) {  // 閬垮厤闄ら浂
++        acceleration = (target_velocity - ff->prev_velocity) / dt;
++    }
++    ff->prev_velocity = target_velocity;
++    
++    float ff_accel = ff->k_accel * acceleration;
++    
++    // 2. 榛忔€ф懇鎿﹁ˉ鍋匡紙涓庨€熷害鎴愭姣旓級
++    float ff_friction = ff->k_friction * target_velocity;
++    
++    // 3. 闈欐懇鎿﹁ˉ鍋匡紙鍏嬫湇鍚姩闃诲姏锛?+    // 鍙湁鍦ㄩ€熷害涓嶄负闆舵椂鏂藉姞锛岄伩鍏嶅湪鍋滄鏃朵骇鐢熸姈鍔?+    float ff_static = 0.0f;
++    const float VELOCITY_THRESHOLD = 0.01f;  // 1 cm/s
++    
++    if (target_velocity > VELOCITY_THRESHOLD) {
++        ff_static = ff->k_static;
++    } else if (target_velocity < -VELOCITY_THRESHOLD) {
++        ff_static = -ff->k_static;
++    }
++    // 閫熷害鎺ヨ繎闆舵椂涓嶆柦鍔犻潤鎽╂摝琛ュ伩
++    
++    // 4. 鍚堟垚鍓嶉杈撳嚭
++    float ff_output = ff_accel + ff_friction + ff_static;
++    
++    return ff_output;
++}
++
++void Feedforward_Reset(Feedforward_t *ff) {
++    ff->prev_velocity = 0.0f;
++}
++
++void Feedforward_SetParams(Feedforward_t *ff,
++                          float k_accel,
++                          float k_friction,
++                          float k_static) {
++    ff->k_accel = k_accel;
++    ff->k_friction = k_friction;
++    ff->k_static = k_static;
++}
+diff --git a/2025e/m0_controller/modules/Motion Control/src/motion_kinematics.c b/2025e/m0_controller/modules/Motion Control/src/motion_kinematics.c
+new file mode 100644
+index 0000000..07d0dcd
+--- /dev/null
++++ b/2025e/m0_controller/modules/Motion Control/src/motion_kinematics.c	
+@@ -0,0 +1,64 @@
++/**
++ * @file motion_kinematics.c
++ * @brief 宸€熷簳鐩樿繍鍔ㄥ妯″潡瀹炵幇
++ * @date 2026-07-14
++ */
++
++#include "motion_kinematics.h"
++#include "motion_config.h"
++
++/* ============================================================================
++ * 绉佹湁鍙橀噺
++ * ============================================================================ */
++
++static DiffKinematicsConfig_t g_kinConfig = {
++    .wheel_base = WHEEL_BASE,
++    .wheel_radius = WHEEL_RADIUS
++};
++
++/* ============================================================================
++ * 鍏叡鍑芥暟瀹炵幇
++ * ============================================================================ */
++
++void DiffKin_Init(float wheel_base, float wheel_radius) {
++    g_kinConfig.wheel_base = wheel_base;
++    g_kinConfig.wheel_radius = wheel_radius;
++}
++
++void DiffKin_Inverse(float v, float omega, 
++                     float *v_left, float *v_right) {
++    // 宸€熷簳鐩橀€嗚繍鍔ㄥ
++    // v_left  = v - (b/2) * omega
++    // v_right = v + (b/2) * omega
++    
++    float half_base = g_kinConfig.wheel_base * 0.5f;
++    
++    *v_left  = v - half_base * omega;
++    *v_right = v + half_base * omega;
++}
++
++void DiffKin_Forward(float v_left, float v_right,
++                     float *v, float *omega) {
++    // 宸€熷簳鐩樻杩愬姩瀛?+    // v     = (v_left + v_right) / 2
++    // omega = (v_right - v_left) / b
++    
++    *v = (v_left + v_right) * 0.5f;
++    *omega = (v_right - v_left) / g_kinConfig.wheel_base;
++}
++
++float DiffKin_GetWheelBase(void) {
++    return g_kinConfig.wheel_base;
++}
++
++float DiffKin_GetWheelRadius(void) {
++    return g_kinConfig.wheel_radius;
++}
++
++void DiffKin_SetWheelBase(float wheel_base) {
++    g_kinConfig.wheel_base = wheel_base;
++}
++
++void DiffKin_SetWheelRadius(float wheel_radius) {
++    g_kinConfig.wheel_radius = wheel_radius;
++}
+diff --git a/2025e/m0_controller/modules/Sens-Decision/inc/EKF.h b/2025e/m0_controller/modules/Sens-Decision/inc/EKF.h
+new file mode 100644
+index 0000000..9d69591
+--- /dev/null
++++ b/2025e/m0_controller/modules/Sens-Decision/inc/EKF.h
+@@ -0,0 +1,25 @@
++/**
++ * @file      EKF.h
++ * @brief     Sens-Decision灞傜殑鎵╁睍鍗″皵鏇兼护娉㈤儴鍒嗙殑閫昏緫灏佽
++ * @author    joelin-CN
++ * @version   1.0.0
++ * @date      2026-07-14
++ * @note      Sens-Decision灞傜殑鎵╁睍鍗″皵鏇兼护娉㈤儴鍒嗙殑閫昏緫灏佽
++ */
++#ifndef EKF_H
++#define EKF_H
++
++#include "config.h"
++
++typedef struct {
++    float state[SD_EKF_STATE_COUNT];
++    float covariance[SD_EKF_STATE_COUNT][SD_EKF_STATE_COUNT];
++    float process_noise[SD_EKF_STATE_COUNT][SD_EKF_STATE_COUNT];
++    float observation_noise[SD_EKF_OBSERVATION_COUNT][SD_EKF_OBSERVATION_COUNT];
++} ekf_t;
++
++void ekf_init(ekf_t *ekf, const sd_ekf_config_t *config);
++void ekf_predict(ekf_t *ekf, float dt);
++sd_status_t ekf_update(ekf_t *ekf, const float observation[SD_EKF_OBSERVATION_COUNT]);
++
++#endif
+\ No newline at end of file
+diff --git a/2025e/m0_controller/modules/Sens-Decision/inc/behavior_planner.h b/2025e/m0_controller/modules/Sens-Decision/inc/behavior_planner.h
+new file mode 100644
+index 0000000..a1c7cb8
+--- /dev/null
++++ b/2025e/m0_controller/modules/Sens-Decision/inc/behavior_planner.h
+@@ -0,0 +1,64 @@
++/**
++ * @file      behavior_planner.h
++ * @brief     Sens-Decision灞傜殑琛屼负瑙勫垝閮ㄥ垎鐨勯€昏緫灏佽
++ * @author    joelin-CN
++ * @version   1.0.0
++ * @date      2026-07-14
++ * @note      Sens-Decision灞傜殑琛屼负瑙勫垝閮ㄥ垎鐨勯€昏緫灏佽
++ */
++#ifndef BEHAVIOR_PLANNER_H
++#define BEHAVIOR_PLANNER_H
++
++#include <stdbool.h>
++#include <stdint.h>
++
++#include "config.h"
++#include "perception.h"
++#include "state_evaluate.h"
++
++typedef enum {
++    BEHAVIOR_STATE_IDLE,
++    BEHAVIOR_STATE_LINE_FOLLOW,
++    BEHAVIOR_STATE_APPROACH_CURVE,
++    BEHAVIOR_STATE_CURVE,
++    BEHAVIOR_STATE_LINE_LOST_DEGRADED,
++    BEHAVIOR_STATE_STOPPED,
++    BEHAVIOR_STATE_FAULT
++} behavior_state_t;
++
++typedef enum {
++    BEHAVIOR_CMD_NONE,
++    BEHAVIOR_CMD_START,
++    BEHAVIOR_CMD_STOP,
++    BEHAVIOR_CMD_RESET
++} behavior_command_t;
++
++typedef struct {
++    const vehicle_state_t *vehicle;
++    const perception_result_t *perception;
++    behavior_command_t command;
++    float path_curvature;
++} behavior_input_t;
++
++typedef struct {
++    behavior_state_t state;
++    float speed_limit_mps;
++    float last_valid_lateral_error;
++} behavior_output_t;
++
++typedef struct {
++    behavior_state_t current_state;
++    behavior_state_t previous_running_state;
++    uint16_t line_lost_frames;
++    uint16_t critical_failure_count;
++    uint16_t stable_straight_frames;
++    float last_valid_lateral_error;
++    bool initialized;
++} behavior_planner_t;
++
++void behavior_planner_init(behavior_planner_t *planner);
++sd_status_t behavior_planner_update(behavior_planner_t *planner,
++                                   const behavior_input_t *input,
++                                   behavior_output_t *output);
++
++#endif // BEHAVIOR_PLANNER_H
+\ No newline at end of file
+diff --git a/2025e/m0_controller/modules/Sens-Decision/inc/config.h b/2025e/m0_controller/modules/Sens-Decision/inc/config.h
+new file mode 100644
+index 0000000..b31061c
+--- /dev/null
++++ b/2025e/m0_controller/modules/Sens-Decision/inc/config.h
+@@ -0,0 +1,109 @@
++#ifndef SENS_DECISION_CONFIG_H
++#define SENS_DECISION_CONFIG_H
++
++#include <stdbool.h>
++#include <stdint.h>
++
++#define SD_ENCODER_COUNT 4U
++#define SD_IR_CHANNEL_COUNT 12U
++#define SD_EKF_STATE_COUNT 5U
++#define SD_EKF_OBSERVATION_COUNT 3U
++
++typedef enum {
++    SD_OK = 0,
++    SD_ERR_INVALID_ARGUMENT = -1,
++    SD_ERR_NOT_INITIALIZED = -2,
++    SD_ERR_READ = -3,
++    SD_ERR_TIMEOUT = -4,
++    SD_ERR_HW_FAULT = -5,
++    SD_ERR_UNSUPPORTED = -6,
++    SD_ERR_DATA_INVALID = -7,
++    SD_ERR_NUMERIC = -8
++} sd_status_t;
++
++typedef struct {
++    float x_m;
++    float y_m;
++    float z_m;
++} sd_position_t;
++
++typedef struct {
++    float wheel_track_m;
++    uint8_t left_encoder_indices[2];
++    uint8_t right_encoder_indices[2];
++} sd_vehicle_config_t;
++
++typedef struct {
++    float wheel_radius_m;
++    uint32_t pulses_per_revolution;
++    int8_t direction;
++    sd_position_t position;
++} sd_encoder_config_t;
++
++typedef struct {
++    float accel_scale_mps2_per_lsb;
++    float gyro_scale_radps_per_lsb;
++    float accel_bias_mps2[3];
++    float gyro_bias_radps[3];
++    float filter_alpha;
++    sd_position_t position;
++} sd_imu_config_t;
++
++typedef struct {
++    bool active_high;
++    float weights[SD_IR_CHANNEL_COUNT];
++    sd_position_t position;
++    float heading_filter_alpha;
++    float curve_error_threshold;
++    float curve_derivative_threshold;
++    uint8_t intersection_active_channels;
++} sd_perception_config_t;
++
++typedef struct {
++    float initial_covariance_diag[SD_EKF_STATE_COUNT];
++    float process_noise_diag[SD_EKF_STATE_COUNT];
++    float observation_noise_diag[SD_EKF_OBSERVATION_COUNT];
++    float dt_min_s;
++    float dt_max_s;
++} sd_ekf_config_t;
++
++typedef struct {
++    uint16_t localization_valid_frames;
++    uint16_t localization_failure_frames;
++    uint16_t line_recovery_frames;
++    uint16_t line_lost_stop_frames;
++    uint16_t critical_failure_frames;
++    uint16_t curve_exit_stable_frames;
++    float idle_speed_mps;
++    float line_speed_mps;
++    float approach_curve_speed_mps;
++    float curve_speed_mps;
++    float degraded_speed_mps;
++} sd_behavior_config_t;
++
++typedef struct {
++    float lookahead_distance_m;
++    float curvature_speed_gain;
++    float max_speed_mps;
++    float max_accel_mps2;
++    float max_decel_mps2;
++    float max_jerk_mps3;
++    uint16_t forward_search_points;
++} sd_trajectory_config_t;
++
++typedef struct {
++    sd_vehicle_config_t vehicle;
++    sd_encoder_config_t encoders[SD_ENCODER_COUNT];
++    sd_imu_config_t imu;
++    sd_perception_config_t perception;
++    sd_ekf_config_t ekf;
++    sd_behavior_config_t behavior;
++    sd_trajectory_config_t trajectory;
++} sens_decision_config_t;
++
++extern sens_decision_config_t g_sens_decision_config;
++
++void sd_config_reset_defaults(void);
++sd_status_t sd_config_validate(const sens_decision_config_t *config);
++
++#endif
+diff --git a/2025e/m0_controller/modules/Sens-Decision/inc/interface.h b/2025e/m0_controller/modules/Sens-Decision/inc/interface.h
+new file mode 100644
+index 0000000..62dc80f
+--- /dev/null
++++ b/2025e/m0_controller/modules/Sens-Decision/inc/interface.h
+@@ -0,0 +1,73 @@
++#ifndef SENS_DECISION_INTERFACE_H
++#define SENS_DECISION_INTERFACE_H
++
++#include <stdbool.h>
++#include <stdint.h>
++
++#include "config.h"
++
++typedef struct {
++    int16_t accel[3];
++    int16_t gyro[3];
++    int16_t temperature;
++} imu_raw_data_t;
++
++typedef struct {
++    sd_status_t (*read_encoder_count)(uint8_t index, int32_t *count);
++    sd_status_t (*read_imu_raw)(imu_raw_data_t *data);
++    sd_status_t (*read_ir_mask)(uint16_t *active_mask);
++} sensor_hal_t;
++
++typedef enum {
++    SENSOR_ID_ENCODER_LEFT_FRONT,
++    SENSOR_ID_ENCODER_LEFT_REAR,
++    SENSOR_ID_ENCODER_RIGHT_FRONT,
++    SENSOR_ID_ENCODER_RIGHT_REAR,
++    SENSOR_ID_IMU,
++    SENSOR_ID_IR_ARRAY,
++    SENSOR_ID_COUNT
++} sensor_id_t;
++
++typedef struct sensor sensor_t;
++
++typedef struct {
++    sd_status_t (*init)(sensor_t *sensor);
++    sd_status_t (*read)(sensor_t *sensor, void *output, uint64_t timestamp_us);
++    sd_status_t (*write)(sensor_t *sensor, const void *input);
++    sd_status_t (*release)(sensor_t *sensor);
++} sensor_vtable_t;
++
++struct sensor {
++    const sensor_vtable_t *vtable;
++    void *private_data;
++    bool initialized;
++};
++
++typedef struct {
++    int32_t count;
++    float speed_mps;
++    uint64_t timestamp_us;
++} encoder_data_t;
++
++typedef struct {
++    float accel_mps2[3];
++    float gyro_radps[3];
++    float temperature_c;
++    uint64_t timestamp_us;
++} imu_data_t;
++
++typedef struct {
++    uint16_t active_mask;
++    float values[SD_IR_CHANNEL_COUNT];
++    uint64_t timestamp_us;
++} ir_array_data_t;
++
++sd_status_t sensors_configure_hal(const sensor_hal_t *hal);
++sd_status_t sensors_init_all(void);
++sensor_t *sensor_get(sensor_id_t id);
++sd_status_t sensor_read(sensor_t *sensor, void *output, uint64_t timestamp_us);
++sd_status_t sensor_write(sensor_t *sensor, const void *input);
++sd_status_t sensor_release(sensor_t *sensor);
++sd_status_t sensors_release_all(void);
++
++#endif
+diff --git a/2025e/m0_controller/modules/Sens-Decision/inc/perception.h b/2025e/m0_controller/modules/Sens-Decision/inc/perception.h
+new file mode 100644
+index 0000000..b56f9bc
+--- /dev/null
++++ b/2025e/m0_controller/modules/Sens-Decision/inc/perception.h
+@@ -0,0 +1,48 @@
++/**
++ * @file      perception.h
++ * @brief     Sens-Decision灞傜殑鎰熺煡閮ㄥ垎鐨勯€昏緫灏佽
++ * @author    joelin-CN
++ * @version   1.0.0
++ * @date      2026-07-14
++ * @note      Sens-Decision灞傜殑鎰熺煡閮ㄥ垎鐨勯€昏緫灏佽
++ */
++#ifndef PERCEPTION_H
++#define PERCEPTION_H
++
++#include <stdbool.h>
++#include <stdint.h>
++
++#include "config.h"
++#include "interface.h"
++
++typedef enum {
++    ROAD_EVENT_NONE,
++    ROAD_EVENT_CURVE_ENTRY,
++    ROAD_EVENT_INTERSECTION,
++    ROAD_EVENT_LINE_LOST
++} road_event_t;
++
++typedef struct {
++    float lateral_error;
++    float heading_error;
++    uint16_t active_mask;
++    uint16_t lost_count;
++    road_event_t event;
++    bool line_valid;
++} perception_result_t;
++
++typedef struct {
++    float prev_lateral_error;
++    uint64_t prev_timestamp_us;
++    float heading_error;
++    uint16_t lost_count;
++    bool initialized;
++} perception_t;
++
++void perception_init(perception_t *perception);
++sd_status_t perception_update(perception_t *perception,
++                              const ir_array_data_t *ir_data,
++                              uint64_t timestamp_us,
++                              perception_result_t *result);
++
++#endif // PERCEPTION_H
+\ No newline at end of file
+diff --git a/2025e/m0_controller/modules/Sens-Decision/inc/preprocess.h b/2025e/m0_controller/modules/Sens-Decision/inc/preprocess.h
+new file mode 100644
+index 0000000..9edb371
+--- /dev/null
++++ b/2025e/m0_controller/modules/Sens-Decision/inc/preprocess.h
+@@ -0,0 +1,21 @@
++#ifndef SENS_DECISION_PREPROCESS_H
++#define SENS_DECISION_PREPROCESS_H
++
++#include <stdbool.h>
++#include <stdint.h>
++
++#include "interface.h"
++
++typedef struct {
++    uint64_t timestamp_us;
++    encoder_data_t encoders[SD_ENCODER_COUNT];
++    bool encoder_valid[SD_ENCODER_COUNT];
++    imu_data_t imu;
++    bool imu_valid;
++    ir_array_data_t ir;
++    bool ir_valid;
++} sensor_frame_t;
++
++sd_status_t preprocess_update(uint64_t timestamp_us, sensor_frame_t *frame);
++
++#endif
+diff --git a/2025e/m0_controller/modules/Sens-Decision/inc/state_evaluate.h b/2025e/m0_controller/modules/Sens-Decision/inc/state_evaluate.h
+new file mode 100644
+index 0000000..707c3ad
+--- /dev/null
++++ b/2025e/m0_controller/modules/Sens-Decision/inc/state_evaluate.h
+@@ -0,0 +1,42 @@
++/**
++ * @file      state_evaluate.h
++ * @brief     Sens-Decision灞傜殑鐘舵€佽瘎浼伴儴鍒嗛儴鍒嗙殑閫昏緫灏佽
++ * @author    joelin-CN
++ * @version   1.0.0
++ * @date      2026-07-14
++ * @note      Sens-Decision灞傜殑鐘舵€佽瘎浼伴儴鍒嗙殑閫昏緫灏佽
++ */
++#ifndef STATE_EVALUATE_H
++#define STATE_EVALUATE_H
++
++#include <stdbool.h>
++#include <stdint.h>
++
++#include "config.h"
++#include "EKF.h"
++#include "preprocess.h"
++
++typedef struct {
++    float x;
++    float y;
++    float theta;
++    float v;
++    float omega;
++    float P[SD_EKF_STATE_COUNT][SD_EKF_STATE_COUNT];
++    uint64_t timestamp_us;
++    bool localization_valid;
++} vehicle_state_t;
++
++typedef struct {
++    ekf_t ekf;
++    vehicle_state_t state;
++    uint64_t last_timestamp_us;
++    uint16_t consecutive_valid_frames;
++    uint16_t consecutive_failure_frames;
++    bool initialized;
++} state_evaluator_t;
++
++void state_evaluator_init(state_evaluator_t *evaluator, const sd_ekf_config_t *ekf_config);
++sd_status_t state_evaluator_update(state_evaluator_t *evaluator, const sensor_frame_t *frame);
++
++#endif // STATE_EVALUATE_H
+diff --git a/2025e/m0_controller/modules/Sens-Decision/inc/trajectory_generate.h b/2025e/m0_controller/modules/Sens-Decision/inc/trajectory_generate.h
+new file mode 100644
+index 0000000..c668ad8
+--- /dev/null
++++ b/2025e/m0_controller/modules/Sens-Decision/inc/trajectory_generate.h
+@@ -0,0 +1,57 @@
++/**
++ * @file      trajectory_generate.h
++ * @brief     Sens-Decision灞傜殑杞ㄨ抗鐢熸垚閮ㄥ垎鐨勯€昏緫灏佽
++ * @author    joelin-CN
++ * @version   1.0.0
++ * @date      2026-07-14
++ * @note      Sens-Decision灞傜殑杞ㄨ抗鐢熸垚閮ㄥ垎鐨勯€昏緫灏佽
++ */
++#ifndef TRAJECTORY_GENERATE_H
++#define TRAJECTORY_GENERATE_H
++
++#include <stddef.h>
++
++#include "behavior_planner.h"
++#include "config.h"
++#include "state_evaluate.h"
++
++typedef struct {
++    float x;
++    float y;
++    float heading;
++    float curvature;
++} path_point_t;
++
++typedef struct {
++    float x;
++    float y;
++    float theta;
++    float v;
++    float omega;
++    float a;
++    float alpha;
++    float curvature;
++} trajectory_point_t;
++
++typedef struct {
++    const sd_trajectory_config_t *config;
++    const path_point_t *path;
++    size_t path_count;
++    size_t last_nearest_index;
++    size_t last_valid_target_index;
++    float last_acceleration;
++    bool initialized;
++} trajectory_generator_t;
++
++void trajectory_generator_init(trajectory_generator_t *generator,
++                              const sd_trajectory_config_t *config);
++sd_status_t trajectory_set_path(trajectory_generator_t *generator,
++                               const path_point_t *path,
++                               size_t count);
++sd_status_t trajectory_generate(trajectory_generator_t *generator,
++                               const vehicle_state_t *vehicle,
++                               const behavior_output_t *behavior,
++                               float dt,
++                               trajectory_point_t *output);
++
++#endif // TRAJECTORY_GENERATE_H
+\ No newline at end of file
+diff --git a/2025e/m0_controller/modules/Sens-Decision/inc/utils.h b/2025e/m0_controller/modules/Sens-Decision/inc/utils.h
+new file mode 100644
+index 0000000..033001a
+--- /dev/null
++++ b/2025e/m0_controller/modules/Sens-Decision/inc/utils.h
+@@ -0,0 +1,23 @@
++#ifndef SENS_DECISION_UTILS_H
++#define SENS_DECISION_UTILS_H
++
++#define SD_PI 3.14159265358979323846f
++
++typedef enum {
++    SD_LOG_LEVEL_DEBUG,
++    SD_LOG_LEVEL_INFO,
++    SD_LOG_LEVEL_WARNING,
++    SD_LOG_LEVEL_ERROR
++} sd_log_level_t;
++
++void sd_log(sd_log_level_t level, const char *format, ...);
++
++#define SD_LOG_DEBUG(...) sd_log(SD_LOG_LEVEL_DEBUG, __VA_ARGS__)
++#define SD_LOG_INFO(...) sd_log(SD_LOG_LEVEL_INFO, __VA_ARGS__)
++#define SD_LOG_WARNING(...) sd_log(SD_LOG_LEVEL_WARNING, __VA_ARGS__)
++#define SD_LOG_ERROR(...) sd_log(SD_LOG_LEVEL_ERROR, __VA_ARGS__)
++
++float sd_clampf(float value, float minimum, float maximum);
++float sd_normalize_angle(float angle);
++
++#endif
+diff --git a/2025e/m0_controller/modules/Sens-Decision/src/EKF.c b/2025e/m0_controller/modules/Sens-Decision/src/EKF.c
+new file mode 100644
+index 0000000..288894b
+--- /dev/null
++++ b/2025e/m0_controller/modules/Sens-Decision/src/EKF.c
+@@ -0,0 +1,248 @@
++/**
++ * @file      EKF.c
++ * @brief     Extended Kalman Filter implementation
++ * @author    joelin-CN
++ * @version   1.0.0
++ * @date      2026-07-17
++ */
++
++#include "../inc/EKF.h"
++#include "../inc/utils.h"
++#include <math.h>
++#include <string.h>
++
++static void matrix_multiply_5x5(float A[5][5], float B[5][5], float result[5][5]) {
++    size_t i, j, k;
++    float temp[5][5];
++    
++    for (i = 0; i < 5; ++i) {
++        for (j = 0; j < 5; ++j) {
++            temp[i][j] = 0.0f;
++            for (k = 0; k < 5; ++k) {
++                temp[i][j] += A[i][k] * B[k][j];
++            }
++        }
++    }
++    
++    memcpy(result, temp, sizeof(temp));
++}
++
++static void matrix_transpose_5x5(float A[5][5], float result[5][5]) {
++    size_t i, j;
++    float temp[5][5];
++    
++    for (i = 0; i < 5; ++i) {
++        for (j = 0; j < 5; ++j) {
++            temp[i][j] = A[j][i];
++        }
++    }
++    
++    memcpy(result, temp, sizeof(temp));
++}
++
++static void symmetrize_5x5(float matrix[5][5]) {
++    size_t i, j;
++    
++    for (i = 0; i < 5; ++i) {
++        for (j = i + 1; j < 5; ++j) {
++            float avg = (matrix[i][j] + matrix[j][i]) / 2.0f;
++            matrix[i][j] = avg;
++            matrix[j][i] = avg;
++        }
++    }
++}
++
++void ekf_init(ekf_t *ekf, const sd_ekf_config_t *config) {
++    size_t i, j;
++    
++    memset(ekf, 0, sizeof(*ekf));
++    
++    for (i = 0; i < SD_EKF_STATE_COUNT; ++i) {
++        ekf->covariance[i][i] = config->initial_covariance_diag[i];
++        ekf->process_noise[i][i] = config->process_noise_diag[i];
++    }
++    
++    for (i = 0; i < SD_EKF_OBSERVATION_COUNT; ++i) {
++        ekf->observation_noise[i][i] = config->observation_noise_diag[i];
++    }
++    
++    for (i = 0; i < SD_EKF_STATE_COUNT; ++i) {
++        for (j = 0; j < SD_EKF_STATE_COUNT; ++j) {
++            if (!isfinite(ekf->covariance[i][j]) || 
++                !isfinite(ekf->process_noise[i][j])) {
++                ekf->covariance[i][j] = 0.0f;
++                ekf->process_noise[i][j] = 0.0f;
++            }
++        }
++    }
++}
++
++void ekf_predict(ekf_t *ekf, float dt) {
++    float x = ekf->state[0];
++    float y = ekf->state[1];
++    float theta = ekf->state[2];
++    float v = ekf->state[3];
++    float omega = ekf->state[4];
++    float cos_theta = cosf(theta);
++    float sin_theta = sinf(theta);
++    float F[5][5];
++    float F_T[5][5];
++    float P_temp[5][5];
++    size_t i, j;
++    
++    ekf->state[0] = x + v * cos_theta * dt;
++    ekf->state[1] = y + v * sin_theta * dt;
++    ekf->state[2] = sd_normalize_angle(theta + omega * dt);
++    ekf->state[3] = v;
++    ekf->state[4] = omega;
++    
++    memset(F, 0, sizeof(F));
++    for (i = 0; i < 5; ++i) {
++        F[i][i] = 1.0f;
++    }
++    F[0][2] = -v * sin_theta * dt;
++    F[0][3] = cos_theta * dt;
++    F[1][2] = v * cos_theta * dt;
++    F[1][3] = sin_theta * dt;
++    F[2][4] = dt;
++    
++    matrix_transpose_5x5(F, F_T);
++    matrix_multiply_5x5(ekf->covariance, F_T, P_temp);
++    matrix_multiply_5x5(F, P_temp, ekf->covariance);
++    
++    for (i = 0; i < SD_EKF_STATE_COUNT; ++i) {
++        for (j = 0; j < SD_EKF_STATE_COUNT; ++j) {
++            ekf->covariance[i][j] += ekf->process_noise[i][j];
++        }
++    }
++}
++
++sd_status_t ekf_update(ekf_t *ekf, const float observation[SD_EKF_OBSERVATION_COUNT]) {
++    float H[3][5];
++    float H_T[5][3];
++    float y[3];
++    float S[3][3];
++    float S_inv[3][3];
++    float P_H_T[5][3];
++    float K[5][3];
++    float I_KH[5][5];
++    float I_KH_T[5][5];
++    float I_KH_P[5][5];
++    float I_KH_P_I_KH_T[5][5];
++    float K_R[5][3];
++    float K_R_K_T[5][5];
++    float det;
++    size_t i, j, k;
++    
++    memset(H, 0, sizeof(H));
++    H[0][3] = 1.0f;
++    H[1][4] = 1.0f;
++    H[2][4] = 1.0f;
++    
++    y[0] = observation[0] - ekf->state[3];
++    y[1] = observation[1] - ekf->state[4];
++    y[2] = observation[2] - ekf->state[4];
++    
++    for (i = 0; i < 3; ++i) {
++        for (j = 0; j < 5; ++j) {
++            H_T[j][i] = H[i][j];
++        }
++    }
++    
++    for (i = 0; i < 5; ++i) {
++        for (j = 0; j < 3; ++j) {
++            P_H_T[i][j] = 0.0f;
++            for (k = 0; k < 5; ++k) {
++                P_H_T[i][j] += ekf->covariance[i][k] * H_T[k][j];
++            }
++        }
++    }
++    
++    for (i = 0; i < 3; ++i) {
++        for (j = 0; j < 3; ++j) {
++            S[i][j] = ekf->observation_noise[i][j];
++            for (k = 0; k < 5; ++k) {
++                S[i][j] += H[i][k] * P_H_T[k][j];
++            }
++        }
++    }
++    
++    det = S[0][0] * (S[1][1] * S[2][2] - S[1][2] * S[2][1])
++        - S[0][1] * (S[1][0] * S[2][2] - S[1][2] * S[2][0])
++        + S[0][2] * (S[1][0] * S[2][1] - S[1][1] * S[2][0]);
++    
++    if (!isfinite(det) || fabsf(det) < 1e-10f) {
++        return SD_ERR_NUMERIC;
++    }
++    
++    S_inv[0][0] = (S[1][1] * S[2][2] - S[1][2] * S[2][1]) / det;
++    S_inv[0][1] = (S[0][2] * S[2][1] - S[0][1] * S[2][2]) / det;
++    S_inv[0][2] = (S[0][1] * S[1][2] - S[0][2] * S[1][1]) / det;
++    S_inv[1][0] = (S[1][2] * S[2][0] - S[1][0] * S[2][2]) / det;
++    S_inv[1][1] = (S[0][0] * S[2][2] - S[0][2] * S[2][0]) / det;
++    S_inv[1][2] = (S[0][2] * S[1][0] - S[0][0] * S[1][2]) / det;
++    S_inv[2][0] = (S[1][0] * S[2][1] - S[1][1] * S[2][0]) / det;
++    S_inv[2][1] = (S[0][1] * S[2][0] - S[0][0] * S[2][1]) / det;
++    S_inv[2][2] = (S[0][0] * S[1][1] - S[0][1] * S[1][0]) / det;
++    
++    for (i = 0; i < 5; ++i) {
++        for (j = 0; j < 3; ++j) {
++            K[i][j] = 0.0f;
++            for (k = 0; k < 3; ++k) {
++                K[i][j] += P_H_T[i][k] * S_inv[k][j];
++            }
++        }
++    }
++    
++    for (i = 0; i < 5; ++i) {
++        float correction = 0.0f;
++        for (j = 0; j < 3; ++j) {
++            correction += K[i][j] * y[j];
++        }
++        ekf->state[i] += correction;
++    }
++    
++    ekf->state[2] = sd_normalize_angle(ekf->state[2]);
++    
++    memset(I_KH, 0, sizeof(I_KH));
++    for (i = 0; i < 5; ++i) {
++        I_KH[i][i] = 1.0f;
++        for (j = 0; j < 5; ++j) {
++            for (k = 0; k < 3; ++k) {
++                I_KH[i][j] -= K[i][k] * H[k][j];
++            }
++        }
++    }
++    
++    matrix_transpose_5x5(I_KH, I_KH_T);
++    matrix_multiply_5x5(I_KH, ekf->covariance, I_KH_P);
++    matrix_multiply_5x5(I_KH_P, I_KH_T, I_KH_P_I_KH_T);
++    
++    for (i = 0; i < 5; ++i) {
++        for (j = 0; j < 3; ++j) {
++            K_R[i][j] = 0.0f;
++            for (k = 0; k < 3; ++k) {
++                K_R[i][j] += K[i][k] * ekf->observation_noise[k][j];
++            }
++        }
++    }
++    
++    for (i = 0; i < 5; ++i) {
++        for (j = 0; j < 5; ++j) {
++            K_R_K_T[i][j] = 0.0f;
++            for (k = 0; k < 3; ++k) {
++                K_R_K_T[i][j] += K_R[i][k] * K[j][k];
++            }
++        }
++    }
++    
++    for (i = 0; i < 5; ++i) {
++        for (j = 0; j < 5; ++j) {
++            ekf->covariance[i][j] = I_KH_P_I_KH_T[i][j] + K_R_K_T[i][j];
++        }
++    }
++    
++    symmetrize_5x5(ekf->covariance);
++    
++    return SD_OK;
++}
+diff --git a/2025e/m0_controller/modules/Sens-Decision/src/behavior_planner.c b/2025e/m0_controller/modules/Sens-Decision/src/behavior_planner.c
+new file mode 100644
+index 0000000..a8afbe0
+--- /dev/null
++++ b/2025e/m0_controller/modules/Sens-Decision/src/behavior_planner.c
+@@ -0,0 +1,173 @@
++/**
++ * @file      behavior_planner.c
++ * @brief     Source file for behavior planner module.
++ * @author    joelin-CN
++ * @version   1.0.0
++ * @date      2026-07-14
++ */
++
++#include "../inc/behavior_planner.h"
++#include "../inc/utils.h"
++
++#include <math.h>
++
++static const char *behavior_state_names[] = {
++    "IDLE",
++    "LINE_FOLLOW",
++    "APPROACH_CURVE",
++    "CURVE",
++    "LINE_LOST_DEGRADED",
++    "STOPPED",
++    "FAULT"
++};
++
++static const char *get_state_name(behavior_state_t state) {
++    if (state >= 0 && state < (behavior_state_t)(sizeof(behavior_state_names) / sizeof(behavior_state_names[0]))) {
++        return behavior_state_names[state];
++    }
++    return "UNKNOWN";
++}
++
++void behavior_planner_init(behavior_planner_t *planner) {
++    if (planner == NULL) {
++        return;
++    }
++    planner->current_state = BEHAVIOR_STATE_IDLE;
++    planner->previous_running_state = BEHAVIOR_STATE_IDLE;
++    planner->line_lost_frames = 0U;
++    planner->critical_failure_count = 0U;
++    planner->stable_straight_frames = 0U;
++    planner->last_valid_lateral_error = 0.0f;
++    planner->initialized = true;
++}
++
++sd_status_t behavior_planner_update(behavior_planner_t *planner,
++                                   const behavior_input_t *input,
++                                   behavior_output_t *output) {
++    behavior_state_t new_state;
++    bool critical_failure;
++    bool was_running_state;
++    
++    if (planner == NULL || input == NULL || output == NULL ||
++        input->vehicle == NULL || input->perception == NULL) {
++        return SD_ERR_INVALID_ARGUMENT;
++    }
++    
++    new_state = planner->current_state;
++    
++    was_running_state = (planner->current_state == BEHAVIOR_STATE_LINE_FOLLOW ||
++                        planner->current_state == BEHAVIOR_STATE_APPROACH_CURVE ||
++                        planner->current_state == BEHAVIOR_STATE_CURVE);
++    
++    if (was_running_state) {
++        planner->last_valid_lateral_error = input->perception->lateral_error;
++    }
++    
++    critical_failure = !input->vehicle->localization_valid && !input->perception->line_valid;
++    
++    if (critical_failure) {
++        planner->critical_failure_count++;
++    } else {
++        planner->critical_failure_count = 0U;
++    }
++    
++    if (input->command == BEHAVIOR_CMD_STOP) {
++        new_state = BEHAVIOR_STATE_STOPPED;
++    } else if (planner->current_state != BEHAVIOR_STATE_IDLE &&
++               planner->current_state != BEHAVIOR_STATE_STOPPED &&
++               planner->current_state != BEHAVIOR_STATE_FAULT &&
++               planner->critical_failure_count >= g_sens_decision_config.behavior.critical_failure_frames) {
++        new_state = BEHAVIOR_STATE_FAULT;
++    } else if (input->command == BEHAVIOR_CMD_RESET &&
++               input->vehicle->localization_valid &&
++               input->perception->line_valid) {
++        new_state = BEHAVIOR_STATE_IDLE;
++    } else if (!input->perception->line_valid) {
++        if (planner->current_state == BEHAVIOR_STATE_LINE_FOLLOW ||
++            planner->current_state == BEHAVIOR_STATE_APPROACH_CURVE ||
++            planner->current_state == BEHAVIOR_STATE_CURVE) {
++            
++            planner->previous_running_state = planner->current_state;
++            planner->line_lost_frames = 1U;
++            new_state = BEHAVIOR_STATE_LINE_LOST_DEGRADED;
++        } else if (planner->current_state == BEHAVIOR_STATE_LINE_LOST_DEGRADED) {
++            planner->line_lost_frames++;
++            if (planner->line_lost_frames > g_sens_decision_config.behavior.line_lost_stop_frames) {
++                new_state = BEHAVIOR_STATE_STOPPED;
++            }
++        }
++    } else {
++        if (planner->current_state == BEHAVIOR_STATE_LINE_LOST_DEGRADED &&
++            planner->line_lost_frames <= g_sens_decision_config.behavior.line_recovery_frames) {
++            new_state = planner->previous_running_state;
++            planner->line_lost_frames = 0U;
++        } else if (planner->current_state == BEHAVIOR_STATE_IDLE &&
++                   input->command == BEHAVIOR_CMD_START &&
++                   input->vehicle->localization_valid &&
++                   input->perception->line_valid) {
++            new_state = BEHAVIOR_STATE_LINE_FOLLOW;
++        } else if (planner->current_state == BEHAVIOR_STATE_LINE_FOLLOW &&
++                   input->perception->event == ROAD_EVENT_CURVE_ENTRY) {
++            new_state = BEHAVIOR_STATE_APPROACH_CURVE;
++        } else if (planner->current_state == BEHAVIOR_STATE_APPROACH_CURVE &&
++                   (fabsf(input->perception->heading_error) >= 0.2f ||
++                    fabsf(input->path_curvature) >= 0.2f)) {
++            new_state = BEHAVIOR_STATE_CURVE;
++            planner->stable_straight_frames = 0U;
++        } else if (planner->current_state == BEHAVIOR_STATE_CURVE) {
++            if (fabsf(input->perception->heading_error) < 0.1f &&
++                fabsf(input->path_curvature) < 0.1f) {
++                planner->stable_straight_frames++;
++                if (planner->stable_straight_frames >= g_sens_decision_config.behavior.curve_exit_stable_frames) {
++                    new_state = BEHAVIOR_STATE_LINE_FOLLOW;
++                    planner->stable_straight_frames = 0U;
++                }
++            } else {
++                planner->stable_straight_frames = 0U;
++            }
++        }
++    }
++    
++    if (new_state != planner->current_state) {
++        SD_LOG_WARNING("behavior changed from %s to %s",
++                      get_state_name(planner->current_state),
++                      get_state_name(new_state));
++        planner->current_state = new_state;
++    }
++    
++    output->state = planner->current_state;
++    
++    switch (planner->current_state) {
++        case BEHAVIOR_STATE_IDLE:
++            output->speed_limit_mps = g_sens_decision_config.behavior.idle_speed_mps;
++            break;
++        case BEHAVIOR_STATE_LINE_FOLLOW:
++            output->speed_limit_mps = g_sens_decision_config.behavior.line_speed_mps;
++            break;
++        case BEHAVIOR_STATE_APPROACH_CURVE:
++            output->speed_limit_mps = g_sens_decision_config.behavior.approach_curve_speed_mps;
++            break;
++        case BEHAVIOR_STATE_CURVE:
++            output->speed_limit_mps = g_sens_decision_config.behavior.curve_speed_mps;
++            break;
++        case BEHAVIOR_STATE_LINE_LOST_DEGRADED:
++            output->speed_limit_mps = g_sens_decision_config.behavior.degraded_speed_mps *
++                                     (1.0f - (float)planner->line_lost_frames /
++                                     (float)g_sens_decision_config.behavior.line_lost_stop_frames);
++            if (output->speed_limit_mps < 0.0f) {
++                output->speed_limit_mps = 0.0f;
++            }
++            break;
++        case BEHAVIOR_STATE_STOPPED:
++        case BEHAVIOR_STATE_FAULT:
++            output->speed_limit_mps = 0.0f;
++            break;
++        default:
++            output->speed_limit_mps = 0.0f;
++            break;
++    }
++    
++    output->last_valid_lateral_error = planner->last_valid_lateral_error;
++    
++    return SD_OK;
++}
+diff --git a/2025e/m0_controller/modules/Sens-Decision/src/config.c b/2025e/m0_controller/modules/Sens-Decision/src/config.c
+new file mode 100644
+index 0000000..d20a35a
+--- /dev/null
++++ b/2025e/m0_controller/modules/Sens-Decision/src/config.c
+@@ -0,0 +1,197 @@
++#include "config.h"
++
++#include <math.h>
++#include <stddef.h>
++
++sens_decision_config_t g_sens_decision_config;
++
++static bool position_is_finite(const sd_position_t *position) {
++    return isfinite(position->x_m) && isfinite(position->y_m) &&
++           isfinite(position->z_m);
++}
++
++static bool positive_finite(float value) {
++    return isfinite(value) && value > 0.0f;
++}
++
++void sd_config_reset_defaults(void) {
++    static const float ir_weights[SD_IR_CHANNEL_COUNT] = {
++        -11.0f, -9.0f, -7.0f, -5.0f, -3.0f, -1.0f,
++        1.0f,   3.0f,  5.0f,  7.0f,  9.0f,  11.0f
++    };
++    static const int8_t encoder_directions[SD_ENCODER_COUNT] = {1, 1, -1, -1};
++    static const float encoder_x[SD_ENCODER_COUNT] = {0.08f, -0.08f, 0.08f,
++                                                       -0.08f};
++    static const float encoder_y[SD_ENCODER_COUNT] = {0.075f, 0.075f, -0.075f,
++                                                       -0.075f};
++    size_t index;
++
++    g_sens_decision_config.vehicle.wheel_track_m = 0.15f;
++    g_sens_decision_config.vehicle.left_encoder_indices[0] = 0U;
++    g_sens_decision_config.vehicle.left_encoder_indices[1] = 1U;
++    g_sens_decision_config.vehicle.right_encoder_indices[0] = 2U;
++    g_sens_decision_config.vehicle.right_encoder_indices[1] = 3U;
++
++    for (index = 0U; index < SD_ENCODER_COUNT; ++index) {
++        sd_encoder_config_t *encoder = &g_sens_decision_config.encoders[index];
++        encoder->wheel_radius_m = 0.0325f;
++        encoder->pulses_per_revolution = 1024U;
++        encoder->direction = encoder_directions[index];
++        encoder->position.x_m = encoder_x[index];
++        encoder->position.y_m = encoder_y[index];
++        encoder->position.z_m = 0.0f;
++    }
++
++    g_sens_decision_config.imu.accel_scale_mps2_per_lsb = 9.80665f / 2048.0f;
++    g_sens_decision_config.imu.gyro_scale_radps_per_lsb =
++        0.017453292519943295f / 16.4f;
++    for (index = 0U; index < 3U; ++index) {
++        g_sens_decision_config.imu.accel_bias_mps2[index] = 0.0f;
++        g_sens_decision_config.imu.gyro_bias_radps[index] = 0.0f;
++    }
++    g_sens_decision_config.imu.filter_alpha = 0.25f;
++    g_sens_decision_config.imu.position.x_m = 0.0f;
++    g_sens_decision_config.imu.position.y_m = 0.0f;
++    g_sens_decision_config.imu.position.z_m = 0.03f;
++
++    g_sens_decision_config.perception.active_high = true;
++    for (index = 0U; index < SD_IR_CHANNEL_COUNT; ++index) {
++        g_sens_decision_config.perception.weights[index] = ir_weights[index];
++    }
++    g_sens_decision_config.perception.position.x_m = 0.10f;
++    g_sens_decision_config.perception.position.y_m = 0.0f;
++    g_sens_decision_config.perception.position.z_m = -0.02f;
++    g_sens_decision_config.perception.heading_filter_alpha = 0.3f;
++    g_sens_decision_config.perception.curve_error_threshold = 0.45f;
++    g_sens_decision_config.perception.curve_derivative_threshold = 1.5f;
++    g_sens_decision_config.perception.intersection_active_channels = 8U;
++
++    for (index = 0U; index < SD_EKF_STATE_COUNT; ++index) {
++        g_sens_decision_config.ekf.initial_covariance_diag[index] = 0.1f;
++        g_sens_decision_config.ekf.process_noise_diag[index] = 0.01f;
++    }
++    for (index = 0U; index < SD_EKF_OBSERVATION_COUNT; ++index) {
++        g_sens_decision_config.ekf.observation_noise_diag[index] = 0.05f;
++    }
++    g_sens_decision_config.ekf.dt_min_s = 0.0001f;
++    g_sens_decision_config.ekf.dt_max_s = 0.1f;
++
++    g_sens_decision_config.behavior.localization_valid_frames = 3U;
++    g_sens_decision_config.behavior.localization_failure_frames = 3U;
++    g_sens_decision_config.behavior.line_recovery_frames = 3U;
++    g_sens_decision_config.behavior.line_lost_stop_frames = 20U;
++    g_sens_decision_config.behavior.critical_failure_frames = 5U;
++    g_sens_decision_config.behavior.curve_exit_stable_frames = 5U;
++    g_sens_decision_config.behavior.idle_speed_mps = 0.0f;
++    g_sens_decision_config.behavior.line_speed_mps = 1.0f;
++    g_sens_decision_config.behavior.approach_curve_speed_mps = 0.7f;
++    g_sens_decision_config.behavior.curve_speed_mps = 0.5f;
++    g_sens_decision_config.behavior.degraded_speed_mps = 0.25f;
++
++    g_sens_decision_config.trajectory.lookahead_distance_m = 0.25f;
++    g_sens_decision_config.trajectory.curvature_speed_gain = 1.0f;
++    g_sens_decision_config.trajectory.max_speed_mps = 1.2f;
++    g_sens_decision_config.trajectory.max_accel_mps2 = 1.5f;
++    g_sens_decision_config.trajectory.max_decel_mps2 = 2.0f;
++    g_sens_decision_config.trajectory.max_jerk_mps3 = 5.0f;
++    g_sens_decision_config.trajectory.forward_search_points = 32U;
++}
++
++sd_status_t sd_config_validate(const sens_decision_config_t *config) {
++    uint8_t encoder_index_counts[SD_ENCODER_COUNT] = {0U, 0U, 0U, 0U};
++    size_t index;
++
++    if (config == NULL || !positive_finite(config->vehicle.wheel_track_m)) {
++        return SD_ERR_INVALID_ARGUMENT;
++    }
++    for (index = 0U; index < 2U; ++index) {
++        if (config->vehicle.left_encoder_indices[index] >= SD_ENCODER_COUNT ||
++            config->vehicle.right_encoder_indices[index] >= SD_ENCODER_COUNT) {
++            return SD_ERR_INVALID_ARGUMENT;
++        }
++        ++encoder_index_counts[config->vehicle.left_encoder_indices[index]];
++        ++encoder_index_counts[config->vehicle.right_encoder_indices[index]];
++    }
++    for (index = 0U; index < SD_ENCODER_COUNT; ++index) {
++        if (encoder_index_counts[index] != 1U) {
++            return SD_ERR_INVALID_ARGUMENT;
++        }
++    }
++    for (index = 0U; index < SD_ENCODER_COUNT; ++index) {
++        const sd_encoder_config_t *encoder = &config->encoders[index];
++        if (!positive_finite(encoder->wheel_radius_m) ||
++            encoder->pulses_per_revolution == 0U ||
++            (encoder->direction != -1 && encoder->direction != 1) ||
++            !position_is_finite(&encoder->position)) {
++            return SD_ERR_INVALID_ARGUMENT;
++        }
++    }
++    if (!positive_finite(config->imu.accel_scale_mps2_per_lsb) ||
++        !positive_finite(config->imu.gyro_scale_radps_per_lsb) ||
++        !isfinite(config->imu.filter_alpha) || config->imu.filter_alpha < 0.0f ||
++        config->imu.filter_alpha > 1.0f ||
++        !position_is_finite(&config->imu.position)) {
++        return SD_ERR_INVALID_ARGUMENT;
++    }
++    for (index = 0U; index < 3U; ++index) {
++        if (!isfinite(config->imu.accel_bias_mps2[index]) ||
++            !isfinite(config->imu.gyro_bias_radps[index])) {
++            return SD_ERR_INVALID_ARGUMENT;
++        }
++    }
++    if (!position_is_finite(&config->perception.position) ||
++        !isfinite(config->perception.heading_filter_alpha) ||
++        config->perception.heading_filter_alpha < 0.0f ||
++        config->perception.heading_filter_alpha > 1.0f ||
++        !positive_finite(config->perception.curve_error_threshold) ||
++        !positive_finite(config->perception.curve_derivative_threshold) ||
++        config->perception.intersection_active_channels == 0U ||
++        config->perception.intersection_active_channels > SD_IR_CHANNEL_COUNT) {
++        return SD_ERR_INVALID_ARGUMENT;
++    }
++    for (index = 0U; index < SD_IR_CHANNEL_COUNT; ++index) {
++        if (!isfinite(config->perception.weights[index])) {
++            return SD_ERR_INVALID_ARGUMENT;
++        }
++    }
++    if (!positive_finite(config->ekf.dt_min_s) ||
++        !positive_finite(config->ekf.dt_max_s) ||
++        config->ekf.dt_min_s >= config->ekf.dt_max_s) {
++        return SD_ERR_INVALID_ARGUMENT;
++    }
++    for (index = 0U; index < SD_EKF_STATE_COUNT; ++index) {
++        if (!positive_finite(config->ekf.initial_covariance_diag[index]) ||
++            !positive_finite(config->ekf.process_noise_diag[index])) {
++            return SD_ERR_INVALID_ARGUMENT;
++        }
++    }
++    for (index = 0U; index < SD_EKF_OBSERVATION_COUNT; ++index) {
++        if (!positive_finite(config->ekf.observation_noise_diag[index])) {
++            return SD_ERR_INVALID_ARGUMENT;
++        }
++    }
++    if (config->behavior.localization_valid_frames == 0U ||
++        config->behavior.localization_failure_frames == 0U ||
++        config->behavior.line_recovery_frames == 0U ||
++        config->behavior.line_lost_stop_frames == 0U ||
++        config->behavior.critical_failure_frames == 0U ||
++        config->behavior.curve_exit_stable_frames == 0U ||
++        !isfinite(config->behavior.idle_speed_mps) ||
++        config->behavior.idle_speed_mps < 0.0f ||
++        !positive_finite(config->behavior.line_speed_mps) ||
++        !positive_finite(config->behavior.approach_curve_speed_mps) ||
++        !positive_finite(config->behavior.curve_speed_mps) ||
++        !positive_finite(config->behavior.degraded_speed_mps)) {
++        return SD_ERR_INVALID_ARGUMENT;
++    }
++    if (!positive_finite(config->trajectory.lookahead_distance_m) ||
++        !positive_finite(config->trajectory.curvature_speed_gain) ||
++        !positive_finite(config->trajectory.max_speed_mps) ||
++        !positive_finite(config->trajectory.max_accel_mps2) ||
++        !positive_finite(config->trajectory.max_decel_mps2) ||
++        !positive_finite(config->trajectory.max_jerk_mps3) ||
++        config->trajectory.forward_search_points == 0U) {
++        return SD_ERR_INVALID_ARGUMENT;
++    }
++    return SD_OK;
++}
+diff --git a/2025e/m0_controller/modules/Sens-Decision/src/interface.c b/2025e/m0_controller/modules/Sens-Decision/src/interface.c
+new file mode 100644
+index 0000000..cf9e719
+--- /dev/null
++++ b/2025e/m0_controller/modules/Sens-Decision/src/interface.c
+@@ -0,0 +1,302 @@
++#include "interface.h"
++
++#include <stddef.h>
++#include <string.h>
++
++#include "utils.h"
++
++typedef struct {
++    uint8_t index;
++    sd_encoder_config_t config;
++    int32_t previous_count;
++    uint64_t previous_timestamp_us;
++    bool has_baseline;
++} encoder_private_t;
++
++typedef struct {
++    sd_imu_config_t config;
++    float filtered_accel[3];
++    float filtered_gyro[3];
++    bool has_sample;
++} imu_private_t;
++
++typedef struct {
++    sd_perception_config_t config;
++} ir_private_t;
++
++static sensor_hal_t g_hal;
++static bool g_hal_configured;
++static encoder_private_t g_encoder_private[SD_ENCODER_COUNT];
++static imu_private_t g_imu_private;
++static ir_private_t g_ir_private;
++
++static sd_status_t encoder_init(sensor_t *sensor);
++static sd_status_t encoder_read(sensor_t *sensor, void *output,
++                                uint64_t timestamp_us);
++static sd_status_t imu_init(sensor_t *sensor);
++static sd_status_t imu_read(sensor_t *sensor, void *output,
++                            uint64_t timestamp_us);
++static sd_status_t ir_init(sensor_t *sensor);
++static sd_status_t ir_read(sensor_t *sensor, void *output,
++                           uint64_t timestamp_us);
++static sd_status_t read_only_write(sensor_t *sensor, const void *input);
++static sd_status_t common_release(sensor_t *sensor);
++
++static const sensor_vtable_t g_encoder_vtable = {
++    encoder_init, encoder_read, read_only_write, common_release
++};
++static const sensor_vtable_t g_imu_vtable = {
++    imu_init, imu_read, read_only_write, common_release
++};
++static const sensor_vtable_t g_ir_vtable = {
++    ir_init, ir_read, read_only_write, common_release
++};
++
++static sensor_t g_sensors[SENSOR_ID_COUNT] = {
++    {&g_encoder_vtable, &g_encoder_private[0], false},
++    {&g_encoder_vtable, &g_encoder_private[1], false},
++    {&g_encoder_vtable, &g_encoder_private[2], false},
++    {&g_encoder_vtable, &g_encoder_private[3], false},
++    {&g_imu_vtable, &g_imu_private, false},
++    {&g_ir_vtable, &g_ir_private, false}
++};
++
++sd_status_t sensors_configure_hal(const sensor_hal_t *hal) {
++    if (hal == NULL || hal->read_encoder_count == NULL ||
++        hal->read_imu_raw == NULL || hal->read_ir_mask == NULL) {
++        return SD_ERR_INVALID_ARGUMENT;
++    }
++    g_hal = *hal;
++    g_hal_configured = true;
++    return SD_OK;
++}
++
++sd_status_t sensors_init_all(void) {
++    bool initialized_this_call[SENSOR_ID_COUNT] = {false};
++    size_t index;
++    sd_status_t status;
++
++    if (!g_hal_configured) {
++        return SD_ERR_NOT_INITIALIZED;
++    }
++    status = sd_config_validate(&g_sens_decision_config);
++    if (status != SD_OK) {
++        return status;
++    }
++    for (index = 0U; index < SENSOR_ID_COUNT; ++index) {
++        if (g_sensors[index].initialized) {
++            continue;
++        }
++        status = g_sensors[index].vtable->init(&g_sensors[index]);
++        if (status != SD_OK) {
++            while (index > 0U) {
++                --index;
++                if (initialized_this_call[index]) {
++                    (void)sensor_release(&g_sensors[index]);
++                }
++            }
++            return status;
++        }
++        g_sensors[index].initialized = true;
++        initialized_this_call[index] = true;
++    }
++    return SD_OK;
++}
++
++sensor_t *sensor_get(sensor_id_t id) {
++    if ((int)id < 0 || id >= SENSOR_ID_COUNT) {
++        return NULL;
++    }
++    return &g_sensors[id];
++}
++
++sd_status_t sensor_read(sensor_t *sensor, void *output, uint64_t timestamp_us) {
++    if (sensor == NULL || output == NULL || sensor->vtable == NULL ||
++        sensor->vtable->read == NULL) {
++        return SD_ERR_INVALID_ARGUMENT;
++    }
++    if (!sensor->initialized) {
++        return SD_ERR_NOT_INITIALIZED;
++    }
++    return sensor->vtable->read(sensor, output, timestamp_us);
++}
++
++sd_status_t sensor_write(sensor_t *sensor, const void *input) {
++    if (sensor == NULL || input == NULL || sensor->vtable == NULL ||
++        sensor->vtable->write == NULL) {
++        return SD_ERR_INVALID_ARGUMENT;
++    }
++    if (!sensor->initialized) {
++        return SD_ERR_NOT_INITIALIZED;
++    }
++    return sensor->vtable->write(sensor, input);
++}
++
++sd_status_t sensor_release(sensor_t *sensor) {
++    if (sensor == NULL || sensor->vtable == NULL ||
++        sensor->vtable->release == NULL) {
++        return SD_ERR_INVALID_ARGUMENT;
++    }
++    return sensor->vtable->release(sensor);
++}
++
++sd_status_t sensors_release_all(void) {
++    size_t index = SENSOR_ID_COUNT;
++    sd_status_t first_status = SD_OK;
++
++    while (index > 0U) {
++        sd_status_t status;
++        --index;
++        status = sensor_release(&g_sensors[index]);
++        if (first_status == SD_OK && status != SD_OK) {
++            first_status = status;
++        }
++    }
++    return first_status;
++}
++
++static sd_status_t encoder_init(sensor_t *sensor) {
++    encoder_private_t *data = (encoder_private_t *)sensor->private_data;
++    size_t index = (size_t)(data - g_encoder_private);
++
++    data->index = (uint8_t)index;
++    data->config = g_sens_decision_config.encoders[index];
++    data->has_baseline = false;
++    data->previous_count = 0;
++    data->previous_timestamp_us = 0U;
++    return SD_OK;
++}
++
++static sd_status_t encoder_read(sensor_t *sensor, void *output,
++                                uint64_t timestamp_us) {
++    encoder_private_t *data = (encoder_private_t *)sensor->private_data;
++    encoder_data_t *result = (encoder_data_t *)output;
++    int32_t count;
++    sd_status_t status;
++
++    if (data->has_baseline && timestamp_us <= data->previous_timestamp_us) {
++        return SD_ERR_DATA_INVALID;
++    }
++    status = g_hal.read_encoder_count(data->index, &count);
++    if (status != SD_OK) {
++        return status;
++    }
++    result->count = count;
++    result->timestamp_us = timestamp_us;
++    result->speed_mps = 0.0f;
++    if (data->has_baseline) {
++        uint32_t difference = (uint32_t)count - (uint32_t)data->previous_count;
++        int64_t delta_count = difference <= INT32_MAX
++                                  ? (int64_t)difference
++                                  : (int64_t)difference - INT64_C(4294967296);
++        float dt_s = (float)(timestamp_us - data->previous_timestamp_us) /
++                     1000000.0f;
++        result->speed_mps = (float)data->config.direction *
++                            (float)delta_count * 2.0f * SD_PI *
++                            data->config.wheel_radius_m /
++                            (float)data->config.pulses_per_revolution / dt_s;
++    }
++    data->previous_count = count;
++    data->previous_timestamp_us = timestamp_us;
++    data->has_baseline = true;
++    return SD_OK;
++}
++
++static sd_status_t imu_init(sensor_t *sensor) {
++    imu_private_t *data = (imu_private_t *)sensor->private_data;
++    data->config = g_sens_decision_config.imu;
++    memset(data->filtered_accel, 0, sizeof(data->filtered_accel));
++    memset(data->filtered_gyro, 0, sizeof(data->filtered_gyro));
++    data->has_sample = false;
++    return SD_OK;
++}
++
++static sd_status_t imu_read(sensor_t *sensor, void *output,
++                            uint64_t timestamp_us) {
++    imu_private_t *data = (imu_private_t *)sensor->private_data;
++    imu_data_t *result = (imu_data_t *)output;
++    imu_raw_data_t raw;
++    sd_status_t status = g_hal.read_imu_raw(&raw);
++    size_t axis;
++
++    if (status != SD_OK) {
++        return status;
++    }
++    for (axis = 0U; axis < 3U; ++axis) {
++        float accel = (float)raw.accel[axis] *
++                          data->config.accel_scale_mps2_per_lsb -
++                      data->config.accel_bias_mps2[axis];
++        float gyro = (float)raw.gyro[axis] *
++                         data->config.gyro_scale_radps_per_lsb -
++                     data->config.gyro_bias_radps[axis];
++        if (data->has_sample) {
++            float alpha = data->config.filter_alpha;
++            accel = alpha * data->filtered_accel[axis] +
++                    (1.0f - alpha) * accel;
++            gyro = alpha * data->filtered_gyro[axis] +
++                   (1.0f - alpha) * gyro;
++        }
++        data->filtered_accel[axis] = accel;
++        data->filtered_gyro[axis] = gyro;
++        result->accel_mps2[axis] = accel;
++        result->gyro_radps[axis] = gyro;
++    }
++    data->has_sample = true;
++    /* Simple host/HAL contract: raw 0 is 25 C and 132 LSB is 1 C. */
++    result->temperature_c = (float)raw.temperature / 132.0f + 25.0f;
++    result->timestamp_us = timestamp_us;
++    return SD_OK;
++}
++
++static sd_status_t ir_init(sensor_t *sensor) {
++    ir_private_t *data = (ir_private_t *)sensor->private_data;
++    data->config = g_sens_decision_config.perception;
++    return SD_OK;
++}
++
++static sd_status_t ir_read(sensor_t *sensor, void *output,
++                           uint64_t timestamp_us) {
++    ir_array_data_t *result = (ir_array_data_t *)output;
++    uint16_t mask;
++    size_t index;
++    sd_status_t status;
++    (void)sensor;
++
++    status = g_hal.read_ir_mask(&mask);
++    if (status != SD_OK) {
++        return status;
++    }
++    mask &= UINT16_C(0x0FFF);
++    result->active_mask = mask;
++    result->timestamp_us = timestamp_us;
++    for (index = 0U; index < SD_IR_CHANNEL_COUNT; ++index) {
++        result->values[index] = (mask & (UINT16_C(1) << index)) != 0U
++                                    ? 1.0f : 0.0f;
++    }
++    return SD_OK;
++}
++
++static sd_status_t read_only_write(sensor_t *sensor, const void *input) {
++    (void)sensor;
++    (void)input;
++    return SD_ERR_UNSUPPORTED;
++}
++
++static sd_status_t common_release(sensor_t *sensor) {
++    if (sensor->private_data == NULL) {
++        return SD_ERR_INVALID_ARGUMENT;
++    }
++    if (sensor->vtable == &g_encoder_vtable) {
++        encoder_private_t *data = (encoder_private_t *)sensor->private_data;
++        data->has_baseline = false;
++        data->previous_count = 0;
++        data->previous_timestamp_us = 0U;
++    } else if (sensor->vtable == &g_imu_vtable) {
++        imu_private_t *data = (imu_private_t *)sensor->private_data;
++        data->has_sample = false;
++        memset(data->filtered_accel, 0, sizeof(data->filtered_accel));
++        memset(data->filtered_gyro, 0, sizeof(data->filtered_gyro));
++    }
++    sensor->initialized = false;
++    return SD_OK;
++}
+diff --git a/2025e/m0_controller/modules/Sens-Decision/src/perception.c b/2025e/m0_controller/modules/Sens-Decision/src/perception.c
+new file mode 100644
+index 0000000..1e5df1c
+--- /dev/null
++++ b/2025e/m0_controller/modules/Sens-Decision/src/perception.c
+@@ -0,0 +1,114 @@
++/**
++ * @file      perception.c
++ * @brief     Source file for perception module.
++ * @author    joelin-CN
++ * @version   1.0.0
++ * @date      2026-07-14
++ */
++
++#include "../inc/perception.h"
++
++#include <math.h>
++#include <string.h>
++
++extern sens_decision_config_t g_sens_decision_config;
++
++void perception_init(perception_t *perception) {
++    if (perception == NULL) {
++        return;
++    }
++    memset(perception, 0, sizeof(perception_t));
++}
++
++sd_status_t perception_update(perception_t *perception,
++                              const ir_array_data_t *ir_data,
++                              uint64_t timestamp_us,
++                              perception_result_t *result) {
++    float weighted_sum = 0.0f;
++    float max_abs_weight = 0.0f;
++    uint8_t active_count = 0;
++    size_t i;
++    float derivative;
++    float dt_s;
++    
++    if (perception == NULL || ir_data == NULL || result == NULL) {
++        return SD_ERR_INVALID_ARGUMENT;
++    }
++    
++    if (perception->initialized && timestamp_us <= perception->prev_timestamp_us) {
++        return SD_ERR_DATA_INVALID;
++    }
++    
++    memset(result, 0, sizeof(perception_result_t));
++    result->active_mask = ir_data->active_mask;
++    
++    for (i = 0; i < SD_IR_CHANNEL_COUNT; ++i) {
++        float weight = g_sens_decision_config.perception.weights[i];
++        float abs_weight = fabsf(weight);
++        if (abs_weight > max_abs_weight) {
++            max_abs_weight = abs_weight;
++        }
++        if (ir_data->values[i] > 0.5f) {
++            weighted_sum += weight;
++            ++active_count;
++        }
++    }
++    
++    result->line_valid = (active_count > 0);
++    
++    if (active_count == 0) {
++        ++perception->lost_count;
++        result->lost_count = perception->lost_count;
++        result->event = ROAD_EVENT_LINE_LOST;
++        result->lateral_error = 0.0f;
++        result->heading_error = perception->heading_error;
++    } else {
++        perception->lost_count = 0;
++        result->lost_count = 0;
++        
++        if (max_abs_weight > 0.0f) {
++            result->lateral_error = weighted_sum / max_abs_weight;
++        } else {
++            result->lateral_error = 0.0f;
++        }
++        
++        if (perception->initialized) {
++            dt_s = (timestamp_us - perception->prev_timestamp_us) / 1000000.0f;
++            if (dt_s > 0.0f) {
++                derivative = (result->lateral_error - perception->prev_lateral_error) / dt_s;
++                perception->heading_error = 
++                    g_sens_decision_config.perception.heading_filter_alpha * perception->heading_error +
++                    (1.0f - g_sens_decision_config.perception.heading_filter_alpha) * derivative;
++            }
++        } else {
++            if (timestamp_us > perception->prev_timestamp_us) {
++                dt_s = (timestamp_us - perception->prev_timestamp_us) / 1000000.0f;
++                if (dt_s > 0.0f) {
++                    derivative = (result->lateral_error - perception->prev_lateral_error) / dt_s;
++                    perception->heading_error = derivative;
++                } else {
++                    perception->heading_error = 0.0f;
++                }
++            } else {
++                perception->heading_error = 0.0f;
++            }
++        }
++        
++        result->heading_error = perception->heading_error;
++        
++        if (active_count >= g_sens_decision_config.perception.intersection_active_channels) {
++            result->event = ROAD_EVENT_INTERSECTION;
++        } else if (fabsf(result->lateral_error) >= g_sens_decision_config.perception.curve_error_threshold &&
++                   fabsf(result->heading_error) >= g_sens_decision_config.perception.curve_derivative_threshold) {
++            result->event = ROAD_EVENT_CURVE_ENTRY;
++        } else {
++            result->event = ROAD_EVENT_NONE;
++        }
++    }
++    
++    perception->prev_lateral_error = result->lateral_error;
++    perception->prev_timestamp_us = timestamp_us;
++    perception->initialized = true;
++    
++    return SD_OK;
++}
+diff --git a/2025e/m0_controller/modules/Sens-Decision/src/preprocess.c b/2025e/m0_controller/modules/Sens-Decision/src/preprocess.c
+new file mode 100644
+index 0000000..7dde0fe
+--- /dev/null
++++ b/2025e/m0_controller/modules/Sens-Decision/src/preprocess.c
+@@ -0,0 +1,40 @@
++#include "preprocess.h"
++
++#include <stddef.h>
++#include <string.h>
++
++sd_status_t preprocess_update(uint64_t timestamp_us, sensor_frame_t *frame) {
++    sd_status_t first_status = SD_OK;
++    sd_status_t status;
++    size_t index;
++
++    if (frame == NULL) {
++        return SD_ERR_INVALID_ARGUMENT;
++    }
++    memset(frame, 0, sizeof(*frame));
++    frame->timestamp_us = timestamp_us;
++
++    for (index = 0U; index < SD_ENCODER_COUNT; ++index) {
++        status = sensor_read(sensor_get((sensor_id_t)index),
++                             &frame->encoders[index], timestamp_us);
++        if (status == SD_OK) {
++            frame->encoder_valid[index] = true;
++        } else if (first_status == SD_OK) {
++            first_status = status;
++        }
++    }
++    status = sensor_read(sensor_get(SENSOR_ID_IMU), &frame->imu, timestamp_us);
++    if (status == SD_OK) {
++        frame->imu_valid = true;
++    } else if (first_status == SD_OK) {
++        first_status = status;
++    }
++    status = sensor_read(sensor_get(SENSOR_ID_IR_ARRAY), &frame->ir,
++                         timestamp_us);
++    if (status == SD_OK) {
++        frame->ir_valid = true;
++    } else if (first_status == SD_OK) {
++        first_status = status;
++    }
++    return first_status;
++}
+diff --git a/2025e/m0_controller/modules/Sens-Decision/src/state_evaluate.c b/2025e/m0_controller/modules/Sens-Decision/src/state_evaluate.c
+new file mode 100644
+index 0000000..6ec0086
+--- /dev/null
++++ b/2025e/m0_controller/modules/Sens-Decision/src/state_evaluate.c
+@@ -0,0 +1,146 @@
++/**
++ * @file      state_evaluate.c
++ * @brief     Source file for state evaluate module.
++ * @author    joelin-CN
++ * @version   1.0.0
++ * @date      2026-07-14
++ */
++
++#include "../inc/state_evaluate.h"
++#include "../inc/utils.h"
++#include "../inc/config.h"
++#include <math.h>
++#include <string.h>
++
++extern sens_decision_config_t g_sens_decision_config;
++
++void state_evaluator_init(state_evaluator_t *evaluator, const sd_ekf_config_t *ekf_config) {
++    memset(evaluator, 0, sizeof(*evaluator));
++    ekf_init(&evaluator->ekf, ekf_config);
++    evaluator->initialized = false;
++    evaluator->state.localization_valid = false;
++}
++
++sd_status_t state_evaluator_update(state_evaluator_t *evaluator, const sensor_frame_t *frame) {
++    float left_speed, right_speed, v_encoder, omega_encoder;
++    float observation[SD_EKF_OBSERVATION_COUNT];
++    float dt_s;
++    sd_status_t status;
++    size_t i;
++    
++    if (evaluator == NULL || frame == NULL) {
++        return SD_ERR_INVALID_ARGUMENT;
++    }
++    
++    for (i = 0; i < SD_ENCODER_COUNT; ++i) {
++        if (!frame->encoder_valid[i]) {
++            evaluator->consecutive_valid_frames = 0;
++            evaluator->consecutive_failure_frames++;
++            if (evaluator->consecutive_failure_frames >= 
++                g_sens_decision_config.behavior.localization_failure_frames) {
++                evaluator->state.localization_valid = false;
++            }
++            return SD_ERR_DATA_INVALID;
++        }
++    }
++    
++    if (!frame->imu_valid) {
++        evaluator->consecutive_valid_frames = 0;
++        evaluator->consecutive_failure_frames++;
++        if (evaluator->consecutive_failure_frames >= 
++            g_sens_decision_config.behavior.localization_failure_frames) {
++            evaluator->state.localization_valid = false;
++        }
++        return SD_ERR_DATA_INVALID;
++    }
++    
++    if (!evaluator->initialized) {
++        evaluator->last_timestamp_us = frame->timestamp_us;
++        evaluator->state.timestamp_us = frame->timestamp_us;
++        evaluator->initialized = true;
++        evaluator->consecutive_valid_frames = 0;
++        evaluator->consecutive_failure_frames = 0;
++        return SD_OK;
++    }
++    
++    if (frame->timestamp_us <= evaluator->last_timestamp_us) {
++        evaluator->consecutive_valid_frames = 0;
++        evaluator->consecutive_failure_frames++;
++        if (evaluator->consecutive_failure_frames >= 
++            g_sens_decision_config.behavior.localization_failure_frames) {
++            evaluator->state.localization_valid = false;
++        }
++        return SD_ERR_DATA_INVALID;
++    }
++    
++    dt_s = (float)(frame->timestamp_us - evaluator->last_timestamp_us) * 1e-6f;
++    
++    if (dt_s < g_sens_decision_config.ekf.dt_min_s || 
++        dt_s > g_sens_decision_config.ekf.dt_max_s) {
++        evaluator->consecutive_valid_frames = 0;
++        evaluator->consecutive_failure_frames++;
++        if (evaluator->consecutive_failure_frames >= 
++            g_sens_decision_config.behavior.localization_failure_frames) {
++            evaluator->state.localization_valid = false;
++        }
++        return SD_ERR_DATA_INVALID;
++    }
++    
++    left_speed = (frame->encoders[g_sens_decision_config.vehicle.left_encoder_indices[0]].speed_mps +
++                  frame->encoders[g_sens_decision_config.vehicle.left_encoder_indices[1]].speed_mps) / 2.0f;
++    right_speed = (frame->encoders[g_sens_decision_config.vehicle.right_encoder_indices[0]].speed_mps +
++                   frame->encoders[g_sens_decision_config.vehicle.right_encoder_indices[1]].speed_mps) / 2.0f;
++    
++    v_encoder = (right_speed + left_speed) / 2.0f;
++    omega_encoder = (right_speed - left_speed) / g_sens_decision_config.vehicle.wheel_track_m;
++    
++    observation[0] = v_encoder;
++    observation[1] = omega_encoder;
++    observation[2] = frame->imu.gyro_radps[2];
++    
++    for (i = 0; i < SD_EKF_OBSERVATION_COUNT; ++i) {
++        if (!isfinite(observation[i])) {
++            evaluator->consecutive_valid_frames = 0;
++            evaluator->consecutive_failure_frames++;
++            if (evaluator->consecutive_failure_frames >= 
++                g_sens_decision_config.behavior.localization_failure_frames) {
++                evaluator->state.localization_valid = false;
++            }
++            return SD_ERR_DATA_INVALID;
++        }
++    }
++    
++    ekf_predict(&evaluator->ekf, dt_s);
++    status = ekf_update(&evaluator->ekf, observation);
++    
++    if (status != SD_OK) {
++        evaluator->consecutive_valid_frames = 0;
++        evaluator->consecutive_failure_frames++;
++        if (evaluator->consecutive_failure_frames >= 
++            g_sens_decision_config.behavior.localization_failure_frames) {
++            evaluator->state.localization_valid = false;
++        }
++        return status;
++    }
++    
++    evaluator->state.x = evaluator->ekf.state[0];
++    evaluator->state.y = evaluator->ekf.state[1];
++    evaluator->state.theta = evaluator->ekf.state[2];
++    evaluator->state.v = evaluator->ekf.state[3];
++    evaluator->state.omega = evaluator->ekf.state[4];
++    
++    memcpy(evaluator->state.P, evaluator->ekf.covariance, sizeof(evaluator->state.P));
++    
++    evaluator->state.timestamp_us = frame->timestamp_us;
++    evaluator->last_timestamp_us = frame->timestamp_us;
++    
++    evaluator->consecutive_failure_frames = 0;
++    evaluator->consecutive_valid_frames++;
++    
++    if (evaluator->consecutive_valid_frames >= 
++        g_sens_decision_config.behavior.localization_valid_frames) {
++        evaluator->state.localization_valid = true;
++    }
++    
++    return SD_OK;
++}
+diff --git a/2025e/m0_controller/modules/Sens-Decision/src/trajectory_generate.c b/2025e/m0_controller/modules/Sens-Decision/src/trajectory_generate.c
+new file mode 100644
+index 0000000..3e19563
+--- /dev/null
++++ b/2025e/m0_controller/modules/Sens-Decision/src/trajectory_generate.c
+@@ -0,0 +1,248 @@
++/**
++ * @file      trajectory_generate.c
++ * @brief     Source file for trajectory generate module.
++ * @author    joelin-CN
++ * @version   1.0.0
++ * @date      2026-07-14
++ */
++
++#include <math.h>
++
++#include "../inc/trajectory_generate.h"
++#include "../inc/utils.h"
++
++void trajectory_generator_init(trajectory_generator_t *generator,
++                              const sd_trajectory_config_t *config) {
++    if (generator == NULL || config == NULL) {
++        return;
++    }
++    generator->config = config;
++    generator->path = NULL;
++    generator->path_count = 0U;
++    generator->last_nearest_index = 0U;
++    generator->last_valid_target_index = 0U;
++    generator->last_acceleration = 0.0f;
++    generator->initialized = true;
++}
++
++sd_status_t trajectory_set_path(trajectory_generator_t *generator,
++                               const path_point_t *path,
++                               size_t count) {
++    size_t i;
++    float dx, dy;
++    float segment_length_sq;
++    float dot_product;
++    float cos_angle;
++    
++    if (generator == NULL || path == NULL || count == 0U) {
++        return SD_ERR_INVALID_ARGUMENT;
++    }
++    
++    for (i = 0U; i < count; ++i) {
++        if (!isfinite(path[i].x) || !isfinite(path[i].y) ||
++            !isfinite(path[i].heading) || !isfinite(path[i].curvature)) {
++            return SD_ERR_INVALID_ARGUMENT;
++        }
++    }
++    
++    for (i = 0U; i < count - 1U; ++i) {
++        dx = path[i + 1U].x - path[i].x;
++        dy = path[i + 1U].y - path[i].y;
++        segment_length_sq = dx * dx + dy * dy;
++        
++        if (segment_length_sq < 1e-6f) {
++            return SD_ERR_INVALID_ARGUMENT;
++        }
++        
++        cos_angle = cosf(path[i].heading);
++        dot_product = dx * cos_angle + dy * sinf(path[i].heading);
++        
++        if (dot_product < 0.0f) {
++            return SD_ERR_INVALID_ARGUMENT;
++        }
++    }
++    
++    generator->path = path;
++    generator->path_count = count;
++    generator->last_nearest_index = 0U;
++    return SD_OK;
++}
++
++static size_t find_nearest_point(const trajectory_generator_t *generator,
++                                 const vehicle_state_t *vehicle) {
++    size_t start_index = generator->last_nearest_index;
++    size_t end_index = start_index + generator->config->forward_search_points;
++    size_t i;
++    size_t nearest_index = start_index;
++    float min_distance_sq = INFINITY;
++    
++    if (end_index > generator->path_count) {
++        end_index = generator->path_count;
++    }
++    
++    for (i = start_index; i < end_index; ++i) {
++        float dx = generator->path[i].x - vehicle->x;
++        float dy = generator->path[i].y - vehicle->y;
++        float distance_sq = dx * dx + dy * dy;
++        
++        if (distance_sq < min_distance_sq) {
++            min_distance_sq = distance_sq;
++            nearest_index = i;
++        }
++    }
++    
++    return nearest_index;
++}
++
++static size_t find_lookahead_point(const trajectory_generator_t *generator,
++                                   size_t start_index) {
++    float accumulated_distance = 0.0f;
++    size_t i;
++    
++    for (i = start_index; i < generator->path_count - 1U; ++i) {
++        float dx = generator->path[i + 1U].x - generator->path[i].x;
++        float dy = generator->path[i + 1U].y - generator->path[i].y;
++        float segment_distance = sqrtf(dx * dx + dy * dy);
++        
++        accumulated_distance += segment_distance;
++        
++        if (accumulated_distance >= generator->config->lookahead_distance_m) {
++            return i + 1U;
++        }
++    }
++    
++    return generator->path_count - 1U;
++}
++
++sd_status_t trajectory_generate(trajectory_generator_t *generator,
++                               const vehicle_state_t *vehicle,
++                               const behavior_output_t *behavior,
++                               float dt,
++                               trajectory_point_t *output) {
++    size_t nearest_index;
++    size_t target_index;
++    const path_point_t *target_point;
++    float v_target;
++    float v_curve;
++    float a_desired;
++    float a_clamped;
++    float delta_a;
++    float max_delta_a;
++    float v_new;
++    
++    if (generator == NULL || vehicle == NULL || behavior == NULL || output == NULL) {
++        return SD_ERR_INVALID_ARGUMENT;
++    }
++    
++    if (behavior->state == BEHAVIOR_STATE_STOPPED || 
++        behavior->state == BEHAVIOR_STATE_FAULT) {
++        v_target = 0.0f;
++        a_desired = (v_target - vehicle->v) / dt;
++        
++        if (a_desired < -generator->config->max_decel_mps2) {
++            a_desired = -generator->config->max_decel_mps2;
++        }
++        
++        max_delta_a = generator->config->max_jerk_mps3 * dt;
++        delta_a = a_desired - generator->last_acceleration;
++        
++        if (delta_a > max_delta_a) {
++            a_clamped = generator->last_acceleration + max_delta_a;
++        } else if (delta_a < -max_delta_a) {
++            a_clamped = generator->last_acceleration - max_delta_a;
++        } else {
++            a_clamped = a_desired;
++        }
++        
++        v_new = vehicle->v + a_clamped * dt;
++        
++        if (v_new < 0.0f) {
++            v_new = 0.0f;
++            a_clamped = (v_new - vehicle->v) / dt;
++        }
++        
++        output->x = vehicle->x;
++        output->y = vehicle->y;
++        output->theta = vehicle->theta;
++        output->v = v_new;
++        output->omega = 0.0f;
++        output->a = a_clamped;
++        output->alpha = -vehicle->omega / (dt + 1e-9f);
++        output->curvature = 0.0f;
++        
++        generator->last_acceleration = a_clamped;
++        
++        return SD_OK;
++    }
++    
++    if (generator->path == NULL || generator->path_count == 0U) {
++        return SD_ERR_INVALID_ARGUMENT;
++    }
++    
++    if (behavior->state == BEHAVIOR_STATE_LINE_LOST_DEGRADED) {
++        target_index = generator->last_valid_target_index;
++    } else {
++        nearest_index = find_nearest_point(generator, vehicle);
++        generator->last_nearest_index = nearest_index;
++        
++        target_index = find_lookahead_point(generator, nearest_index);
++        generator->last_valid_target_index = target_index;
++    }
++    
++    target_point = &generator->path[target_index];
++    
++    v_curve = sqrtf(generator->config->curvature_speed_gain / 
++                    (fabsf(target_point->curvature) + 1e-6f));
++    
++    v_target = (v_curve < behavior->speed_limit_mps) ? v_curve : behavior->speed_limit_mps;
++    
++    if (v_target > generator->config->max_speed_mps) {
++        v_target = generator->config->max_speed_mps;
++    }
++    
++    a_desired = (v_target - vehicle->v) / dt;
++    
++    if (a_desired > generator->config->max_accel_mps2) {
++        a_desired = generator->config->max_accel_mps2;
++    } else if (a_desired < -generator->config->max_decel_mps2) {
++        a_desired = -generator->config->max_decel_mps2;
++    }
++    
++    max_delta_a = generator->config->max_jerk_mps3 * dt;
++    delta_a = a_desired - generator->last_acceleration;
++    
++    if (delta_a > max_delta_a) {
++        a_clamped = generator->last_acceleration + max_delta_a;
++    } else if (delta_a < -max_delta_a) {
++        a_clamped = generator->last_acceleration - max_delta_a;
++    } else {
++        a_clamped = a_desired;
++    }
++    
++    v_new = vehicle->v + a_clamped * dt;
++    
++    if ((a_clamped > 0.0f && v_new > v_target) || 
++        (a_clamped < 0.0f && v_new < v_target)) {
++        v_new = v_target;
++        a_clamped = (v_new - vehicle->v) / dt;
++    }
++    
++    if (v_new < 0.0f) {
++        v_new = 0.0f;
++        a_clamped = (v_new - vehicle->v) / dt;
++    }
++    
++    output->x = target_point->x;
++    output->y = target_point->y;
++    output->theta = target_point->heading;
++    output->v = v_new;
++    output->curvature = target_point->curvature;
++    output->omega = v_new * target_point->curvature;
++    output->a = a_clamped;
++    
++    output->alpha = (output->omega - vehicle->omega) / dt;
++    
++    generator->last_acceleration = a_clamped;
++    
++    return SD_OK;
++}
+diff --git a/2025e/m0_controller/modules/Sens-Decision/src/utils.c b/2025e/m0_controller/modules/Sens-Decision/src/utils.c
+new file mode 100644
+index 0000000..c3bdb46
+--- /dev/null
++++ b/2025e/m0_controller/modules/Sens-Decision/src/utils.c
+@@ -0,0 +1,61 @@
++#include "utils.h"
++
++#include <math.h>
++#include <stdarg.h>
++#include <stdio.h>
++#include <string.h>
++
++void sd_log(sd_log_level_t level, const char *format, ...) {
++    static const char *const level_names[] = {"debug", "info", "warning",
++                                               "error"};
++    char message[512];
++    const char *level_name = "error";
++    size_t length;
++    va_list arguments;
++
++    if (level >= SD_LOG_LEVEL_DEBUG && level <= SD_LOG_LEVEL_ERROR) {
++        level_name = level_names[(int)level];
++    }
++    message[0] = '\0';
++    if (format != NULL) {
++        va_start(arguments, format);
++        (void)vsnprintf(message, sizeof(message), format, arguments);
++        va_end(arguments);
++    }
++    length = strlen(message);
++    while (length > 0U &&
++           (message[length - 1U] == '\n' || message[length - 1U] == '\r')) {
++        message[--length] = '\0';
++    }
++    for (length = 0U; message[length] != '\0'; ++length) {
++        if (message[length] == '\n' || message[length] == '\r') {
++            message[length] = ' ';
++        }
++    }
++    (void)printf("[Sens-Decision] %s: %s\n", level_name, message);
++}
++
++float sd_clampf(float value, float minimum, float maximum) {
++    if (!isfinite(value) || !isfinite(minimum) || !isfinite(maximum) ||
++        minimum > maximum) {
++        return 0.0f;
++    }
++    if (value < minimum) {
++        return minimum;
++    }
++    if (value > maximum) {
++        return maximum;
++    }
++    return value;
++}
++
++float sd_normalize_angle(float angle) {
++    if (!isfinite(angle)) {
++        return 0.0f;
++    }
++    angle = fmodf(angle + SD_PI, 2.0f * SD_PI);
++    if (angle < 0.0f) {
++        angle += 2.0f * SD_PI;
++    }
++    return angle - SD_PI;
++}
+diff --git a/2025e/m0_controller/tests/run_tests.ps1 b/2025e/m0_controller/tests/run_tests.ps1
+new file mode 100644
+index 0000000..d2575df
+--- /dev/null
++++ b/2025e/m0_controller/tests/run_tests.ps1
+@@ -0,0 +1,23 @@
++$ErrorActionPreference = "Stop"
++$root = Split-Path -Parent $PSScriptRoot
++$build = Join-Path $PSScriptRoot "build"
++
++if (Test-Path -LiteralPath $build) {
++    Remove-Item -Recurse -Force -LiteralPath $build
++}
++New-Item -ItemType Directory -Path $build | Out-Null
++
++function Invoke-TestBuild {
++    param(
++        [string]$Name,
++        [string[]]$Arguments
++    )
++
++    $exe = Join-Path $build "$Name.exe"
++    & gcc @Arguments -o $exe
++    if ($LASTEXITCODE -ne 0) { throw "$Name compile failed" }
++    & $exe
++    if ($LASTEXITCODE -ne 0) { throw "$Name failed" }
++}
++
++Write-Host "Host tests: PASS"

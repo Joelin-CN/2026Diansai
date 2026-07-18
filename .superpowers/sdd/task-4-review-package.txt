@@ -1,0 +1,742 @@
+﻿7400d0c feat(motion): test and correct motion control semantics
+
+--- STAT ---
+
+ .../modules/Motion Control/inc/motion_config.h     |  17 +-
+ .../modules/Motion Control/inc/motion_control.h    |   1 +
+ .../modules/Motion Control/src/motion_control.c    |  43 ++-
+ .../modules/Motion Control/src/motion_feedback.c   |  23 +-
+ 2025e/m0_controller/tests/run_tests.ps1            |  15 +
+ 2025e/m0_controller/tests/test_motion_control.c    | 373 +++++++++++++++++++++
+ 6 files changed, 450 insertions(+), 22 deletions(-)
+
+--- DIFF ---
+
+diff --git a/2025e/m0_controller/modules/Motion Control/inc/motion_config.h b/2025e/m0_controller/modules/Motion Control/inc/motion_config.h
+index 4a75b3f..edeccc3 100644
+--- a/2025e/m0_controller/modules/Motion Control/inc/motion_config.h	
++++ b/2025e/m0_controller/modules/Motion Control/inc/motion_config.h	
+@@ -20,24 +20,37 @@ extern "C" {
+  * ---------------------------------------------------------------------------
+  * 杩欎簺鍙傛暟涓庣‖浠剁浉鍏筹紝鏇存崲搴曠洏/鐢垫満/缂栫爜鍣ㄥ悗闇€瑕侀噸鏂版爣瀹?  * ============================================================================ */
+ 
+ /** @brief 杞窛 (m) - 宸﹀彸杞腑蹇冭窛绂?*/
+ #define WHEEL_BASE              0.150f
+ 
+ /** @brief 杞崐寰?(m) - 鏍囧畾鍊?*/
+ #define WHEEL_RADIUS            0.033f
+ 
+-/** @brief 缂栫爜鍣ㄦ瘡杞剦鍐叉暟 (4鍊嶉鍚? */
++/** 
++ * @brief 缂栫爜鍣ㄥ垎杈ㄧ巼 (counts per revolution)
++ * 
++ * 杩欐槸瀹屾暣杞浆涓€鍦堝悗缂栫爜鍣ㄨ鏁扮殑澧為噺锛屽凡缁忚€冭檻浜嗭細
++ * - 4鍊嶉锛圓B鐩告浜よВ鐮侊級
++ * - 榻胯疆鍑忛€熸瘮锛堝鏋滅紪鐮佸櫒鍦ㄧ數鏈鸿酱涓婏級
++ * 
++ * 娴嬮噺鏂规硶锛?+ * 1. 澶嶄綅缂栫爜鍣ㄨ鏁?+ * 2. 鎵嬪姩杞姩杞瓙瀹屾暣涓€鍦?+ * 3. 璇诲彇缂栫爜鍣ㄨ鏁板樊鍊硷紝鍗充负 ENCODER_PPR
++ * 
++ * 娉ㄦ剰锛氫笉瑕佸啀涔樹互 GEAR_RATIO锛岄櫎闈炵紪鐮佸櫒鍦ㄧ數鏈鸿酱涓婁笖闇€瑕佽浆鎹㈠埌杞酱
++ */
+ #define ENCODER_PPR             334
+ 
+-/** @brief 鐢垫満鍑忛€熸瘮 */
++/** @brief 鐢垫満鍑忛€熸瘮锛堜繚鐣欑敤浜庢枃妗ｏ紝褰撳墠鏈娇鐢級 */
+ #define GEAR_RATIO              28.0f
+ 
+ /** @brief 杞懆闀?(m) */
+ #define WHEEL_CIRCUMFERENCE     (2.0f * 3.14159265f * WHEEL_RADIUS)
+ 
+ /* ============================================================================
+  * 鎺у埗棰戠巼閰嶇疆
+  * ============================================================================ */
+ 
+ /** @brief 涓绘帶鍒跺惊鐜鐜?(Hz) - 鐢卞畾鏃跺櫒涓柇鍐冲畾 */
+diff --git a/2025e/m0_controller/modules/Motion Control/inc/motion_control.h b/2025e/m0_controller/modules/Motion Control/inc/motion_control.h
+index abd35b9..c1bdd4b 100644
+--- a/2025e/m0_controller/modules/Motion Control/inc/motion_control.h	
++++ b/2025e/m0_controller/modules/Motion Control/inc/motion_control.h	
+@@ -95,20 +95,21 @@ typedef struct {
+     
+     /* ---- 鎺у埗鐘舵€?---- */
+     ControlState_t state;
+     
+     /* ---- 閫熷害鎸囦护 ---- */
+     VelocityCommand_t cmd;          /**< 褰撳墠閫熷害鎸囦护 */
+     
+     /* ---- 鎸囦护骞虫粦锛堜竴闃朵綆閫氭护娉級 ---- */
+     float smoothed_v;       /**< 骞虫粦鍚庣殑绾块€熷害 (m/s) */
+     float smoothed_omega;   /**< 骞虫粦鍚庣殑瑙掗€熷害 (rad/s) */
++    float prev_limited_v;   /**< 涓婃闄愬箙鍚庣殑閫熷害 (鐢ㄤ簬鍔犻€熷害闄愬箙) */
+     
+     /* ---- 鍐呯幆锛氬乏鍙宠疆閫熷害鎺у埗鍣紙鍓嶉+鍙嶉锛?---- */
+     WheelController_t wheel_left;
+     WheelController_t wheel_right;
+     
+     /* ---- 鎬ц兘鐩戞帶 ---- */
+     uint32_t loop_count;       /**< 寰幆璁℃暟 */
+     uint32_t max_exec_time;    /**< 鏈€澶ф墽琛屾椂闂?us) */
+     uint32_t last_stamp;       /**< 涓婃鏃堕棿鎴?us)锛岀敤浜庢€ц兘缁熻 */
+     
+diff --git a/2025e/m0_controller/modules/Motion Control/src/motion_control.c b/2025e/m0_controller/modules/Motion Control/src/motion_control.c
+index 9364929..039bd1e 100644
+--- a/2025e/m0_controller/modules/Motion Control/src/motion_control.c	
++++ b/2025e/m0_controller/modules/Motion Control/src/motion_control.c	
+@@ -1,20 +1,21 @@
+ /**
+  * @file motion_control.c
+  * @brief 杩愬姩鎺у埗灞備富鎺у埗鍣ㄥ疄鐜?- 杞ㄨ抗璺熻釜妯″紡
+  * @date 2026-07-14
+  */
+ 
+ #include "motion_control.h"
+ #include "motion_config.h"
+ #include "motion_kinematics.h"
+ #include <string.h>
++#include <math.h>
+ 
+ /* ============================================================================
+  * 鍐呴儴杈呭姪鍑芥暟
+  * ============================================================================ */
+ 
+ static inline float clamp_float(float value, float min, float max) {
+     if (value > max) return max;
+     if (value < min) return min;
+     return value;
+ }
+@@ -112,31 +113,37 @@ static float ClampAcceleration(float target, float previous, float dt) {
+     float max_delta_decel  = MAX_DECELERATION  * dt;
+ 
+     if (delta > max_delta_accel) {
+         return previous + max_delta_accel;
+     } else if (delta < -max_delta_decel) {
+         return previous - max_delta_decel;
+     }
+     return target;  /* 鍦ㄨ寖鍥村唴锛岀洿鎺ヤ娇鐢?*/
+ }
+ 
+-/* ============================================================================
+- * 鍏叡鍑芥暟瀹炵幇
+- * ============================================================================ */
+-
+ bool MotionControl_Init(MotionControl_t *ctrl,
+                        EncoderInterface_t *encoder,
+                        MotorInterface_t *motor) {
+     if (ctrl == NULL || encoder == NULL || motor == NULL) {
+         return false;
+     }
+ 
++    /* Validate encoder callbacks */
++    if (encoder->getCount == NULL || encoder->resetCount == NULL) {
++        return false;
++    }
++
++    /* Validate motor callbacks */
++    if (motor->setDifferentialPWM == NULL || motor->stop == NULL || motor->init == NULL) {
++        return false;
++    }
++
+     ctrl->encoder = encoder;
+     ctrl->motor   = motor;
+ 
+     /* 杩愬姩瀛︽ā鍧?*/
+     DiffKin_Init(WHEEL_BASE, WHEEL_RADIUS);
+ 
+     /* 鐘舵€佷及璁″櫒 */
+     StateEst_Init(&ctrl->state_estimator,
+                   encoder,
+                   WHEEL_RADIUS,
+@@ -150,20 +157,21 @@ bool MotionControl_Init(MotionControl_t *ctrl,
+     WheelController_Init(&ctrl->wheel_right,
+                         SPEED_KP, SPEED_KI,
+                         FF_K_ACCEL, FF_K_FRICTION, FF_K_STATIC);
+ 
+     /* 鐘舵€佸彉閲?*/
+     ctrl->state        = CONTROL_STATE_IDLE;
+     ctrl->cmd.v_linear = 0.0f;
+     ctrl->cmd.omega    = 0.0f;
+     ctrl->smoothed_v   = 0.0f;
+     ctrl->smoothed_omega = 0.0f;
++    ctrl->prev_limited_v = 0.0f;
+     ctrl->loop_count   = 0;
+     ctrl->max_exec_time = 0;
+     ctrl->last_stamp   = 0;
+ 
+     return true;
+ }
+ 
+ /* ============================================================================
+  * 涓绘帶鍒跺惊鐜?  * ============================================================================ */
+@@ -189,33 +197,32 @@ void MotionControl_Update(MotionControl_t *ctrl) {
+     float v_right_actual = StateEst_GetRightSpeed(&ctrl->state_estimator);
+ 
+     /* ------------------------------------------------------------
+      * 姝ラ2: 鎸囦护骞虫粦 - 瀵归€熷害鎸囦护鏂藉姞涓€闃朵綆閫氭护娉?      * ---------------------------------------------------------- */
+     SmoothCommand(ctrl);
+ 
+     /* ------------------------------------------------------------
+      * 姝ラ3: 鍔犻€熷害闄愬箙
+      * ---------------------------------------------------------- */
+-    /* 鑾峰彇涓婃骞虫粦鍚庣殑閫熷害鐢ㄤ簬璁＄畻 delta */
+-    static float prev_smoothed_v = 0.0f;
+-    float v_limited = ClampAcceleration(ctrl->smoothed_v, prev_smoothed_v, dt);
+-    prev_smoothed_v = v_limited;
++    /* Use instance-owned previous state for acceleration limiting */
++    float v_limited = ClampAcceleration(ctrl->smoothed_v, ctrl->prev_limited_v, dt);
++    ctrl->prev_limited_v = v_limited;
+ 
+-    /* 绾块€熷害鍜岃閫熷害鍚勮嚜闄愬箙 */
+-    v_limited = clamp_float(v_limited, MIN_SPEED, MAX_SPEED);
+-    float omega_limited = clamp_float(ctrl->smoothed_omega, -MAX_OMEGA, MAX_OMEGA);
+-
+-    /* 濡傛灉閫熷害鎸囦护涓洪浂锛屽埞杞?*/
+-    if (v_limited < 0.005f) {
+-        v_limited = 0.0f;
++    /* Apply symmetric deadband: only apply MIN_SPEED when magnitude is nonzero */
++    if (fabsf(v_limited) > 0.0f && fabsf(v_limited) < MIN_SPEED) {
++        v_limited = (v_limited > 0.0f) ? MIN_SPEED : -MIN_SPEED;
+     }
++    
++    /* Speed limits */
++    v_limited = clamp_float(v_limited, -MAX_SPEED, MAX_SPEED);
++    float omega_limited = clamp_float(ctrl->smoothed_omega, -MAX_OMEGA, MAX_OMEGA);
+ 
+     /* ------------------------------------------------------------
+      * 姝ラ4: 閫嗚繍鍔ㄥ - (v, 蠅) 鈫?(vL_target, vR_target)
+      * ---------------------------------------------------------- */
+     float v_left_target = 0.0f;
+     float v_right_target = 0.0f;
+     DiffKin_Inverse(v_limited, omega_limited, &v_left_target, &v_right_target);
+ 
+     /* ------------------------------------------------------------
+      * 姝ラ5: 杞€熸帶鍒?- 鍓嶉+鍙嶉
+@@ -268,49 +275,51 @@ void MotionControl_SetFeedforward(MotionControl_t *ctrl,
+                                   float k_static) {
+     Feedforward_SetParams(&ctrl->wheel_left.ff,  k_accel, k_friction, k_static);
+     Feedforward_SetParams(&ctrl->wheel_right.ff, k_accel, k_friction, k_static);
+ }
+ 
+ /* ============================================================================
+  * 鎺у埗鐘舵€佺鐞?  * ============================================================================ */
+ 
+ void MotionControl_Start(MotionControl_t *ctrl) {
+-    /* 鍙厑璁镐粠 IDLE 鍚姩 */
+-    if (ctrl->state != CONTROL_STATE_IDLE) {
++    /* 鍙厑璁镐粠 IDLE 鎴?EMERGENCY 鍚姩 */
++    if (ctrl->state != CONTROL_STATE_IDLE && ctrl->state != CONTROL_STATE_EMERGENCY) {
+         return;
+     }
+ 
+     /* 澶嶄綅鎵€鏈夋帶鍒跺櫒 */
+     WheelController_Reset(&ctrl->wheel_left);
+     WheelController_Reset(&ctrl->wheel_right);
+     StateEst_Reset(&ctrl->state_estimator);
+ 
+     /* 澶嶄綅骞虫粦鐘舵€侊紝浣跨敤褰撳墠鎸囦护鍊煎垵濮嬪寲 */
+     ctrl->smoothed_v     = ctrl->cmd.v_linear;
+     ctrl->smoothed_omega = ctrl->cmd.omega;
++    ctrl->prev_limited_v = 0.0f;
+ 
+     ctrl->state = CONTROL_STATE_RUNNING;
+ }
+ 
+ void MotionControl_Stop(MotionControl_t *ctrl) {
+     if (ctrl->motor != NULL) {
+         ctrl->motor->stop();
+     }
+ 
+     WheelController_Reset(&ctrl->wheel_left);
+     WheelController_Reset(&ctrl->wheel_right);
+ 
+     ctrl->cmd.v_linear   = 0.0f;
+     ctrl->cmd.omega      = 0.0f;
+     ctrl->smoothed_v     = 0.0f;
+     ctrl->smoothed_omega = 0.0f;
++    ctrl->prev_limited_v = 0.0f;
+ 
+     ctrl->state = CONTROL_STATE_IDLE;
+ }
+ 
+ void MotionControl_EmergencyStop(MotionControl_t *ctrl) {
+     if (ctrl->motor != NULL) {
+         ctrl->motor->stop();
+     }
+ 
+     ctrl->state = CONTROL_STATE_EMERGENCY;
+diff --git a/2025e/m0_controller/modules/Motion Control/src/motion_feedback.c b/2025e/m0_controller/modules/Motion Control/src/motion_feedback.c
+index 0d84628..e8d8728 100644
+--- a/2025e/m0_controller/modules/Motion Control/src/motion_feedback.c	
++++ b/2025e/m0_controller/modules/Motion Control/src/motion_feedback.c	
+@@ -30,23 +30,31 @@ void PID_Init(PID_t *pid, float kp, float ki, float kd,
+     pid->kp = kp;
+     pid->ki = ki;
+     pid->kd = kd;
+     
+     pid->integral = 0.0f;
+     pid->prev_error = 0.0f;
+     
+     pid->output_min = out_min;
+     pid->output_max = out_max;
+     
+-    // 绉垎闄愬箙榛樿涓鸿緭鍑洪檺骞呯殑涓€鍗?-    pid->integral_min = out_min * 0.5f;
+-    pid->integral_max = out_max * 0.5f;
++    /* Set integral limits based on ki to bound the integral contribution in output units */
++    /* If ki > 0: integral_limit = output_limit / ki */
++    /* This ensures ki * integral stays within output bounds */
++    if (ki > 1e-6f) {
++        pid->integral_min = out_min / ki;
++        pid->integral_max = out_max / ki;
++    } else {
++        /* If ki is zero or very small, integral limits don't matter */
++        pid->integral_min = -1e6f;
++        pid->integral_max = 1e6f;
++    }
+ }
+ 
+ float PID_Update(PID_t *pid, float setpoint, float measurement, float dt) {
+     // 璁＄畻璇樊
+     float error = setpoint - measurement;
+     
+     // 姣斾緥椤?     float p_term = pid->kp * error;
+     
+     // 绉垎椤癸紙姊舰绉垎 + 鎶楅ケ鍜岋級
+@@ -76,20 +84,29 @@ float PID_Update(PID_t *pid, float setpoint, float measurement, float dt) {
+ 
+ void PID_Reset(PID_t *pid) {
+     pid->integral = 0.0f;
+     pid->prev_error = 0.0f;
+ }
+ 
+ void PID_SetGains(PID_t *pid, float kp, float ki, float kd) {
+     pid->kp = kp;
+     pid->ki = ki;
+     pid->kd = kd;
++    
++    /* Update integral limits when ki changes */
++    if (ki > 1e-6f) {
++        pid->integral_min = pid->output_min / ki;
++        pid->integral_max = pid->output_max / ki;
++    } else {
++        pid->integral_min = -1e6f;
++        pid->integral_max = 1e6f;
++    }
+ }
+ 
+ void PID_SetIntegralLimits(PID_t *pid, float min, float max) {
+     pid->integral_min = min;
+     pid->integral_max = max;
+ }
+ 
+ /* ============================================================================
+  * 鐘舵€佷及璁″櫒瀹炵幇
+  * ============================================================================ */
+diff --git a/2025e/m0_controller/tests/run_tests.ps1 b/2025e/m0_controller/tests/run_tests.ps1
+index 5feff50..66b5b4c 100644
+--- a/2025e/m0_controller/tests/run_tests.ps1
++++ b/2025e/m0_controller/tests/run_tests.ps1
+@@ -43,11 +43,26 @@ Invoke-TestBuild -Name "test_icm42688" -Arguments @(
+ # Test: MCP23017 driver with fake I2C
+ Invoke-TestBuild -Name "test_mcp23017" -Arguments @(
+     "-std=c99",
+     "-Wall",
+     "-Wextra",
+     "-I$root\modules\MCP23017\inc",
+     "-I$PSScriptRoot\fakes",
+     "$PSScriptRoot\test_mcp23017.c"
+ )
+ 
++# Test: Motion Control with fake encoder and motor
++Invoke-TestBuild -Name "test_motion_control" -Arguments @(
++    "-std=c99",
++    "-Wall",
++    "-Wextra",
++    "-Werror",
++    "-pedantic",
++    "-I$root\modules\Motion Control\inc",
++    "$PSScriptRoot\test_motion_control.c",
++    "$root\modules\Motion Control\src\motion_control.c",
++    "$root\modules\Motion Control\src\motion_feedback.c",
++    "$root\modules\Motion Control\src\motion_feedforward.c",
++    "$root\modules\Motion Control\src\motion_kinematics.c"
++)
++
+ Write-Host "Host tests: PASS"
+diff --git a/2025e/m0_controller/tests/test_motion_control.c b/2025e/m0_controller/tests/test_motion_control.c
+new file mode 100644
+index 0000000..b3e4297
+--- /dev/null
++++ b/2025e/m0_controller/tests/test_motion_control.c
+@@ -0,0 +1,373 @@
++/**
++ * @file test_motion_control.c
++ * @brief Motion Control behavior tests
++ * @date 2026-07-18
++ * 
++ * Tests:
++ * - Callback validation
++ * - Zero velocity command
++ * - Negative velocity command (reverse motion)
++ * - Emergency stop
++ * - Two independent controller instances
++ * - PI anti-windup behavior
++ */
++
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <math.h>
++#include <assert.h>
++
++/* Include Motion Control headers */
++#include "../modules/Motion Control/inc/motion_control.h"
++#include "../modules/Motion Control/inc/motion_config.h"
++
++/* ============================================================================
++ * Test Infrastructure: Fake Encoder and Motor Interfaces
++ * ============================================================================ */
++
++static int16_t last_left_pwm = 0;
++static int16_t last_right_pwm = 0;
++static uint32_t stop_call_count = 0;
++
++static int32_t fake_encoder_counts[ENCODER_COUNT] = {0};
++
++static int32_t FakeEncoder_GetCount(EncoderId_t id) {
++    if (id >= ENCODER_COUNT) return 0;
++    return fake_encoder_counts[id];
++}
++
++static void FakeEncoder_ResetCount(EncoderId_t id) {
++    if (id >= ENCODER_COUNT) return;
++    fake_encoder_counts[id] = 0;
++}
++
++static void FakeMotor_SetDifferentialPWM(int16_t left, int16_t right) {
++    last_left_pwm = left;
++    last_right_pwm = right;
++}
++
++static void FakeMotor_Stop(void) {
++    stop_call_count++;
++    last_left_pwm = 0;
++    last_right_pwm = 0;
++}
++
++static void FakeMotor_Init(void) {
++    /* No-op for testing */
++}
++
++static EncoderInterface_t encoder_vtable = {
++    .getCount = FakeEncoder_GetCount,
++    .resetCount = FakeEncoder_ResetCount
++};
++
++static MotorInterface_t motor_vtable = {
++    .setDifferentialPWM = FakeMotor_SetDifferentialPWM,
++    .stop = FakeMotor_Stop,
++    .init = FakeMotor_Init
++};
++
++/* Incomplete vtables for validation testing */
++static EncoderInterface_t incomplete_encoder = {
++    .getCount = NULL,
++    .resetCount = FakeEncoder_ResetCount
++};
++
++static MotorInterface_t incomplete_motor = {
++    .setDifferentialPWM = NULL,
++    .stop = FakeMotor_Stop,
++    .init = FakeMotor_Init
++};
++
++/* ============================================================================
++ * Test Helpers
++ * ============================================================================ */
++
++static void reset_test_state(void) {
++    last_left_pwm = 0;
++    last_right_pwm = 0;
++    stop_call_count = 0;
++    memset(fake_encoder_counts, 0, sizeof(fake_encoder_counts));
++}
++
++static void run_cycles(MotionControl_t *ctrl, uint32_t count) {
++    for (uint32_t i = 0; i < count; i++) {
++        MotionControl_Update(ctrl);
++    }
++}
++
++/* Simulate encoder counts for constant velocity */
++static void simulate_velocity(float v_left_mps, float v_right_mps) {
++    /* Convert velocity to encoder delta per control cycle (500 Hz = 0.002s) */
++    float dt = CONTROL_PERIOD_S;
++    float wheel_circ = 2.0f * 3.14159265f * WHEEL_RADIUS;
++    
++    /* Delta counts = (velocity * dt) / (wheel_circ) * ENCODER_PPR */
++    int32_t delta_left = (int32_t)((v_left_mps * dt / wheel_circ) * ENCODER_PPR);
++    int32_t delta_right = (int32_t)((v_right_mps * dt / wheel_circ) * ENCODER_PPR);
++    
++    fake_encoder_counts[ENCODER_LEFT_FRONT] += delta_left;
++    fake_encoder_counts[ENCODER_LEFT_REAR] += delta_left;
++    fake_encoder_counts[ENCODER_RIGHT_FRONT] += delta_right;
++    fake_encoder_counts[ENCODER_RIGHT_REAR] += delta_right;
++}
++
++/* ============================================================================
++ * Test Cases
++ * ============================================================================ */
++
++static void test_callback_validation(void) {
++    printf("Test: Callback validation\n");
++    reset_test_state();
++    
++    MotionControl_t ctrl;
++    
++    /* Test 1: Missing encoder callback */
++    bool result = MotionControl_Init(&ctrl, &incomplete_encoder, &motor_vtable);
++    assert(!result && "Init should fail with incomplete encoder vtable");
++    
++    /* Test 2: Missing motor callback */
++    result = MotionControl_Init(&ctrl, &encoder_vtable, &incomplete_motor);
++    assert(!result && "Init should fail with incomplete motor vtable");
++    
++    /* Test 3: Valid callbacks */
++    result = MotionControl_Init(&ctrl, &encoder_vtable, &motor_vtable);
++    assert(result && "Init should succeed with valid callbacks");
++    
++    printf("  PASS\n");
++}
++
++static void test_zero_velocity(void) {
++    printf("Test: Zero velocity command\n");
++    reset_test_state();
++    
++    MotionControl_t ctrl;
++    assert(MotionControl_Init(&ctrl, &encoder_vtable, &motor_vtable));
++    
++    MotionControl_Start(&ctrl);
++    MotionControl_SetVelocityCommand(&ctrl, 0.0f, 0.0f);
++    run_cycles(&ctrl, 100U);
++    
++    /* With zero command and zero feedback, PWM should be zero or near-zero */
++    assert(abs(last_left_pwm) < 10 && abs(last_right_pwm) < 10 && 
++           "Zero command should produce near-zero PWM");
++    
++    printf("  PASS (left=%d, right=%d)\n", last_left_pwm, last_right_pwm);
++}
++
++static void test_negative_velocity(void) {
++    printf("Test: Negative velocity (reverse motion)\n");
++    reset_test_state();
++    
++    MotionControl_t ctrl;
++    assert(MotionControl_Init(&ctrl, &encoder_vtable, &motor_vtable));
++    
++    MotionControl_Start(&ctrl);
++    MotionControl_SetVelocityCommand(&ctrl, -0.20f, 0.0f);
++    run_cycles(&ctrl, 100U);
++    
++    /* Expected: both wheels should have negative PWM for reverse motion */
++    printf("  Result: left=%d, right=%d\n", last_left_pwm, last_right_pwm);
++    assert(last_left_pwm < 0 && last_right_pwm < 0 && 
++           "Negative velocity command should produce negative PWM");
++    
++    printf("  PASS\n");
++}
++
++static void test_emergency_stop(void) {
++    printf("Test: Emergency stop\n");
++    reset_test_state();
++    
++    MotionControl_t ctrl;
++    assert(MotionControl_Init(&ctrl, &encoder_vtable, &motor_vtable));
++    
++    MotionControl_Start(&ctrl);
++    MotionControl_SetVelocityCommand(&ctrl, 0.5f, 0.0f);
++    run_cycles(&ctrl, 10U);
++    
++    uint32_t stop_count_before = stop_call_count;
++    MotionControl_EmergencyStop(&ctrl);
++    
++    assert(stop_call_count == stop_count_before + 1 && 
++           "Emergency stop should call motor stop exactly once");
++    assert(MotionControl_GetState(&ctrl) == CONTROL_STATE_EMERGENCY && 
++           "State should be EMERGENCY after emergency stop");
++    
++    printf("  PASS\n");
++}
++
++static void test_two_instances(void) {
++    printf("Test: Two independent controller instances\n");
++    reset_test_state();
++    
++    MotionControl_t ctrl1, ctrl2;
++    assert(MotionControl_Init(&ctrl1, &encoder_vtable, &motor_vtable));
++    assert(MotionControl_Init(&ctrl2, &encoder_vtable, &motor_vtable));
++    
++    /* Start both controllers with different commands */
++    MotionControl_SetVelocityCommand(&ctrl1, 0.3f, 0.0f);
++    MotionControl_Start(&ctrl1);
++    
++    MotionControl_SetVelocityCommand(&ctrl2, 0.5f, 0.0f);
++    MotionControl_Start(&ctrl2);
++    
++    /* Run ctrl1 for 200 cycles to let smoothing settle */
++    for (uint32_t i = 0; i < 200; i++) {
++        MotionControl_Update(&ctrl1);
++    }
++    int16_t ctrl1_pwm = last_left_pwm;
++    
++    /* Run ctrl2 for 200 cycles */
++    for (uint32_t i = 0; i < 200; i++) {
++        MotionControl_Update(&ctrl2);
++    }
++    int16_t ctrl2_pwm = last_left_pwm;
++    
++    /* ctrl2 has higher velocity command, should have higher PWM */
++    printf("  ctrl1_pwm=%d, ctrl2_pwm=%d\n", ctrl1_pwm, ctrl2_pwm);
++    assert(ctrl2_pwm > ctrl1_pwm && 
++           "Higher velocity command should produce higher PWM");
++    
++    /* Verify smoothing states are independent by running ctrl1 again */
++    for (uint32_t i = 0; i < 50; i++) {
++        MotionControl_Update(&ctrl1);
++    }
++    int16_t ctrl1_pwm_2nd = last_left_pwm;
++    
++    /* ctrl1 should continue from its own smoothing state, not ctrl2's */
++    /* After settling, ctrl1 should remain close to its previous value */
++    printf("  ctrl1_pwm_2nd=%d\n", ctrl1_pwm_2nd);
++    assert(abs(ctrl1_pwm_2nd - ctrl1_pwm) < 50 &&
++           "Instance smoothing states should be independent");
++    
++    printf("  PASS\n");
++}
++
++static void test_pi_antiwindup(void) {
++    printf("Test: PI anti-windup\n");
++    reset_test_state();
++    
++    MotionControl_t ctrl;
++    assert(MotionControl_Init(&ctrl, &encoder_vtable, &motor_vtable));
++    
++    MotionControl_Start(&ctrl);
++    
++    /* Apply saturated error for 2 seconds (500 Hz * 2 = 1000 cycles) */
++    /* Command high velocity but simulate zero actual velocity */
++    MotionControl_SetVelocityCommand(&ctrl, 0.8f, 0.0f);
++    for (uint32_t i = 0; i < 1000; i++) {
++        simulate_velocity(0.0f, 0.0f);  /* No actual motion */
++        MotionControl_Update(&ctrl);
++    }
++    
++    int16_t pwm_saturated = last_left_pwm;
++    printf("  PWM after saturation: %d\n", pwm_saturated);
++    
++    /* Now remove error: command zero velocity and simulate matching velocity */
++    MotionControl_SetVelocityCommand(&ctrl, 0.0f, 0.0f);
++    for (uint32_t i = 0; i < 100; i++) {
++        simulate_velocity(0.0f, 0.0f);
++        MotionControl_Update(&ctrl);
++    }
++    
++    int16_t pwm_after_zero = last_left_pwm;
++    printf("  PWM after zero command (100 cycles): %d\n", pwm_after_zero);
++    
++    /* With proper anti-windup, output should return to near-zero */
++    /* If integral is wound up, it will take much longer to decay */
++    assert(abs(pwm_after_zero) < abs(pwm_saturated) * 0.3f &&
++           "Output should decay quickly with proper anti-windup");
++    
++    printf("  PASS\n");
++}
++
++static void test_forward_motion(void) {
++    printf("Test: Forward motion\n");
++    reset_test_state();
++    
++    MotionControl_t ctrl;
++    assert(MotionControl_Init(&ctrl, &encoder_vtable, &motor_vtable));
++    
++    MotionControl_Start(&ctrl);
++    MotionControl_SetVelocityCommand(&ctrl, 0.30f, 0.0f);
++    run_cycles(&ctrl, 100U);
++    
++    printf("  Result: left=%d, right=%d\n", last_left_pwm, last_right_pwm);
++    assert(last_left_pwm > 0 && last_right_pwm > 0 && 
++           "Forward motion should produce positive PWM");
++    
++    printf("  PASS\n");
++}
++
++static void test_turn_in_place(void) {
++    printf("Test: Turn in place (pure rotation)\n");
++    reset_test_state();
++    
++    MotionControl_t ctrl;
++    assert(MotionControl_Init(&ctrl, &encoder_vtable, &motor_vtable));
++    
++    MotionControl_Start(&ctrl);
++    /* Pure rotation: v=0, omega > 0 should make left negative, right positive */
++    MotionControl_SetVelocityCommand(&ctrl, 0.0f, 2.0f);
++    run_cycles(&ctrl, 100U);
++    
++    printf("  Result: left=%d, right=%d\n", last_left_pwm, last_right_pwm);
++    /* Due to kinematics: v_left = v - (b/2)*omega = 0 - 0.075*2 = -0.15 m/s */
++    /* v_right = v + (b/2)*omega = 0 + 0.075*2 = +0.15 m/s */
++    assert(last_left_pwm < 0 && last_right_pwm > 0 &&
++           "Turn in place should produce opposite PWM signs");
++    
++    printf("  PASS\n");
++}
++
++static void test_restart_after_emergency(void) {
++    printf("Test: Restart after emergency stop\n");
++    reset_test_state();
++    
++    MotionControl_t ctrl;
++    assert(MotionControl_Init(&ctrl, &encoder_vtable, &motor_vtable));
++    
++    MotionControl_Start(&ctrl);
++    MotionControl_SetVelocityCommand(&ctrl, 0.4f, 0.0f);
++    run_cycles(&ctrl, 10U);
++    
++    MotionControl_EmergencyStop(&ctrl);
++    assert(MotionControl_GetState(&ctrl) == CONTROL_STATE_EMERGENCY);
++    
++    /* Must stop before restarting */
++    MotionControl_Stop(&ctrl);
++    assert(MotionControl_GetState(&ctrl) == CONTROL_STATE_IDLE);
++    
++    /* Now can restart */
++    MotionControl_Start(&ctrl);
++    assert(MotionControl_GetState(&ctrl) == CONTROL_STATE_RUNNING);
++    
++    printf("  PASS\n");
++}
++
++/* ============================================================================
++ * Main Test Runner
++ * ============================================================================ */
++
++int main(void) {
++    printf("========================================\n");
++    printf("Motion Control Behavior Tests\n");
++    printf("========================================\n\n");
++    
++    test_callback_validation();
++    test_zero_velocity();
++    test_forward_motion();
++    test_negative_velocity();  /* Expected to FAIL initially */
++    test_turn_in_place();
++    test_emergency_stop();
++    test_restart_after_emergency();
++    test_two_instances();      /* Expected to FAIL initially */
++    test_pi_antiwindup();      /* May FAIL depending on anti-windup implementation */
++    
++    printf("\n========================================\n");
++    printf("All tests PASSED\n");
++    printf("========================================\n");
++    
++    return 0;
++}

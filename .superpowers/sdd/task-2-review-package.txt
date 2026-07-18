@@ -1,0 +1,589 @@
+﻿69a9bb9 Task 2: Add platform timebase and ICM42688 temperature reading
+
+--- STAT ---
+
+ 2025e/m0_controller/inc/platform_time.h            |  67 +++++++++
+ .../modules/ICM42688/inc/icm42688_hal.h            |   6 +-
+ .../modules/ICM42688/src/icm42688_hal.c            |  20 +--
+ .../modules/ICM42688/src/icm42688_mspm0.c          |   9 +-
+ 2025e/m0_controller/src/platform_time.c            |  76 ++++++++++
+ 2025e/m0_controller/tests/run_tests.ps1            |  20 +++
+ 2025e/m0_controller/tests/test_icm42688.c          | 156 +++++++++++++++++++++
+ 2025e/m0_controller/tests/test_platform_time.c     |  44 ++++++
+ 8 files changed, 383 insertions(+), 15 deletions(-)
+
+--- DIFF ---
+
+diff --git a/2025e/m0_controller/inc/platform_time.h b/2025e/m0_controller/inc/platform_time.h
+new file mode 100644
+index 0000000..429d877
+--- /dev/null
++++ b/2025e/m0_controller/inc/platform_time.h
+@@ -0,0 +1,67 @@
++/**
++ * @file      platform_time.h
++ * @brief     Monotonic microsecond timebase for MSPM0G3507
++ * @date      2026-07-18
++ * @note      Wraps a hardware down-counter into monotonic 32-bit and 64-bit
++ *            microsecond timestamps. Pure conversion functions are testable
++ *            without hardware; target wrappers use DriverLib.
++ */
++
++#ifndef PLATFORM_TIME_H
++#define PLATFORM_TIME_H
++
++#include <stdint.h>
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++/* ======================================================================
++ * Pure testable conversion functions (no hardware dependencies)
++ * ====================================================================== */
++
++/**
++ * @brief  Convert down-counter value to up-counter value
++ * @param  down_count  Hardware down-counter reading
++ * @return Equivalent up-counter value (0 at timer reload, increases as timer counts down)
++ * @note   Pure function: UINT32_MAX - down_count
++ */
++uint32_t PlatformTime_UpCountFromDownCount(uint32_t down_count);
++
++/**
++ * @brief  Extend 32-bit timestamp to 64-bit with wrap detection
++ * @param  now32  Current 32-bit timestamp
++ * @return 64-bit extended timestamp
++ * @note   Detects wraps by comparing with previous sample. Call sequentially
++ *         from a single context (or protect with critical section in multi-threaded use).
++ */
++uint64_t PlatformTime_Extend32(uint32_t now32);
++
++/* ======================================================================
++ * Target API (uses hardware timer)
++ * ====================================================================== */
++
++/**
++ * @brief  Initialize platform timebase
++ * @note   Resets wrap-extension state. Actual timer configuration happens
++ *         in Task 7 via SysConfig.
++ */
++void PlatformTime_Init(void);
++
++/**
++ * @brief  Get current monotonic timestamp (32-bit, wraps ~71 minutes)
++ * @return Microseconds since PlatformTime_Init()
++ */
++uint32_t PlatformTime_GetUs32(void);
++
++/**
++ * @brief  Get current monotonic timestamp (64-bit, no practical wrap)
++ * @return Microseconds since PlatformTime_Init()
++ */
++uint64_t PlatformTime_GetUs64(void);
++
++#ifdef __cplusplus
++}
++#endif
++
++#endif /* PLATFORM_TIME_H */
+diff --git a/2025e/m0_controller/modules/ICM42688/inc/icm42688_hal.h b/2025e/m0_controller/modules/ICM42688/inc/icm42688_hal.h
+index 18cf38e..78a4a1f 100644
+--- a/2025e/m0_controller/modules/ICM42688/inc/icm42688_hal.h
++++ b/2025e/m0_controller/modules/ICM42688/inc/icm42688_hal.h
+@@ -108,20 +108,21 @@ typedef struct {
+     int16_t z;
+ } icm42688_axis_data_t;
+ 
+ typedef struct {
+     float x;
+     float y;
+     float z;
+ } icm42688_vector3f_t;
+ 
+ typedef struct {
++    int16_t              temperature_raw;
+     icm42688_axis_data_t acc_raw;
+     icm42688_axis_data_t gyro_raw;
+     icm42688_vector3f_t  acc_g;
+     icm42688_vector3f_t  gyro_dps;
+ } icm42688_data_t;
+ 
+ typedef struct {
+     icm42688_interface_type_t interface_type;
+     icm42688_acc_sample_t     acc_sample;
+     icm42688_gyro_sample_t    gyro_sample;
+@@ -155,22 +156,23 @@ void icm42688_hal_init(const icm42688_comm_t   *comm,
+                        const icm42688_system_t *system,
+                        const icm42688_config_t *config);
+ 
+ /**
+  * @brief  Initialize the sensor: reset, wake, configure, verify ID.
+  * @return ICM42688_STATUS_OK on success.
+  */
+ icm42688_status_t icm42688_init(void);
+ 
+ /**
+- * @brief  Read 12 bytes from ACCEL_DATA_X1 in one burst; fill acc_raw,
+- *         gyro_raw, acc_g, and gyro_dps.
++ * @brief  Read 14 bytes from TEMP_DATA1 in one burst: temperature, accelerometer,
++ *         and gyroscope data. Fills temperature_raw, acc_raw, gyro_raw, acc_g,
++ *         and gyro_dps.
+  * @param  data  Pointer to output struct.
+  * @return ICM42688_STATUS_OK on success.
+  */
+ icm42688_status_t icm42688_read(icm42688_data_t *data);
+ 
+ /**
+  * @brief  Average N gyro reads while stationary to compute bias.
+  * @param  samples     Number of samples to average (>0).
+  * @param  interval_ms Delay between samples in ms (0 = no extra delay).
+  * @return ICM42688_STATUS_OK on success.
+diff --git a/2025e/m0_controller/modules/ICM42688/src/icm42688_hal.c b/2025e/m0_controller/modules/ICM42688/src/icm42688_hal.c
+index 810be89..89e993e 100644
+--- a/2025e/m0_controller/modules/ICM42688/src/icm42688_hal.c
++++ b/2025e/m0_controller/modules/ICM42688/src/icm42688_hal.c
+@@ -168,43 +168,45 @@ icm42688_status_t icm42688_init(void)
+     /* Low-pass filter config */
+     p_comm->write_reg(ICM42688_GYRO_CONFIG1,  0x01);
+     p_comm->write_reg(ICM42688_ACCEL_CONFIG1, 0x01);
+ 
+     p_system->delay_ms(5);
+ 
+     return ICM42688_STATUS_OK;
+ }
+ 
+ /* --------------------------------------------------------------------------
+- * Public: read 12 bytes from ACCEL_DATA_X1
++ * Public: read 14 bytes from TEMP_DATA1
+  * -------------------------------------------------------------------------- */
+ 
+ icm42688_status_t icm42688_read(icm42688_data_t *data)
+ {
+-    uint8_t buf[12];
++    uint8_t buf[14];
+ 
+     if (!comm_is_bound()) {
+         return ICM42688_STATUS_NOT_READY;
+     }
+     if (data == NULL) {
+         return ICM42688_STATUS_INVALID_ARGUMENT;
+     }
+ 
+-    p_comm->read_regs(ICM42688_ACCEL_DATA_X1, buf, 12);
++    /* 14-byte burst: TEMP_DATA1 (0x1D) + 2 temp + 6 accel + 6 gyro */
++    p_comm->read_regs(ICM42688_TEMP_DATA1, buf, 14);
+ 
+     /* Big-endian decode */
+-    data->acc_raw.x  = decode_be16(&buf[0]);   /* ACCEL_X1/X0  */
+-    data->acc_raw.y  = decode_be16(&buf[2]);   /* ACCEL_Y1/Y0  */
+-    data->acc_raw.z  = decode_be16(&buf[4]);   /* ACCEL_Z1/Z0  */
+-    data->gyro_raw.x = decode_be16(&buf[6]);   /* GYRO_X1/X0   */
+-    data->gyro_raw.y = decode_be16(&buf[8]);   /* GYRO_Y1/Y0   */
+-    data->gyro_raw.z = decode_be16(&buf[10]);  /* GYRO_Z1/Z0   */
++    data->temperature_raw = decode_be16(&buf[0]);   /* TEMP_DATA1/DATA0  */
++    data->acc_raw.x       = decode_be16(&buf[2]);   /* ACCEL_X1/X0       */
++    data->acc_raw.y       = decode_be16(&buf[4]);   /* ACCEL_Y1/Y0       */
++    data->acc_raw.z       = decode_be16(&buf[6]);   /* ACCEL_Z1/Z0       */
++    data->gyro_raw.x      = decode_be16(&buf[8]);   /* GYRO_X1/X0        */
++    data->gyro_raw.y      = decode_be16(&buf[10]);  /* GYRO_Y1/Y0        */
++    data->gyro_raw.z      = decode_be16(&buf[12]);  /* GYRO_Z1/Z0        */
+ 
+     /* Convert to physical units */
+     data->acc_g.x    = (float)data->acc_raw.x  * acc_factor;
+     data->acc_g.y    = (float)data->acc_raw.y  * acc_factor;
+     data->acc_g.z    = (float)data->acc_raw.z  * acc_factor;
+     data->gyro_dps.x = (float)data->gyro_raw.x * gyro_factor - gyro_bias_x;
+     data->gyro_dps.y = (float)data->gyro_raw.y * gyro_factor - gyro_bias_y;
+     data->gyro_dps.z = (float)data->gyro_raw.z * gyro_factor - gyro_bias_z;
+ 
+     return ICM42688_STATUS_OK;
+diff --git a/2025e/m0_controller/modules/ICM42688/src/icm42688_mspm0.c b/2025e/m0_controller/modules/ICM42688/src/icm42688_mspm0.c
+index 212d738..5bfc4fc 100644
+--- a/2025e/m0_controller/modules/ICM42688/src/icm42688_mspm0.c
++++ b/2025e/m0_controller/modules/ICM42688/src/icm42688_mspm0.c
+@@ -1,17 +1,18 @@
+ /**
+  * @file      icm42688_mspm0.c
+  * @brief     MSPM0G3507 DriverLib adapter implementation
+  * @date      2026-07-17
+  */
+ 
+ #include "icm42688_mspm0.h"
++#include "platform_time.h"
+ 
+ /* ======================================================================
+  * Private SPI / GPIO primitives
+  * ====================================================================== */
+ 
+ /** Pull the ICM42688 chip-select line low (active). */
+ static inline void cs_low(void)
+ {
+     DL_GPIO_clearPins(ICM42688_PORT, ICM42688_CS_PIN);
+ }
+@@ -94,31 +95,31 @@ static void delay_ms(uint16_t ms)
+     for (uint16_t i = 0U; i < ms; i++) {
+         delay_cycles(cycles_per_ms);
+     }
+ }
+ 
+ /* ======================================================================
+  * ahrs_timer_t implementation
+  * ====================================================================== */
+ 
+ /**
+- * TIMG0 is configured and started by SysConfig; init/start are no-ops.
+- * The timer counter directly yields a microsecond timestamp.
++ * Platform timebase provides the microsecond timestamp.
++ * Timer init/start are handled by PlatformTime_Init() (called by main).
+  */
+ static uint32_t timer_get_time_us(void)
+ {
+-    return DL_TimerG_getTimerCount(ICM42688_TIMER_INST);
++    return PlatformTime_GetUs32();
+ }
+ 
+ static void timer_noop(void)
+ {
+-    /* SysConfig owns TIMG0 init/start - nothing to do here. */
++    /* PlatformTime_Init() called by main - nothing to do here. */
+ }
+ 
+ /* ======================================================================
+  * Exported interface instances
+  * ====================================================================== */
+ 
+ const icm42688_comm_t icm42688_mspm0_comm = {
+     .init      = comm_init,
+     .read_reg  = read_reg,
+     .write_reg = write_reg,
+diff --git a/2025e/m0_controller/src/platform_time.c b/2025e/m0_controller/src/platform_time.c
+new file mode 100644
+index 0000000..9361ba5
+--- /dev/null
++++ b/2025e/m0_controller/src/platform_time.c
+@@ -0,0 +1,76 @@
++/**
++ * @file      platform_time.c
++ * @brief     Monotonic microsecond timebase implementation
++ * @date      2026-07-18
++ */
++
++#include "platform_time.h"
++
++/* Wrap extension state */
++static uint32_t previous32 = 0U;
++static uint64_t high_word  = 0U;
++
++/* ======================================================================
++ * Pure testable functions (no hardware access)
++ * ====================================================================== */
++
++uint32_t PlatformTime_UpCountFromDownCount(uint32_t down_count)
++{
++    return UINT32_MAX - down_count;
++}
++
++uint64_t PlatformTime_Extend32(uint32_t now32)
++{
++    /* Detect wrap: current value less than previous means counter wrapped */
++    if (now32 < previous32) {
++        high_word += UINT64_C(1) << 32;
++    }
++    
++    previous32 = now32;
++    
++    return high_word | (uint64_t)now32;
++}
++
++/* ======================================================================
++ * Target API (hardware-dependent, stubbed until Task 7)
++ * ====================================================================== */
++
++void PlatformTime_Init(void)
++{
++    /* Reset extension state */
++    previous32 = 0U;
++    high_word  = 0U;
++    
++    /* Actual timer configuration will be done in Task 7 via SysConfig */
++}
++
++uint32_t PlatformTime_GetUs32(void)
++{
++    /* TODO: Task 7 will configure ICM42688_TIMER_INST via SysConfig
++     * For now, this is a stub that would read the hardware timer:
++     * 
++     * uint32_t down_count = DL_TimerG_getTimerCount(ICM42688_TIMER_INST);
++     * return PlatformTime_UpCountFromDownCount(down_count);
++     */
++    return 0U;  /* Stub */
++}
++
++uint64_t PlatformTime_GetUs64(void)
++{
++    uint32_t now32;
++    uint64_t result;
++    
++    /* TODO: Task 7 will enable this code path
++     * For now, stub returns 0
++     */
++    
++    /* Critical section to protect wrap detection state */
++    /* __disable_irq(); */
++    
++    now32 = PlatformTime_GetUs32();
++    result = PlatformTime_Extend32(now32);
++    
++    /* __enable_irq(); */
++    
++    return result;
++}
+diff --git a/2025e/m0_controller/tests/run_tests.ps1 b/2025e/m0_controller/tests/run_tests.ps1
+index d2575df..f01cb1b 100644
+--- a/2025e/m0_controller/tests/run_tests.ps1
++++ b/2025e/m0_controller/tests/run_tests.ps1
+@@ -13,11 +13,31 @@ function Invoke-TestBuild {
+         [string[]]$Arguments
+     )
+ 
+     $exe = Join-Path $build "$Name.exe"
+     & gcc @Arguments -o $exe
+     if ($LASTEXITCODE -ne 0) { throw "$Name compile failed" }
+     & $exe
+     if ($LASTEXITCODE -ne 0) { throw "$Name failed" }
+ }
+ 
++# Test: platform_time (pure conversion functions)
++Invoke-TestBuild -Name "test_platform_time" -Arguments @(
++    "-std=c99",
++    "-Wall",
++    "-Wextra",
++    "-I$root\inc",
++    "$PSScriptRoot\test_platform_time.c",
++    "$root\src\platform_time.c"
++)
++
++# Test: ICM42688 HAL (temperature + accel + gyro)
++Invoke-TestBuild -Name "test_icm42688" -Arguments @(
++    "-std=c99",
++    "-Wall",
++    "-Wextra",
++    "-I$root\modules\ICM42688\inc",
++    "$PSScriptRoot\test_icm42688.c",
++    "$root\modules\ICM42688\src\icm42688_hal.c"
++)
++
+ Write-Host "Host tests: PASS"
+diff --git a/2025e/m0_controller/tests/test_icm42688.c b/2025e/m0_controller/tests/test_icm42688.c
+new file mode 100644
+index 0000000..0ecd76d
+--- /dev/null
++++ b/2025e/m0_controller/tests/test_icm42688.c
+@@ -0,0 +1,156 @@
++/**
++ * @file      test_icm42688.c
++ * @brief     Host tests for ICM42688 HAL (temperature + accel + gyro)
++ * @date      2026-07-18
++ */
++
++#include <stdio.h>
++#include <stdint.h>
++#include <assert.h>
++#include <string.h>
++
++#include "../modules/ICM42688/inc/icm42688_hal.h"
++
++/* ======================================================================
++ * Mock hardware state
++ * ====================================================================== */
++
++static uint8_t mock_registers[256];
++static uint8_t mock_who_am_i_value = ICM42688_ID;
++
++/* ======================================================================
++ * Mock communication interface
++ * ====================================================================== */
++
++static void mock_comm_init(void)
++{
++    /* No-op for host test */
++}
++
++static uint8_t mock_read_reg(uint8_t reg)
++{
++    if (reg == ICM42688_WHO_AM_I) {
++        return mock_who_am_i_value;
++    }
++    return mock_registers[reg];
++}
++
++static void mock_write_reg(uint8_t reg, uint8_t value)
++{
++    mock_registers[reg] = value;
++}
++
++static void mock_read_regs(uint8_t reg, uint8_t *data, uint8_t len)
++{
++    for (uint8_t i = 0; i < len; i++) {
++        data[i] = mock_registers[reg + i];
++    }
++}
++
++static const icm42688_comm_t mock_comm = {
++    .init      = mock_comm_init,
++    .read_reg  = mock_read_reg,
++    .write_reg = mock_write_reg,
++    .read_regs = mock_read_regs,
++};
++
++/* ======================================================================
++ * Mock system interface
++ * ====================================================================== */
++
++static void mock_delay_ms(uint16_t ms)
++{
++    (void)ms;  /* No-op for host test */
++}
++
++static const icm42688_system_t mock_system = {
++    .delay_ms = mock_delay_ms,
++};
++
++/* ======================================================================
++ * Test helpers
++ * ====================================================================== */
++
++/**
++ * @brief  Encode signed int16 as big-endian into mock registers
++ */
++static void encode_be16(uint8_t reg, int16_t value)
++{
++    mock_registers[reg]     = (uint8_t)((value >> 8) & 0xFF);
++    mock_registers[reg + 1] = (uint8_t)(value & 0xFF);
++}
++
++/**
++ * @brief  Setup mock registers with 14-byte burst data:
++ *         TEMP_DATA1 (0x1D) = 2 bytes temp + 6 bytes accel + 6 bytes gyro
++ */
++static void setup_14byte_burst(int16_t temp, int16_t ax, int16_t ay, int16_t az,
++                                int16_t gx, int16_t gy, int16_t gz)
++{
++    encode_be16(ICM42688_TEMP_DATA1,    temp);  /* 0x1D-0x1E */
++    encode_be16(ICM42688_ACCEL_DATA_X1, ax);    /* 0x1F-0x20 */
++    encode_be16(ICM42688_ACCEL_DATA_Y1, ay);    /* 0x21-0x22 */
++    encode_be16(ICM42688_ACCEL_DATA_Z1, az);    /* 0x23-0x24 */
++    encode_be16(ICM42688_GYRO_DATA_X1,  gx);    /* 0x25-0x26 */
++    encode_be16(ICM42688_GYRO_DATA_Y1,  gy);    /* 0x27-0x28 */
++    encode_be16(ICM42688_GYRO_DATA_Z1,  gz);    /* 0x29-0x2A */
++}
++
++/* ======================================================================
++ * Tests
++ * ====================================================================== */
++
++static void test_temperature_reading(void)
++{
++    icm42688_config_t config = {
++        .interface_type = ICM42688_INTERFACE_SPI,
++        .acc_sample     = ICM42688_ACC_SAMPLE_SGN_8G,
++        .gyro_sample    = ICM42688_GYRO_SAMPLE_SGN_2000DPS,
++        .sample_rate    = ICM42688_SAMPLE_RATE_1000,
++    };
++    icm42688_data_t data;
++    icm42688_status_t status;
++
++    printf("Test: ICM42688 temperature + accel + gyro reading...\n");
++
++    /* Reset mock state */
++    memset(mock_registers, 0, sizeof(mock_registers));
++    mock_who_am_i_value = ICM42688_ID;
++
++    /* Setup 14-byte burst: temp=0x1234, accel=(100,-200,300), gyro=(-50,75,-125) */
++    setup_14byte_burst(0x1234, 100, -200, 300, -50, 75, -125);
++
++    /* Bind and initialize */
++    icm42688_hal_init(&mock_comm, &mock_system, &config);
++    status = icm42688_init();
++    assert(status == ICM42688_STATUS_OK);
++
++    /* Read sensor data */
++    status = icm42688_read(&data);
++    assert(status == ICM42688_STATUS_OK);
++
++    /* Verify temperature raw */
++    assert(data.temperature_raw == 0x1234);
++
++    /* Verify accel raw */
++    assert(data.acc_raw.x == 100);
++    assert(data.acc_raw.y == -200);
++    assert(data.acc_raw.z == 300);
++
++    /* Verify gyro raw */
++    assert(data.gyro_raw.x == -50);
++    assert(data.gyro_raw.y == 75);
++    assert(data.gyro_raw.z == -125);
++
++    printf("  Temperature raw: 0x%04X\n", data.temperature_raw);
++    printf("  Accel raw: (%d, %d, %d)\n", data.acc_raw.x, data.acc_raw.y, data.acc_raw.z);
++    printf("  Gyro raw: (%d, %d, %d)\n", data.gyro_raw.x, data.gyro_raw.y, data.gyro_raw.z);
++    printf("  PASS\n");
++}
++
++int main(void)
++{
++    test_temperature_reading();
++    printf("\nAll ICM42688 tests PASSED\n");
++    return 0;
++}
+diff --git a/2025e/m0_controller/tests/test_platform_time.c b/2025e/m0_controller/tests/test_platform_time.c
+new file mode 100644
+index 0000000..ec0e937
+--- /dev/null
++++ b/2025e/m0_controller/tests/test_platform_time.c
+@@ -0,0 +1,44 @@
++/**
++ * @file      test_platform_time.c
++ * @brief     Host tests for platform_time pure conversion functions
++ * @date      2026-07-18
++ */
++
++#include <stdio.h>
++#include <stdint.h>
++#include <assert.h>
++
++/* Include the header with pure testable functions */
++#include "../inc/platform_time.h"
++
++int main(void)
++{
++    printf("Testing PlatformTime_UpCountFromDownCount...\n");
++    
++    /* Down-counter at max (reload value) -> up-count at 0 */
++    assert(PlatformTime_UpCountFromDownCount(UINT32_MAX) == 0U);
++    
++    /* Down-counter decreased by 25 -> up-count at 25 */
++    assert(PlatformTime_UpCountFromDownCount(UINT32_MAX - 25U) == 25U);
++    
++    /* Down-counter at 0 -> up-count at max */
++    assert(PlatformTime_UpCountFromDownCount(0U) == UINT32_MAX);
++
++    printf("Testing PlatformTime_Extend32 wrap detection...\n");
++    
++    /* First call: high word = 0, returns input as 64-bit */
++    assert(PlatformTime_Extend32(0xFFFFFFF0U) == UINT64_C(0xFFFFFFF0));
++    
++    /* Wrap detected (0x10 < 0xFFFFFFF0): high word increments to 1 */
++    assert(PlatformTime_Extend32(0x00000010U) == UINT64_C(0x100000010));
++    
++    /* No wrap (0x20 > 0x10): high word stays at 1 */
++    assert(PlatformTime_Extend32(0x00000020U) == UINT64_C(0x100000020));
++    
++    /* Another wrap simulation */
++    assert(PlatformTime_Extend32(0xFFFFFFFEU) == UINT64_C(0x1FFFFFFFE));
++    assert(PlatformTime_Extend32(0x00000005U) == UINT64_C(0x200000005));
++
++    printf("All platform_time tests PASSED\n");
++    return 0;
++}
