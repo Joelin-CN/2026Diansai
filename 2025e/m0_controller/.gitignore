@@ -1,7 +1,10 @@
 # dot files
 /.settings
 
-# Keep .vscode/ and .eide/ tracked for reproducible builds
+# Keep .vscode/ tracked for reproducible builds
+# .eide/eide.yml contains machine-specific paths, use .eide/eide.yml.template instead
+.eide/eide.yml
+
 # Build artifacts in Debug/ will be excluded by SysConfig generation patterns
 
 # project out

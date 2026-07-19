@@ -54,6 +54,33 @@
 
 完整引脚、IOMUX 和接线要求见 [`WIRING_AND_SYSCONFIG.md`](WIRING_AND_SYSCONFIG.md)。
 
+## 环境配置
+
+### 首次克隆仓库后
+
+1. **配置 EIDE 工具链路径**
+
+   复制模板文件并修改为你的实际安装路径：
+   
+   ```powershell
+   Copy-Item .eide\eide.yml.template .eide\eide.yml
+   ```
+   
+   编辑 `.eide\eide.yml` 第 69 行，将 `<请修改此路径>/sysconfig_cli.bat` 改为你的 SysConfig 安装路径，例如：
+   
+   ```yaml
+   C:/ti/sysconfig_1.26.2/sysconfig_cli.bat
+   ```
+   
+   **注意**：
+   - `.eide/eide.yml` 包含本地路径配置，已在 `.gitignore` 中排除，不会被提交到 git
+   - 每个开发者需要根据自己的安装路径独立配置
+   - 如果你的 SysConfig 安装在不同位置，请修改为实际路径
+
+2. **验证 SDK 路径**
+
+   确认 `../../controller/documents/sdk` 目录存在且包含 TI MSPM0 SDK 2.10.00.04
+
 ## 构建与烧录
 
 ### 主机测试
@@ -75,6 +102,8 @@ powershell -ExecutionPolicy Bypass -File ".\tests\run_tests.ps1"
   --output ".\Debug" `
   --compiler keil
 ```
+
+**注意**：将上述命令中的 `C:\ti\sysconfig_1.26.2\sysconfig_cli.bat` 替换为你的实际安装路径。
 
 生成后必须审核所有既有定时器、PWM、编码器、I2C、SPI、DMA、UART、GPIO、SWD 和复位映射。
 

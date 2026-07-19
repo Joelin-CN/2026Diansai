@@ -66,7 +66,7 @@ targets:
           beforeBuildTasks:
             - name: Generate SysConfig
               command: >-
-                C:/ti/sysconfig_1.26.2/sysconfig_cli.bat
+                <请修改此路径>/sysconfig_cli.bat
                 --product "${ProjectRoot}/../../controller/documents/sdk/.metadata/product.json"
                 --device MSPM0G3507
                 --package "LQFP-48(PT)"
