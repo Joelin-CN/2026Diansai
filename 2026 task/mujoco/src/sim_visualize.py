@@ -23,8 +23,8 @@ DT_SIM = 0.002              # 2 ms, 500 Hz control rate
 SENS_PERIOD = 10            # Every 10 steps = 50 Hz sens-decision rate
 
 # Initial robot pose (scaled track)
-INITIAL_POS = [0.6505, -0.105, 0.033]    # Position so sensors are on track centerline
-INITIAL_QUAT = [0.7071, 0, 0, 0.7071]    # 90° rotation around Z axis (X->Y alignment)
+INITIAL_POS = [0.5, 0.0, 0.0325]
+INITIAL_QUAT = [1, 0, 0, 0]  # No rotation for testing
 INITIAL_QUAT = [1, 0, 0, 0]
 
 

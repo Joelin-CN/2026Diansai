@@ -6,8 +6,8 @@
   -->
 
   <worldbody>
-    <!-- Chassis: position at z=0.033 so chassis center is at wheel radius height -->
-    <body name="chassis" pos="0 0 0.033">
+    <!-- Chassis: position at z=0.0325 so chassis center is at wheel radius height -->
+    <body name="chassis" pos="0 0 0.0325">
       <!-- Free joint - REQUIRED for robot to move -->
       <freejoint name="root"/>
 
@@ -19,57 +19,80 @@
       <inertial pos="0 0 0" mass="0.380"
                 diaginertia="8e-4 1.2e-3 1.5e-3"/>
 
-      <!-- IR sensor sites: 8 channels, 14mm spacing, mounted at FRONT of robot -->
-      <!-- Robot heading: +X direction (forward) -->
-      <!-- Sensors arranged laterally (Y-axis), at front X=+0.105m -->
-      <!-- z=-0.020 (20mm below chassis center, pointing downward) -->
-      <site name="ir0" pos="0.105 -0.049 -0.020" size="0.003" rgba="1 0 0 0.3"/>
-      <site name="ir1" pos="0.105 -0.035 -0.020" size="0.003" rgba="1 0 0 0.3"/>
-      <site name="ir2" pos="0.105 -0.021 -0.020" size="0.003" rgba="1 0 0 0.3"/>
-      <site name="ir3" pos="0.105 -0.007 -0.020" size="0.003" rgba="1 0 0 0.3"/>
-      <site name="ir4" pos="0.105  0.007 -0.020" size="0.003" rgba="1 0 0 0.3"/>
-      <site name="ir5" pos="0.105  0.021 -0.020" size="0.003" rgba="1 0 0 0.3"/>
-      <site name="ir6" pos="0.105  0.035 -0.020" size="0.003" rgba="1 0 0 0.3"/>
-      <site name="ir7" pos="0.105  0.049 -0.020" size="0.003" rgba="1 0 0 0.3"/>
+      <!-- IR sensor sites: 8 channels, mounted at FRONT of robot -->
+      <!-- User coordinates (mm): x=lateral, y=forward (132.1mm), relative to chassis center -->
+      <!-- Robot frame: +Y is forward (vehicle heading direction) -->
+      <!-- Conversion: user_x -> robot_x (lateral), user_y -> robot_y (forward) -->
+      <site name="ir0" pos=" 0.0056944 0.1321 -0.0325" size="0.005" rgba="1 0 0 0.8"/>
+      <site name="ir1" pos=" 0.0170831 0.1321 -0.0325" size="0.005" rgba="1 0 0 0.8"/>
+      <site name="ir2" pos=" 0.0284719 0.1321 -0.0325" size="0.005" rgba="1 0 0 0.8"/>
+      <site name="ir3" pos=" 0.0398606 0.1321 -0.0325" size="0.005" rgba="1 0 0 0.8"/>
+      <site name="ir4" pos="-0.0056944 0.1321 -0.0325" size="0.005" rgba="1 0 0 0.8"/>
+      <site name="ir5" pos="-0.0170831 0.1321 -0.0325" size="0.005" rgba="1 0 0 0.8"/>
+      <site name="ir6" pos="-0.0284719 0.1321 -0.0325" size="0.005" rgba="1 0 0 0.8"/>
+      <site name="ir7" pos="-0.0398606 0.1321 -0.0325" size="0.005" rgba="1 0 0 0.8"/>
 
       <!-- IMU site: at chassis center -->
       <site name="imu_site" pos="0 0 0" size="0.005" rgba="0 0 1 0.5"/>
 
-      <!-- Left front wheel: X=+0.075 (front), Y=-0.100 (left), Z=0 (at chassis level) -->
-      <!-- Wheel center at chassis Z, wheel bottom touches ground at Z=0 -->
-      <body name="wheel_lf" pos="0.075 -0.100 0">
-        <joint name="jwheel_lf" type="hinge" axis="0 1 0" damping="0.1"/>
-        <geom name="wheel_lf" type="cylinder" size="0.033 0.010"
+      <!-- Chassis coordinate frame visualization - on top of chassis -->
+      <!-- Chassis is 40mm tall (±20mm), so top surface is at z=0.020 -->
+      <site name="chassis_x_axis" type="cylinder" size="0.002 0.06" pos="0.06 0 0.025" euler="0 90 0" rgba="1 0 0 0.9"/>
+      <site name="chassis_y_axis" type="cylinder" size="0.002 0.06" pos="0 0.06 0.025" euler="90 0 0" rgba="0 1 0 0.9"/>
+      <site name="chassis_z_axis" type="cylinder" size="0.002 0.06" pos="0 0 0.08" euler="0 0 0" rgba="0 0 1 0.9"/>
+
+      <!-- Motor number labels near each wheel on chassis top surface -->
+      <!-- M1 = wheel_lf (X=+0.075, Y=+0.100) -->
+      <site name="label_m1" type="sphere" pos="0.075 0.100 0.025" size="0.012" rgba="1 0.5 0 1"/>
+      <!-- M2 = wheel_lr (X=+0.075, Y=-0.100) -->
+      <site name="label_m2" type="sphere" pos="0.075 -0.100 0.025" size="0.012" rgba="0 1 0.5 1"/>
+      <!-- M3 = wheel_rf (X=-0.075, Y=+0.100) -->
+      <site name="label_m3" type="sphere" pos="-0.075 0.100 0.025" size="0.012" rgba="0 0.5 1 1"/>
+      <!-- M4 = wheel_rr (X=-0.075, Y=-0.100) -->
+      <site name="label_m4" type="sphere" pos="-0.075 -0.100 0.025" size="0.012" rgba="1 0 1 1"/>
+
+      <!-- Left front wheel: X=+0.075 (right side), Y=+0.100 (front), Z=0 -->
+      <!-- Wheel: diameter=65mm (radius=0.0325m), width=26mm (half-width=0.013m) -->
+      <!-- Wheel axis parallel to X axis, rotates around X to drive forward (Y direction) -->
+      <!-- Left side wheels rotate in opposite direction, so axis is reversed -->
+      <body name="wheel_lf" pos="0.075 0.100 0">
+        <joint name="jwheel_lf" type="hinge" axis="-1 0 0" damping="0.1"/>
+        <geom name="wheel_lf" type="cylinder" size="0.0325 0.013"
               euler="0 90 0" mass="0.030" friction="1.5 0.005 0.0001"
               rgba="0.1 0.1 0.1 1"/>
         <inertial pos="0 0 0" mass="0.030" diaginertia="1.7e-5 3.3e-5 1.7e-5"/>
+        <!-- Yellow marker on outer side of wheel -->
+        <site name="marker_lf" pos="0.015 0 0.025" size="0.008" rgba="1 1 0 1"/>
       </body>
 
-      <!-- Left rear wheel: X=-0.075 (rear), Y=-0.100 (left), Z=0 -->
-      <body name="wheel_lr" pos="-0.075 -0.100 0">
-        <joint name="jwheel_lr" type="hinge" axis="0 1 0" damping="0.1"/>
-        <geom name="wheel_lr" type="cylinder" size="0.033 0.010"
+      <!-- Left rear wheel: X=+0.075 (right side), Y=-0.100 (rear), Z=0 -->
+      <body name="wheel_lr" pos="0.075 -0.100 0">
+        <joint name="jwheel_lr" type="hinge" axis="-1 0 0" damping="0.1"/>
+        <geom name="wheel_lr" type="cylinder" size="0.0325 0.013"
               euler="0 90 0" mass="0.030" friction="1.5 0.005 0.0001"
               rgba="0.1 0.1 0.1 1"/>
         <inertial pos="0 0 0" mass="0.030" diaginertia="1.7e-5 3.3e-5 1.7e-5"/>
+        <site name="marker_lr" pos="0.015 0 0.025" size="0.008" rgba="1 1 0 1"/>
       </body>
 
-      <!-- Right front wheel: X=+0.075 (front), Y=+0.100 (right), Z=0 -->
-      <body name="wheel_rf" pos="0.075 0.100 0">
-        <joint name="jwheel_rf" type="hinge" axis="0 1 0" damping="0.1"/>
-        <geom name="wheel_rf" type="cylinder" size="0.033 0.010"
+      <!-- Right front wheel: X=-0.075 (left side), Y=+0.100 (front), Z=0 -->
+      <body name="wheel_rf" pos="-0.075 0.100 0">
+        <joint name="jwheel_rf" type="hinge" axis="1 0 0" damping="0.1"/>
+        <geom name="wheel_rf" type="cylinder" size="0.0325 0.013"
               euler="0 90 0" mass="0.030" friction="1.5 0.005 0.0001"
               rgba="0.1 0.1 0.1 1"/>
         <inertial pos="0 0 0" mass="0.030" diaginertia="1.7e-5 3.3e-5 1.7e-5"/>
+        <site name="marker_rf" pos="-0.015 0 0.025" size="0.008" rgba="1 1 0 1"/>
       </body>
 
-      <!-- Right rear wheel: X=-0.075 (rear), Y=+0.100 (right), Z=0 -->
-      <body name="wheel_rr" pos="-0.075 0.100 0">
-        <joint name="jwheel_rr" type="hinge" axis="0 1 0" damping="0.1"/>
-        <geom name="wheel_rr" type="cylinder" size="0.033 0.010"
+      <!-- Right rear wheel: X=-0.075 (left side), Y=-0.100 (rear), Z=0 -->
+      <body name="wheel_rr" pos="-0.075 -0.100 0">
+        <joint name="jwheel_rr" type="hinge" axis="1 0 0" damping="0.1"/>
+        <geom name="wheel_rr" type="cylinder" size="0.0325 0.013"
               euler="0 90 0" mass="0.030" friction="1.5 0.005 0.0001"
               rgba="0.1 0.1 0.1 1"/>
         <inertial pos="0 0 0" mass="0.030" diaginertia="1.7e-5 3.3e-5 1.7e-5"/>
+        <site name="marker_rr" pos="-0.015 0 0.025" size="0.008" rgba="1 1 0 1"/>
       </body>
     </body>
   </worldbody>

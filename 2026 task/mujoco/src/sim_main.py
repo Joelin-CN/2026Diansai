@@ -23,17 +23,10 @@ STEPS_TOTAL = 30000         # 60 seconds simulation
 SENS_PERIOD = 10            # Every 10 steps = 50 Hz sens-decision rate
 LOG_PERIOD = 500            # Every 500 steps = 1 second logging
 
-# Initial robot pose (start on track - scaled 5x, on top edge)
-# Track top edge: X=0.6505, Y from -0.2775 to +0.2775
-# Robot heading: +Y direction (along track)
-# IR sensors at robot frame (X=+0.105, Y varying)
-# After 90° Z rotation: robot +X becomes world +Y
-# So sensors are at world (chassis_y + 0.105, chassis_x - sensor_x_offset)
-# To place sensors at track centerline (X=0.6505, Y=0):
-#   chassis_y + 0.105 = 0  =>  chassis_y = -0.105
-#   chassis_x - sensor_x_offset = 0.6505  =>  chassis_x = 0.6505 (for center sensors)
-INITIAL_POS = [0.6505, -0.105, 0.033]    # Position so sensors are on track centerline
-INITIAL_QUAT = [0.7071, 0, 0, 0.7071]    # 90° rotation around Z axis (X->Y alignment)
+# Initial robot pose - TEST: no rotation first to verify sensor positions
+# Position robot so we can verify sensor layout in robot frame
+INITIAL_POS = [0.5, 0.0, 0.0325]
+INITIAL_QUAT = [1, 0, 0, 0]  # No rotation - robot +X is world +X
 
 
 def main():

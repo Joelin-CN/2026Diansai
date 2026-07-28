@@ -7,7 +7,7 @@ import numpy as np
 
 # Physical parameters (from motion_config.h)
 WHEEL_BASE = 0.150        # m, distance between left and right wheels
-WHEEL_RADIUS = 0.033      # m
+WHEEL_RADIUS = 0.0325     # m, actual wheel diameter 65mm
 
 # PI controller parameters
 SPEED_KP = 200.0
