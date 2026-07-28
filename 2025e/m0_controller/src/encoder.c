@@ -51,8 +51,20 @@ void Encoder_Init(void)
         g_encoderCount[encoder] = 0;
         g_encoderState[encoder] = Encoder_ReadState((Encoder_Id)encoder);
     }
-    NVIC_EnableIRQ(ENCODER_GPIOA_INT_IRQN);
-    NVIC_EnableIRQ(ENCODER_GPIOB_INT_IRQN);
+    /* DO NOT enable GPIO interrupts - they cause interrupt storm due to noise/floating pins.
+     * Use Encoder_Poll() instead for polling-based encoder reading. */
+    // NVIC_EnableIRQ(ENCODER_GPIOA_INT_IRQN);
+    // NVIC_EnableIRQ(ENCODER_GPIOB_INT_IRQN);
+}
+
+void Encoder_Poll(void)
+{
+    /* Call this function periodically (e.g., 1kHz) to update encoder counts.
+     * This polling approach avoids GPIO interrupt storms from noisy/floating encoder signals. */
+    uint8_t encoder;
+    for (encoder = 0U; encoder < (uint8_t)ENCODER_ID_COUNT; encoder++) {
+        Encoder_Process((Encoder_Id)encoder);
+    }
 }
 
 int32_t Encoder_GetCount(Encoder_Id encoder)

@@ -12,6 +12,7 @@ typedef enum {
 } Encoder_Id;
 
 void Encoder_Init(void);
+void Encoder_Poll(void);  /* Call this periodically (e.g., 1kHz) to update encoder counts */
 int32_t Encoder_GetCount(Encoder_Id encoder);
 void Encoder_ResetCount(Encoder_Id encoder);
 

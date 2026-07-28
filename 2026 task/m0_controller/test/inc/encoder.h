@@ -1,0 +1,22 @@
+#ifndef ENCODER_H_
+#define ENCODER_H_
+
+#include <stdint.h>
+
+typedef enum {
+    ENCODER_M1 = 0,
+    ENCODER_M2,
+    ENCODER_M3,
+    ENCODER_M4,
+    ENCODER_ID_COUNT
+} Encoder_Id;
+
+void Encoder_Init(void);
+void Encoder_Poll(void);  /* Call this periodically (e.g., 1kHz) to update encoder counts */
+int32_t Encoder_GetCount(Encoder_Id encoder);
+void Encoder_ResetCount(Encoder_Id encoder);
+
+/* Debug function to get interrupt counts */
+void Encoder_GetInterruptCounts(uint32_t *countA, uint32_t *countB);
+
+#endif /* ENCODER_H_ */

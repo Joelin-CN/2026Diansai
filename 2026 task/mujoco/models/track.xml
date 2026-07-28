@@ -1,0 +1,35 @@
+<mujoco model="track">
+  <!--
+  Black line track for differential drive robot
+  Generated from waypoints - rectangular track with black tape
+  Scale: 5x original size for robot compatibility
+  -->
+
+  <worldbody>
+    <!-- Ground plane -->
+    <geom name="floor" type="plane" size="1.5 1.5 0.1"
+          rgba="0.95 0.95 0.95 1" friction="1.0 0.005 0.0001"/>
+
+    <!-- Black track segments - scaled 5x -->
+    <geom name="track_seg_0" type="box"
+          pos="0.6505 0.0000 0.0005"
+          size="0.2775 0.0125 0.0005"
+          euler="0 0 90"
+          rgba="0.05 0.05 0.05 1"/>
+    <geom name="track_seg_1" type="box"
+          pos="0.2190 0.2775 0.0005"
+          size="0.4315 0.0125 0.0005"
+          euler="0 0 180"
+          rgba="0.05 0.05 0.05 1"/>
+    <geom name="track_seg_2" type="box"
+          pos="-0.2125 0.0000 0.0005"
+          size="0.2775 0.0125 0.0005"
+          euler="0 0 -90"
+          rgba="0.05 0.05 0.05 1"/>
+    <geom name="track_seg_3" type="box"
+          pos="0.2190 -0.2775 0.0005"
+          size="0.4315 0.0125 0.0005"
+          euler="0 0 0"
+          rgba="0.05 0.05 0.05 1"/>
+  </worldbody>
+</mujoco>

@@ -1,0 +1,101 @@
+<mujoco model="differential_drive_robot">
+  <!--
+  Differential drive robot with 4 wheels
+  Coordinate system: Z-up right-hand (MuJoCo standard)
+  Robot heading: +Y direction (user's forward direction maps to +Y in ground plane)
+  -->
+
+  <worldbody>
+    <!-- Chassis: position at z=0.033 so chassis center is at wheel radius height -->
+    <body name="chassis" pos="0 0 0.033">
+      <!-- Free joint - REQUIRED for robot to move -->
+      <freejoint name="root"/>
+
+      <!-- Main chassis box: 200mm x 180mm x 40mm, mass 380g -->
+      <geom name="chassis_box" type="box" size="0.090 0.100 0.020"
+            mass="0.380" rgba="0.3 0.3 0.3 1"/>
+
+      <!-- Inertial properties -->
+      <inertial pos="0 0 0" mass="0.380"
+                diaginertia="8e-4 1.2e-3 1.5e-3"/>
+
+      <!-- IR sensor sites: 8 channels, 14mm spacing, mounted at FRONT of robot -->
+      <!-- Robot heading: +X direction (forward) -->
+      <!-- Sensors arranged laterally (Y-axis), at front X=+0.105m -->
+      <!-- z=-0.020 (20mm below chassis center, pointing downward) -->
+      <site name="ir0" pos="0.105 -0.049 -0.020" size="0.003" rgba="1 0 0 0.3"/>
+      <site name="ir1" pos="0.105 -0.035 -0.020" size="0.003" rgba="1 0 0 0.3"/>
+      <site name="ir2" pos="0.105 -0.021 -0.020" size="0.003" rgba="1 0 0 0.3"/>
+      <site name="ir3" pos="0.105 -0.007 -0.020" size="0.003" rgba="1 0 0 0.3"/>
+      <site name="ir4" pos="0.105  0.007 -0.020" size="0.003" rgba="1 0 0 0.3"/>
+      <site name="ir5" pos="0.105  0.021 -0.020" size="0.003" rgba="1 0 0 0.3"/>
+      <site name="ir6" pos="0.105  0.035 -0.020" size="0.003" rgba="1 0 0 0.3"/>
+      <site name="ir7" pos="0.105  0.049 -0.020" size="0.003" rgba="1 0 0 0.3"/>
+
+      <!-- IMU site: at chassis center -->
+      <site name="imu_site" pos="0 0 0" size="0.005" rgba="0 0 1 0.5"/>
+
+      <!-- Left front wheel: X=+0.075 (front), Y=-0.100 (left), Z=0 (at chassis level) -->
+      <!-- Wheel center at chassis Z, wheel bottom touches ground at Z=0 -->
+      <body name="wheel_lf" pos="0.075 -0.100 0">
+        <joint name="jwheel_lf" type="hinge" axis="0 1 0" damping="0.1"/>
+        <geom name="wheel_lf" type="cylinder" size="0.033 0.010"
+              euler="0 90 0" mass="0.030" friction="1.5 0.005 0.0001"
+              rgba="0.1 0.1 0.1 1"/>
+        <inertial pos="0 0 0" mass="0.030" diaginertia="1.7e-5 3.3e-5 1.7e-5"/>
+      </body>
+
+      <!-- Left rear wheel: X=-0.075 (rear), Y=-0.100 (left), Z=0 -->
+      <body name="wheel_lr" pos="-0.075 -0.100 0">
+        <joint name="jwheel_lr" type="hinge" axis="0 1 0" damping="0.1"/>
+        <geom name="wheel_lr" type="cylinder" size="0.033 0.010"
+              euler="0 90 0" mass="0.030" friction="1.5 0.005 0.0001"
+              rgba="0.1 0.1 0.1 1"/>
+        <inertial pos="0 0 0" mass="0.030" diaginertia="1.7e-5 3.3e-5 1.7e-5"/>
+      </body>
+
+      <!-- Right front wheel: X=+0.075 (front), Y=+0.100 (right), Z=0 -->
+      <body name="wheel_rf" pos="0.075 0.100 0">
+        <joint name="jwheel_rf" type="hinge" axis="0 1 0" damping="0.1"/>
+        <geom name="wheel_rf" type="cylinder" size="0.033 0.010"
+              euler="0 90 0" mass="0.030" friction="1.5 0.005 0.0001"
+              rgba="0.1 0.1 0.1 1"/>
+        <inertial pos="0 0 0" mass="0.030" diaginertia="1.7e-5 3.3e-5 1.7e-5"/>
+      </body>
+
+      <!-- Right rear wheel: X=-0.075 (rear), Y=+0.100 (right), Z=0 -->
+      <body name="wheel_rr" pos="-0.075 0.100 0">
+        <joint name="jwheel_rr" type="hinge" axis="0 1 0" damping="0.1"/>
+        <geom name="wheel_rr" type="cylinder" size="0.033 0.010"
+              euler="0 90 0" mass="0.030" friction="1.5 0.005 0.0001"
+              rgba="0.1 0.1 0.1 1"/>
+        <inertial pos="0 0 0" mass="0.030" diaginertia="1.7e-5 3.3e-5 1.7e-5"/>
+      </body>
+    </body>
+  </worldbody>
+
+  <!-- Actuators: velocity control with reduced gain -->
+  <actuator>
+    <velocity name="act_lf" joint="jwheel_lf" kv="1" gear="1"/>
+    <velocity name="act_lr" joint="jwheel_lr" kv="1" gear="1"/>
+    <velocity name="act_rf" joint="jwheel_rf" kv="1" gear="1"/>
+    <velocity name="act_rr" joint="jwheel_rr" kv="1" gear="1"/>
+  </actuator>
+
+  <!-- Sensors -->
+  <sensor>
+    <!-- Encoder: joint position for each wheel -->
+    <jointpos name="enc_lf" joint="jwheel_lf"/>
+    <jointpos name="enc_lr" joint="jwheel_lr"/>
+    <jointpos name="enc_rf" joint="jwheel_rf"/>
+    <jointpos name="enc_rr" joint="jwheel_rr"/>
+
+    <!-- IMU: linear and angular velocity in chassis frame -->
+    <framelinvel  name="imu_linvel"  objtype="site" objname="imu_site"/>
+    <frameangvel  name="imu_angvel"  objtype="site" objname="imu_site"/>
+
+    <!-- Debug sensors: chassis pose -->
+    <framepos     name="chassis_pos" objtype="body" objname="chassis"/>
+    <framequat    name="chassis_quat" objtype="body" objname="chassis"/>
+  </sensor>
+</mujoco>
