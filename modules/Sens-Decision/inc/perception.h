@@ -35,6 +35,7 @@ typedef struct {
     float prev_lateral_error;
     uint64_t prev_timestamp_us;
     float heading_error;
+    float last_lateral_sign;   /**< ③ 记录丢线前的偏向符号(+1/-1/0)，供上层恢复策略使用 */
     uint16_t lost_count;
     bool initialized;
 } perception_t;
