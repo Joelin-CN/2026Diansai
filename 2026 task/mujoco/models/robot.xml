@@ -3,6 +3,16 @@
   Differential drive robot with 4 wheels
   Coordinate system: Z-up right-hand (MuJoCo standard)
   Robot heading: +Y direction (user's forward direction maps to +Y in ground plane)
+
+  Wheel layout (user's perspective):
+    M1 (wheel_lf): LEFT-FRONT  → X=-0.075, Y=+0.100
+    M2 (wheel_lr): LEFT-REAR   → X=-0.075, Y=-0.100
+    M3 (wheel_rf): RIGHT-REAR  → X=+0.075, Y=-0.100
+    M4 (wheel_rr): RIGHT-FRONT → X=+0.075, Y=+0.100
+
+  Rotation axes (all wheels):
+    axis=(-1,0,0) → positive ω rolls forward (+Y)
+    This is the same for both left and right sides.
   -->
 
   <worldbody>
@@ -42,57 +52,57 @@
       <site name="chassis_z_axis" type="cylinder" size="0.002 0.06" pos="0 0 0.08" euler="0 0 0" rgba="0 0 1 0.9"/>
 
       <!-- Motor number labels near each wheel on chassis top surface -->
-      <!-- M1 = wheel_lf (X=+0.075, Y=+0.100) -->
-      <site name="label_m1" type="sphere" pos="0.075 0.100 0.025" size="0.012" rgba="1 0.5 0 1"/>
-      <!-- M2 = wheel_lr (X=+0.075, Y=-0.100) -->
-      <site name="label_m2" type="sphere" pos="0.075 -0.100 0.025" size="0.012" rgba="0 1 0.5 1"/>
-      <!-- M3 = wheel_rf (X=-0.075, Y=+0.100) -->
-      <site name="label_m3" type="sphere" pos="-0.075 0.100 0.025" size="0.012" rgba="0 0.5 1 1"/>
-      <!-- M4 = wheel_rr (X=-0.075, Y=-0.100) -->
-      <site name="label_m4" type="sphere" pos="-0.075 -0.100 0.025" size="0.012" rgba="1 0 1 1"/>
+      <!-- M1 = wheel_lf (X=-0.075, Y=+0.100) - LEFT FRONT - orange -->
+      <site name="label_m1" type="sphere" pos="-0.075 0.100 0.025" size="0.012" rgba="1 0.5 0 1"/>
+      <!-- M2 = wheel_lr (X=-0.075, Y=-0.100) - LEFT REAR - cyan -->
+      <site name="label_m2" type="sphere" pos="-0.075 -0.100 0.025" size="0.012" rgba="0 1 0.5 1"/>
+      <!-- M3 = wheel_rf (X=+0.075, Y=-0.100) - RIGHT REAR - blue -->
+      <site name="label_m3" type="sphere" pos="0.075 -0.100 0.025" size="0.012" rgba="0 0.5 1 1"/>
+      <!-- M4 = wheel_rr (X=+0.075, Y=+0.100) - RIGHT FRONT - purple -->
+      <site name="label_m4" type="sphere" pos="0.075 0.100 0.025" size="0.012" rgba="1 0 1 1"/>
 
-      <!-- Left front wheel: X=+0.075 (right side), Y=+0.100 (front), Z=0 -->
-      <!-- Wheel: diameter=65mm (radius=0.0325m), width=26mm (half-width=0.013m) -->
-      <!-- Wheel axis parallel to X axis, rotates around X to drive forward (Y direction) -->
-      <!-- Left side wheels rotate in opposite direction, so axis is reversed -->
-      <body name="wheel_lf" pos="0.075 0.100 0">
+      <!-- M1: LEFT front wheel - X=-0.075, Y=+0.100 -->
+      <!-- axis=(-1,0,0): positive ω → rolls forward (+Y) -->
+      <body name="wheel_lf" pos="-0.075 0.100 0">
         <joint name="jwheel_lf" type="hinge" axis="-1 0 0" damping="0.1"/>
         <geom name="wheel_lf" type="cylinder" size="0.0325 0.013"
               euler="0 90 0" mass="0.030" friction="1.5 0.005 0.0001"
               rgba="0.1 0.1 0.1 1"/>
         <inertial pos="0 0 0" mass="0.030" diaginertia="1.7e-5 3.3e-5 1.7e-5"/>
-        <!-- Yellow marker on outer side of wheel -->
-        <site name="marker_lf" pos="0.015 0 0.025" size="0.008" rgba="1 1 0 1"/>
+        <!-- Yellow marker on outer side of wheel (left side: -X direction) -->
+        <site name="marker_lf" pos="-0.015 0 0.025" size="0.008" rgba="1 1 0 1"/>
       </body>
 
-      <!-- Left rear wheel: X=+0.075 (right side), Y=-0.100 (rear), Z=0 -->
-      <body name="wheel_lr" pos="0.075 -0.100 0">
+      <!-- M2: LEFT rear wheel - X=-0.075, Y=-0.100 -->
+      <body name="wheel_lr" pos="-0.075 -0.100 0">
         <joint name="jwheel_lr" type="hinge" axis="-1 0 0" damping="0.1"/>
         <geom name="wheel_lr" type="cylinder" size="0.0325 0.013"
               euler="0 90 0" mass="0.030" friction="1.5 0.005 0.0001"
               rgba="0.1 0.1 0.1 1"/>
         <inertial pos="0 0 0" mass="0.030" diaginertia="1.7e-5 3.3e-5 1.7e-5"/>
-        <site name="marker_lr" pos="0.015 0 0.025" size="0.008" rgba="1 1 0 1"/>
+        <site name="marker_lr" pos="-0.015 0 0.025" size="0.008" rgba="1 1 0 1"/>
       </body>
 
-      <!-- Right front wheel: X=-0.075 (left side), Y=+0.100 (front), Z=0 -->
-      <body name="wheel_rf" pos="-0.075 0.100 0">
-        <joint name="jwheel_rf" type="hinge" axis="1 0 0" damping="0.1"/>
+      <!-- M3: RIGHT rear wheel - X=+0.075, Y=-0.100 -->
+      <!-- Right side: axis=(-1,0,0), positive ω → rolls forward (+Y) -->
+      <body name="wheel_rf" pos="0.075 -0.100 0">
+        <joint name="jwheel_rf" type="hinge" axis="-1 0 0" damping="0.1"/>
         <geom name="wheel_rf" type="cylinder" size="0.0325 0.013"
               euler="0 90 0" mass="0.030" friction="1.5 0.005 0.0001"
               rgba="0.1 0.1 0.1 1"/>
         <inertial pos="0 0 0" mass="0.030" diaginertia="1.7e-5 3.3e-5 1.7e-5"/>
-        <site name="marker_rf" pos="-0.015 0 0.025" size="0.008" rgba="1 1 0 1"/>
+        <!-- Yellow marker on outer side of wheel (right side: +X direction) -->
+        <site name="marker_rf" pos="0.015 0 0.025" size="0.008" rgba="1 1 0 1"/>
       </body>
 
-      <!-- Right rear wheel: X=-0.075 (left side), Y=-0.100 (rear), Z=0 -->
-      <body name="wheel_rr" pos="-0.075 -0.100 0">
-        <joint name="jwheel_rr" type="hinge" axis="1 0 0" damping="0.1"/>
+      <!-- M4: RIGHT front wheel - X=+0.075, Y=+0.100 -->
+      <body name="wheel_rr" pos="0.075 0.100 0">
+        <joint name="jwheel_rr" type="hinge" axis="-1 0 0" damping="0.1"/>
         <geom name="wheel_rr" type="cylinder" size="0.0325 0.013"
               euler="0 90 0" mass="0.030" friction="1.5 0.005 0.0001"
               rgba="0.1 0.1 0.1 1"/>
         <inertial pos="0 0 0" mass="0.030" diaginertia="1.7e-5 3.3e-5 1.7e-5"/>
-        <site name="marker_rr" pos="-0.015 0 0.025" size="0.008" rgba="1 1 0 1"/>
+        <site name="marker_rr" pos="0.015 0 0.025" size="0.008" rgba="1 1 0 1"/>
       </body>
     </body>
   </worldbody>
