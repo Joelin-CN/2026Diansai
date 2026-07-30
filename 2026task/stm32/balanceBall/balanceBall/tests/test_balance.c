@@ -1,6 +1,7 @@
 #include <math.h>
 #include <stdio.h>
 #include "balance_observer.h"
+#include "balance_target.h"
 
 static int failures;
 
@@ -72,11 +73,31 @@ static void test_observer_rejects_duplicate_and_resets_after_gap(void)
     CHECK_NEAR(estimate.velocity_cm_s, 0.0f, 0.0001f);
 }
 
+static void test_target_rejects_non_competition_position(void)
+{
+    BalanceTarget target;
+    balance_target_init(&target, 2.0f);
+    CHECK_TRUE(!balance_target_select(&target, 3.0f));
+    CHECK_NEAR(target.requested_cm, 0.0f, 0.0001f);
+}
+
+static void test_target_ramps_without_overshoot(void)
+{
+    BalanceTarget target;
+    balance_target_init(&target, 2.0f);
+    CHECK_TRUE(balance_target_select(&target, 5.0f));
+    CHECK_NEAR(balance_target_step(&target, 0.5f), 1.0f, 0.0001f);
+    CHECK_NEAR(balance_target_step(&target, 2.0f), 5.0f, 0.0001f);
+    CHECK_NEAR(balance_target_step(&target, 0.5f), 5.0f, 0.0001f);
+}
+
 int main(void)
 {
     test_observer_initializes_from_first_sample();
     test_observer_uses_actual_frame_interval();
     test_observer_rejects_duplicate_and_resets_after_gap();
+    test_target_rejects_non_competition_position();
+    test_target_ramps_without_overshoot();
     printf("%s\n", failures == 0 ? "PASS" : "FAIL");
     return failures == 0 ? 0 : 1;
 }
