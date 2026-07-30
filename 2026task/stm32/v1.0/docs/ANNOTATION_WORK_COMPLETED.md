@@ -25,7 +25,7 @@
 已为以下参数添加详细注释（共13个核心参数）：
 
 #### 物理参数
-- **WHEEL_BASE** (0.115m) - A类，实测，待验证
+- **WHEEL_BASE** (0.214m) - A类，实测，待验证
 - **WHEEL_RADIUS** (0.033m) - A类，游标卡尺测量，待验证
 - **ENCODER_PPR** (60000) - B类，理论计算+实测验证，✅已验证
 - **GEAR_RATIO** (30.0) - B类，厂商规格，间接验证
@@ -58,13 +58,13 @@
 
 #### IR传感器参数
 - **ir_weights[8]** - B类，基于物理测量计算，待验证符号
-- **ir_position** (0.1321, 0, -0.02) - A类，实测，待验证
+- **ir_position** (0.183, 0, -0.02) - A类，实测，待验证
 
 #### 编码器参数
 - **encoder_directions** {1, -1} - A类，待验证
 - **wheel_radius_m** (0.033) - A类，与motion_config.h一致
 - **pulses_per_revolution** (60000) - B类，✅已验证
-- **wheel_track_m** (0.115) - A类，与motion_config.h一致
+- **wheel_track_m** (0.214) - A类，与motion_config.h一致
 
 #### IMU参数
 - **accel_scale_mps2_per_lsb** - B类，数据手册，✅已验证

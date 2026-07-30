@@ -27,7 +27,7 @@
 
 | 参数名称 | 当前值 | 分类 | 说明 |
 |---------|--------|------|------|
-| `WHEEL_BASE` | 0.115f m | A | 左右轮中心距离（轮距） |
+| `WHEEL_BASE` | 0.214f m | A | 左右轮中心距离（轮距） |
 | `WHEEL_RADIUS` | 0.033f m | A | 车轮半径 |
 | `ENCODER_PPR` | 60000 | B | 编码器分辨率（每转计数） |
 | `GEAR_RATIO` | 30.0f | B | 电机减速比 |
@@ -55,12 +55,12 @@
 |---------|--------|------|------|
 | `ir_weights` | 8元素数组 | B | IR传感器横向位置权重数组 |
 | `encoder_directions` | {1, -1} | A | 编码器方向配置 |
-| `wheel_track_m` | 0.115f m | A | 车辆轮距 |
+| `wheel_track_m` | 0.214f m | A | 车辆轮距 |
 | `wheel_radius_m` | 0.033f m | A | 轮半径 |
 | `pulses_per_revolution` | 60000 | B | 编码器分辨率 |
 | `accel_scale_mps2_per_lsb` | 9.80665/2048.0 | B | IMU加速度计刻度因子 |
 | `gyro_scale_radps_per_lsb` | 0.017453.../16.4 | B | IMU陀螺仪刻度因子 |
-| `perception.position` | (0.1321, 0, -0.02) | A | IR传感器阵列安装位置 |
+| `perception.position` | (0.183, 0, -0.02) | A | IR传感器阵列安装位置 |
 | `initial_covariance_diag` | 0.1f × 5 | C | EKF初始协方差 |
 | `process_noise_diag` | 0.01f × 5 | C | EKF过程噪声（关键） |
 | `observation_noise_diag` | {0.03, 0.08} | C | EKF观测噪声 |
@@ -267,7 +267,7 @@
 
 | 参数 | 出现位置 | 当前值 | 一致性 |
 |------|---------|--------|--------|
-| 轮距 | motion_config.h: `WHEEL_BASE`<br>config.c: `wheel_track_m` | 0.115f | ✅ 一致 |
+| 轮距 | motion_config.h: `WHEEL_BASE`<br>config.c: `wheel_track_m` | 0.214f | ✅ 一致 |
 | 轮半径 | motion_config.h: `WHEEL_RADIUS`<br>config.c: `wheel_radius_m` | 0.033f | ✅ 一致 |
 | 编码器分辨率 | motion_config.h: `ENCODER_PPR`<br>config.c: `pulses_per_revolution` | 60000 | ✅ 一致 |
 

@@ -62,10 +62,10 @@ static void show_calibration_status(void) {
     printf("\n");
 
     printf("✅ 已更新的参数:\n");
-    printf("  • 轮距: 115 mm (旧值: 150 mm)\n");
+    printf("  • 轮距: 214 mm (旧值: 115 mm)\n");
     printf("  • 减速比: 30:1 (旧值: 28:1)\n");
     printf("  • 编码器PPR: 1560 (旧值: 334)\n");
-    printf("  • IR传感器Y坐标: 132.1 mm (旧值: 100 mm)\n");
+    printf("  • IR传感器Y坐标: 183 mm (旧值: 132.1 mm)\n");
     printf("  • IR权重: 已更新为实际分布\n\n");
 
     printf("⚠️  待验证的参数:\n");

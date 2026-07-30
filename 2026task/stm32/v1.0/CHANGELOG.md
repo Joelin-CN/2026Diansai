@@ -7,6 +7,60 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-07-30
+
+### Changed - Geometry Update
+
+- **Wheel track**: 115mm → 214mm (+86.1%)
+  - Steering angular velocity reduced to 53.7% of original
+  - Steering PID likely needs ~86% higher Kp
+  - **Files**: `modules/Sens-Decision/src/config.c`, `modules/MotionControl/inc/motion_config.h`
+
+- **IR array center X**: 132.1mm → 183mm (+38.5%)
+  - Improved lookahead distance for high-speed stability
+  - **Files**: `modules/Sens-Decision/src/config.c`
+
+- **Encoder positions explicitly defined**: X=93.5mm, Y=±107mm
+  - Previously X was 0mm, Y was ±75mm
+  - **Files**: `modules/Sens-Decision/src/config.c`
+
+- **IR sensor positions refined**: spacing 11.39mm → 11.3887mm
+  - Micro-adjustment based on new physical measurements
+  - **Files**: `modules/Sens-Decision/src/config.c`, calibration tools
+
+### Fixed - Coordinate System
+
+- **IR sensor channel layout documentation**
+  - Fixed comments claiming channel 0=rightmost (actual: channel 0=leftmost, channel 7=rightmost)
+  - Verified ir_weights array is CORRECT in code, only comments/docs were wrong
+  - **Files**: `modules/Sens-Decision/src/config.c` (comments only)
+
+- **lateral_error sign convention unified across all documents**
+  - Car shifted right → lateral_error > 0 → steer left
+  - Car shifted left → lateral_error < 0 → steer right
+  - **Files**: `README.md`, `API_PITFALLS_GUIDE.md`, `docs/GEOMETRY_UPDATE_2026-07-30.md`
+
+- **Documentation weight arrays corrected**
+  - `API_PITFALLS_GUIDE.md` had weight signs reversed from actual code
+  - `README.md` contained TWO different weight arrays with opposite signs
+  - All now match code: `[3.9861, 2.8472, 1.7083, 0.5694, -0.5694, -1.7083, -2.8472, -3.9861]`
+
+- **IMU data sheet reference**: comments updated from MPU6050 to ICM42688
+  - **Files**: `modules/Sens-Decision/src/config.c`
+
+### Added - Documentation
+
+- `docs/GEOMETRY_UPDATE_2026-07-30.md` - Geometry parameter update with formulas and verification steps
+- `docs/COORDINATE_SYSTEM_ANALYSIS_2026-07-30.md` - Deep coordinate system analysis (read-only, 713 lines)
+- `docs/COORDINATE_FIX_2026-07-30.md` - Coordinate system fix report with sign validation logic
+- `docs/SESSION_FIX_LOG_2026-07-30_PART2.md` - Complete session work log
+- `docs/VALIDATION_AFTER_SESSION_2026-07-30.md` - Real-vehicle test validation checklist
+
+### Updated - Tools
+
+- Calibration tools display values synchronized with new geometry parameters
+- IR sensor calibration tool updated with new positions and weight examples
+
 ## [1.2.0] - 2026-07-30
 
 ### Fixed - Critical
@@ -151,6 +205,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Key Changes |
 |---------|------|-------------|
+| 1.2.1 | 2026-07-30 | Geometry update (wheelbase 214mm, IR at 183mm), coordinate system documentation fix |
 | 1.2.0 | 2026-07-30 | Dual-wheel migration fix, initialization failure handling, IR sensor algorithm fix, speed config fix |
 | 1.1.0 | 2026-07-30 | EKF fix, stack overflow prevention, frequency optimization, interrupt priority resolution |
 | 1.0.0 | 2026-07-29 | Initial release with full control pipeline |

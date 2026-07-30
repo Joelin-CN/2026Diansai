@@ -33,12 +33,12 @@ extern "C" {
  *
  * @category A: 物理测量参数
  *
- * @value 0.115f (115 mm)
+ * @value 0.214f (214 mm)
  *
  * @origin 实际测量
  *   - 测量方法: 卷尺测量左右轮中心距离
- *   - 测量日期: 2026-07-30之前
- *   - 之前配置: 150 mm (错误值，已修正)
+ *   - 测量日期: 2026-07-30
+ *   - 之前配置: 115 mm (已更新)
  *
  * @validation 原地旋转验证法
  *   - 方法: 让小车原地旋转N圈，测量实际转过的角度
@@ -53,14 +53,15 @@ extern "C" {
  *
  * @history
  *   - 2026-07-30: 150mm → 115mm (实测修正)
+ *   - 2026-07-30: 115mm → 214mm (实测更新)
  *
  * @references
- *   - logs/PARAMETER_UPDATE_SUMMARY_2026-07-30.md
+ *   - docs/GEOMETRY_UPDATE_2026-07-30.md
  *
  * @warnings
  *   - 此参数与config.c中的wheel_track_m必须保持一致
  */
-#define WHEEL_BASE              0.115f
+#define WHEEL_BASE              0.214f
 
 /**
  * @brief 轮半径 (m)

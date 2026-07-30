@@ -20,37 +20,37 @@ void sd_config_reset_defaults(void) {
      *
      * @category B: 理论计算参数（基于物理测量）
      *
-     * @value [-0.5694, -1.7083, -2.8472, -3.9861, 0.5694, 1.7083, 2.8472, 3.9861]
+     * @value [3.9861, 2.8472, 1.7083, 0.5694, -0.5694, -1.7083, -2.8472, -3.9861]
      *
-     * @origin 基于传感器物理安装位置计算
+     * @origin 基于传感器物理安装位置计算（2026-07-30更新）
      *   坐标系说明（代码坐标系）:
      *   - 前 = +X 方向
      *   - 左 = +Y 方向
      *   - 上 = +Z 方向
      *
-     *   物理测量（传感器阵列横向分布）:
-     *   - 索引0: X_phys = +39.86 mm（最右侧）
-     *   - 索引1: X_phys = +28.47 mm
-     *   - 索引2: X_phys = +17.08 mm
-     *   - 索引3: X_phys = +5.69 mm
-     *   - 索引4: X_phys = -5.69 mm
-     *   - 索引5: X_phys = -17.08 mm
-     *   - 索引6: X_phys = -28.47 mm
-     *   - 索引7: X_phys = -39.86 mm（最左侧）
+     *   物理测量（传感器阵列横向分布，代码坐标系）:
+     *   - 通道0: Y = +39.8606 mm（最左侧）
+     *   - 通道1: Y = +28.4719 mm
+     *   - 通道2: Y = +17.0831 mm
+     *   - 通道3: Y = +5.6944 mm
+     *   - 通道4: Y = -5.6944 mm
+     *   - 通道5: Y = -17.0831 mm
+     *   - 通道6: Y = -28.4719 mm
+     *   - 通道7: Y = -39.8606 mm（最右侧）
      *
-     *   坐标转换（物理 → 代码）:
-     *   - code_Y = -physical_X（因为坐标系定义不同）
+     *   传感器间距: 11.3887 mm
+     *   阵列中心X: 183 mm
      *
      *   权重计算:
-     *   - weight = code_Y / 10mm（归一化）
-     *   - 右侧为负值，左侧为正值
+     *   - weight[i] = Y[i] / 10mm（归一化）
+     *   - 左侧（+Y）为正值，右侧（-Y）为负值
      *   - 越靠外侧，绝对值越大
      *
      * @validation 符号验证方法
      *   使用ir_sensor_calibration.c工具:
      *   1. 将小车放在黑线上
-     *   2. 手动向右移动 → lateral_error应为负值
-     *   3. 手动向左移动 → lateral_error应为正值
+     *   2. 手动向右移动 → lateral_error应为正值（线在左侧传感器）
+     *   3. 手动向左移动 → lateral_error应为负值（线在右侧传感器）
      *   4. 如果符号相反，需要将所有权重取反
      *
      * @tuning_guide
@@ -64,16 +64,19 @@ void sd_config_reset_defaults(void) {
      *   - 重新计算权重
      *   - 如果只是符号错误，将所有值取反
      *
+     * @history
+     *   - 2026-07-30: 更新传感器位置（间距11.39→11.3887mm，中心132.1→183mm）
+     *
      * @references
      *   - docs/CALIBRATION_QUICK_GUIDE.md - IR传感器符号验证
-     *   - logs/PARAMETER_UPDATE_SUMMARY_2026-07-30.md - 权重更新记录
+     *   - docs/GEOMETRY_UPDATE_2026-07-30.md - 几何参数更新记录
      *
      * @warnings
      *   - 权重符号错误会导致循迹反向（越跑越偏）
      *   - 必须通过实车验证符号正确性
      */
     static const float ir_weights[SD_IR_CHANNEL_COUNT] = {
-        -0.5694f, -1.7083f, -2.8472f, -3.9861f, 0.5694f, 1.7083f, 2.8472f, 3.9861f
+        3.9861f, 2.8472f, 1.7083f, 0.5694f, -0.5694f, -1.7083f, -2.8472f, -3.9861f
     };
     /**
      * 编码器方向配置
@@ -103,8 +106,8 @@ void sd_config_reset_defaults(void) {
      *   - 必须通过实车验证
      */
     static const int8_t encoder_directions[SD_ENCODER_COUNT] = {1, -1};
-    static const float encoder_x[SD_ENCODER_COUNT] = {0.0f, 0.0f};
-    static const float encoder_y[SD_ENCODER_COUNT] = {0.075f, -0.075f};
+    static const float encoder_x[SD_ENCODER_COUNT] = {0.0935f, 0.0935f};
+    static const float encoder_y[SD_ENCODER_COUNT] = {0.107f, -0.107f};
     size_t index;
 
     /**
@@ -112,12 +115,12 @@ void sd_config_reset_defaults(void) {
      *
      * @category A: 物理测量参数
      *
-     * @value 0.115f m (115 mm)
+     * @value 0.214f m (214 mm)
      *
      * @origin 实际测量
      *   - 测量方法: 卷尺测量左右轮中心距离
-     *   - 测量日期: 2026-07-30之前
-     *   - 之前配置: 150mm（已修正）
+     *   - 测量日期: 2026-07-30
+     *   - 之前配置: 115mm（已更新）
      *
      * @validation 原地旋转验证法
      *   理论依据: 原地旋转时，左右轮差速 ΔS = wheel_track × θ
@@ -128,11 +131,14 @@ void sd_config_reset_defaults(void) {
      *   4. 反推轮距: wheel_track = ΔS / θ
      *   5. 验证偏差是否 < 5%
      *
+     * @history
+     *   - 2026-07-30: 115mm → 214mm (实测更新)
+     *
      * @warnings
      *   - 必须与motion_config.h的WHEEL_BASE保持一致
      *   - 轮距误差会导致转向角度误差
      */
-    g_sens_decision_config.vehicle.wheel_track_m = 0.115f;
+    g_sens_decision_config.vehicle.wheel_track_m = 0.214f;
 
     /**
      * 双轮差速底盘编码器索引配置（2026-07-30迁移）
@@ -290,18 +296,21 @@ void sd_config_reset_defaults(void) {
      *
      * @category A: 物理测量参数
      *
-     * @value (0.1321, 0.0, -0.02) m
+     * @value (0.183, 0.0, -0.02) m
      *
-     * @origin 实际测量
+     * @origin 实际测量（2026-07-30更新）
      *   坐标系（代码坐标系）:
      *   - X轴: 前方为正，后方为负
      *   - Y轴: 左侧为正，右侧为负
      *   - Z轴: 上方为正，下方为负
      *
      *   测量值:
-     *   - X = 0.1321 m (132.1 mm): 阵列位于车头前方132.1mm
+     *   - X = 0.183 m (183 mm): 阵列位于车头前方183mm
      *   - Y = 0.0 m: 阵列横向居中于车辆中心线
      *   - Z = -0.02 m (-20 mm): 阵列低于车辆坐标系原点20mm
+     *
+     * @history
+     *   - 2026-07-30: 132.1mm → 183mm (向前移动50.9mm)
      *
      * @validation
      *   - 使用卷尺测量IR阵列中心到车轮轴中心的距离
@@ -316,7 +325,7 @@ void sd_config_reset_defaults(void) {
      * @warnings
      *   - 更改传感器安装位置后必须重新测量
      */
-    g_sens_decision_config.perception.position.x_m = 0.1321f;
+    g_sens_decision_config.perception.position.x_m = 0.183f;
     g_sens_decision_config.perception.position.y_m = 0.0f;
     g_sens_decision_config.perception.position.z_m = -0.02f;
     g_sens_decision_config.perception.heading_filter_alpha = 0.3f;

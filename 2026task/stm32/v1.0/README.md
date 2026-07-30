@@ -263,8 +263,8 @@ typedef struct {
 ```
 
 **符号约定**：
-- `lateral_error < 0`：车体偏右（线在传感器右侧）→ 需要向左修正
-- `lateral_error > 0`：车体偏左（线在传感器左侧）→ 需要向右修正
+- `lateral_error < 0`：车体偏左（线在右侧传感器）→ 需要向右修正
+- `lateral_error > 0`：车体偏右（线在左侧传感器）→ 需要向左修正
 - `lateral_error ≈ 0`：车体居中
 
 **计算方法**：加权质心法
@@ -277,8 +277,8 @@ lateral_error = Σ(weight[i] × ir_value[i]) / Σ(ir_value[i])
 
 ```c
 static const float ir_weights[8] = {
-    -0.5694f, -1.7083f, -2.8472f, -3.9861f,  // 右侧（负权重）
-    +0.5694f, +1.7083f, +2.8472f, +3.9861f   // 左侧（正权重）
+    3.9861f, 2.8472f, 1.7083f, 0.5694f,      // 通道0-3（左侧，正权重）
+    -0.5694f, -1.7083f, -2.8472f, -3.9861f   // 通道4-7（右侧，负权重）
 };
 ```
 
@@ -356,7 +356,7 @@ MotionControl_Stop();    // 停止控制器（电机置零）
 #define ENCODER_PPR    60000   // 编码器分辨率（counts/圈）
 #define GEAR_RATIO     30.0f   // 减速比
 #define WHEEL_RADIUS   0.033f  // 轮半径（米）
-#define WHEEL_BASE     0.115f  // 轮距（米）
+#define WHEEL_BASE     0.214f  // 轮距（米）
 ```
 
 **修正记录**（2026-07-30）：
@@ -406,13 +406,13 @@ observation_noise_diag[1] = 0.08f;  // ω噪声方差 (rad/s)²
 
 ```c
 // IR阵列中心位置（代码坐标系）
-perception.position.x_m = 0.1321f;  // 前方132.1mm
+perception.position.x_m = 0.183f;  // 前方183mm
 perception.position.y_m = 0.0f;     // 横向居中
 
 // IR传感器权重（代码坐标系）
 static const float ir_weights[8] = {
-    -0.5694f, -1.7083f, -2.8472f, -3.9861f,  // 右侧
-    +0.5694f, +1.7083f, +2.8472f, +3.9861f   // 左侧
+    +3.9861f, +2.8472f, +1.7083f, +0.5694f,  // 通道0-3（左侧，正权重）
+    -0.5694f, -1.7083f, -2.8472f, -3.9861f   // 通道4-7（右侧，负权重）
 };
 ```
 

@@ -9,7 +9,7 @@
 | 参数 | 当前值 | 单位 | 文件位置 | 验证状态 |
 |------|--------|------|----------|----------|
 | **WHEEL_RADIUS** | 0.033 | m | `modules/MotionControl/inc/motion_config.h:107` | ✅ 已实测 |
-| **WHEEL_BASE** | 0.115 | m | `modules/MotionControl/inc/motion_config.h:63` | ✅ 已实测 |
+| **WHEEL_BASE** | 0.214 | m | `modules/MotionControl/inc/motion_config.h:63` | ✅ 已实测 |
 | **ENCODER_PPR** | 60000 | counts/圈 | `modules/MotionControl/inc/motion_config.h:172` | ✅ 已实测 |
 | **WHEEL_CIRCUMFERENCE** | 0.2073 | m | 计算值: 2π × WHEEL_RADIUS | ✅ 自动计算 |
 | **GEAR_RATIO** | 300:1 | - | 间接包含在ENCODER_PPR中 | ℹ️ 隐含参数 |
