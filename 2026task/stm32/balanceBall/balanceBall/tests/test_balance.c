@@ -617,10 +617,60 @@ static void test_loop_target_selection_clears_integral_only_when_accepted(void)
     balance_loop_init(&loop, &config);
     prepare_loop(&loop);
     loop.controller.integral = 0.75f;
+    loop.saturation_frames = 2U;
+    loop.previous_saturation_abs_error_cm = 2.0f;
+    loop.has_saturation_error = true;
     CHECK_TRUE(!balance_loop_select_target(&loop, 3.0f));
     CHECK_NEAR(loop.controller.integral, 0.75f, 0.0001f);
+    CHECK_TRUE(loop.saturation_frames == 2U);
+    CHECK_NEAR(loop.previous_saturation_abs_error_cm, 2.0f, 0.0001f);
+    CHECK_TRUE(loop.has_saturation_error);
     CHECK_TRUE(balance_loop_select_target(&loop, 5.0f));
     CHECK_NEAR(loop.controller.integral, 0.0f, 0.0001f);
+    CHECK_TRUE(loop.saturation_frames == 0U);
+    CHECK_TRUE(!loop.has_saturation_error);
+}
+
+static void test_loop_target_change_restarts_saturation_trend_baseline(void)
+{
+    BalanceLoop loop;
+    BalanceActuatorCommand command;
+    BalanceLoopConfig config = loop_config();
+    BalanceMeasurement sample = {
+        .sequence = 1U, .rx_timestamp_ms = 1000U, .valid = true,
+        .position_cm = -2.0f,
+    };
+
+    config.controller.kp = 30.0f;
+    balance_loop_init(&loop, &config);
+    prepare_loop(&loop);
+    (void)balance_loop_process_measurement(&loop, &sample, &command);
+    sample.sequence++;
+    sample.rx_timestamp_ms += 30U;
+    (void)balance_loop_process_measurement(&loop, &sample, &command);
+    CHECK_TRUE(balance_loop_start(&loop));
+    for (uint32_t sequence = 3U; sequence <= 5U; ++sequence) {
+        sample.sequence = sequence;
+        sample.rx_timestamp_ms += 30U;
+        CHECK_TRUE(balance_loop_process_measurement(&loop, &sample, &command));
+    }
+    CHECK_TRUE(loop.saturation_frames == config.saturation_frame_limit - 1U);
+    CHECK_TRUE(loop.has_saturation_error);
+
+    CHECK_TRUE(!balance_loop_select_target(&loop, 3.0f));
+    CHECK_TRUE(loop.saturation_frames == config.saturation_frame_limit - 1U);
+    CHECK_TRUE(loop.has_saturation_error);
+    CHECK_TRUE(balance_loop_select_target(&loop, 5.0f));
+    CHECK_TRUE(loop.saturation_frames == 0U);
+    CHECK_TRUE(!loop.has_saturation_error);
+
+    sample.sequence = 6U;
+    sample.rx_timestamp_ms += 30U;
+    CHECK_TRUE(balance_loop_process_measurement(&loop, &sample, &command));
+    CHECK_TRUE(loop.supervisor.state == BALANCE_STATE_CLOSED_LOOP);
+    CHECK_TRUE(loop.supervisor.fault == BALANCE_FAULT_NONE);
+    CHECK_TRUE(loop.saturation_frames == 0U);
+    CHECK_TRUE(loop.has_saturation_error);
 }
 
 static void test_loop_preserves_first_fault_and_resets_control_state(void)
@@ -890,6 +940,23 @@ static void test_loop_rejects_nonfinite_and_inconsistent_configuration(void)
     check_loop_config_invalid(config);
 }
 
+static void test_loop_rejects_config_without_safe_fixed_target_domain(void)
+{
+    BalanceLoopConfig config = loop_config();
+    config.measurement.min_position_cm = -4.9f;
+    check_loop_config_invalid(config);
+    config = loop_config();
+    config.measurement.max_position_cm = 4.9f;
+    check_loop_config_invalid(config);
+    config = loop_config();
+    config.ball_end_zone_cm = 5.0f;
+    check_loop_config_invalid(config);
+    config = loop_config();
+    config.measurement.min_position_cm = -8.0f;
+    config.ball_end_zone_cm = 9.0f;
+    check_loop_config_invalid(config);
+}
+
 static void test_loop_telemetry_is_deterministic_before_first_command(void)
 {
     BalanceLoop loop;
@@ -1013,6 +1080,7 @@ int main(void)
     test_loop_stop_holds_actuator_and_requires_fresh_camera_data();
     test_loop_rejects_bad_frame_classes_without_advancing_or_emitting();
     test_loop_target_selection_clears_integral_only_when_accepted();
+    test_loop_target_change_restarts_saturation_trend_baseline();
     test_loop_preserves_first_fault_and_resets_control_state();
     test_loop_fault_preserves_last_emitted_telemetry();
     test_loop_long_gap_revokes_camera_readiness_until_next_update();
@@ -1023,6 +1091,7 @@ int main(void)
     test_loop_saturated_shrinking_error_does_not_fault();
     test_loop_invalid_configuration_is_latched();
     test_loop_rejects_nonfinite_and_inconsistent_configuration();
+    test_loop_rejects_config_without_safe_fixed_target_domain();
     test_loop_telemetry_is_deterministic_before_first_command();
     test_loop_out_of_range_faults_without_emitting();
     test_loop_jump_faults_without_emitting();

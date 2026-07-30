@@ -62,9 +62,10 @@ static bool config_is_valid(const BalanceLoopConfig *config)
 
 static bool config_ranges_are_valid(const BalanceLoopConfig *config)
 {
-    const float accepted_extent =
-        fmaxf(absf(config->measurement.min_position_cm),
-              absf(config->measurement.max_position_cm));
+    const float negative_extent = -config->measurement.min_position_cm;
+    const float symmetric_extent =
+        negative_extent < config->measurement.max_position_cm
+            ? negative_extent : config->measurement.max_position_cm;
 
     return config->observer.alpha >= 0.0f && config->observer.alpha <= 1.0f
         && config->observer.beta >= 0.0f && config->observer.beta <= 1.0f
@@ -72,11 +73,13 @@ static bool config_ranges_are_valid(const BalanceLoopConfig *config)
         && config->observer.max_dt_s >= config->observer.min_dt_s
         && config->measurement.min_position_cm
                < config->measurement.max_position_cm
+        && config->measurement.min_position_cm <= -5.0f
+        && config->measurement.max_position_cm >= 5.0f
         && config->measurement.max_jump_cm > 0.0f
         && config->measurement.timeout_ms > 0U
         && config->target_rate_cm_s > 0.0f
-        && config->ball_end_zone_cm > 0.0f
-        && config->ball_end_zone_cm <= accepted_extent
+        && config->ball_end_zone_cm > 5.0f
+        && config->ball_end_zone_cm <= symmetric_extent
         && config->actuator.position_limit > 0.0f
         && config->actuator.max_delta_per_frame > 0.0f
         && config->controller.integral_limit > 0.0f
@@ -155,6 +158,7 @@ bool balance_loop_select_target(BalanceLoop *loop, float target_cm)
         return false;
     }
     balance_controller_reset(&loop->controller);
+    reset_saturation_monitor(loop);
     return true;
 }
 
