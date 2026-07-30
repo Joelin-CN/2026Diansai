@@ -40,6 +40,9 @@ void balance_supervisor_stop(BalanceSupervisor *supervisor)
 
 void balance_supervisor_raise_fault(BalanceSupervisor *supervisor, BalanceFault fault)
 {
+    if (fault == BALANCE_FAULT_NONE || supervisor->state == BALANCE_STATE_FAULT) {
+        return;
+    }
     supervisor->fault = fault;
     supervisor->state = BALANCE_STATE_FAULT;
 }

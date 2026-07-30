@@ -338,6 +338,54 @@ static void test_supervisor_fault_requires_new_manual_zero(void)
     CHECK_TRUE(supervisor.fault == BALANCE_FAULT_NONE);
 }
 
+static void test_supervisor_repeated_fault_preserves_first_reason(void)
+{
+    BalanceSupervisor supervisor;
+    balance_supervisor_init(&supervisor);
+    balance_supervisor_raise_fault(&supervisor, BALANCE_FAULT_CAMERA_TIMEOUT);
+    balance_supervisor_raise_fault(&supervisor, BALANCE_FAULT_EMERGENCY_STOP);
+    CHECK_TRUE(supervisor.state == BALANCE_STATE_FAULT);
+    CHECK_TRUE(supervisor.fault == BALANCE_FAULT_CAMERA_TIMEOUT);
+}
+
+static void test_supervisor_ignores_none_fault(void)
+{
+    BalanceSupervisor supervisor;
+    balance_supervisor_init(&supervisor);
+    balance_supervisor_raise_fault(&supervisor, BALANCE_FAULT_NONE);
+    CHECK_TRUE(supervisor.state == BALANCE_STATE_WAIT_MANUAL_ZERO);
+    CHECK_TRUE(supervisor.fault == BALANCE_FAULT_NONE);
+    balance_supervisor_raise_fault(&supervisor, BALANCE_FAULT_CAMERA_DATA);
+    balance_supervisor_raise_fault(&supervisor, BALANCE_FAULT_NONE);
+    CHECK_TRUE(supervisor.state == BALANCE_STATE_FAULT);
+    CHECK_TRUE(supervisor.fault == BALANCE_FAULT_CAMERA_DATA);
+}
+
+static void test_supervisor_blocks_normal_transitions_while_faulted(void)
+{
+    BalanceSupervisor supervisor;
+    balance_supervisor_init(&supervisor);
+    balance_supervisor_raise_fault(&supervisor, BALANCE_FAULT_MOTOR_COMMUNICATION);
+    balance_supervisor_confirm_manual_zero(&supervisor);
+    CHECK_TRUE(!balance_supervisor_complete_open_loop(&supervisor, true));
+    CHECK_TRUE(!balance_supervisor_start_closed_loop(&supervisor));
+    balance_supervisor_stop(&supervisor);
+    CHECK_TRUE(supervisor.state == BALANCE_STATE_FAULT);
+    CHECK_TRUE(supervisor.fault == BALANCE_FAULT_MOTOR_COMMUNICATION);
+}
+
+static void test_supervisor_stop_returns_closed_loop_to_ready(void)
+{
+    BalanceSupervisor supervisor;
+    balance_supervisor_init(&supervisor);
+    balance_supervisor_confirm_manual_zero(&supervisor);
+    (void)balance_supervisor_complete_open_loop(&supervisor, true);
+    (void)balance_supervisor_start_closed_loop(&supervisor);
+    balance_supervisor_stop(&supervisor);
+    CHECK_TRUE(supervisor.state == BALANCE_STATE_READY);
+    CHECK_TRUE(supervisor.fault == BALANCE_FAULT_NONE);
+}
+
 int main(void)
 {
     test_observer_initializes_from_first_sample();
@@ -357,6 +405,10 @@ int main(void)
     test_measurement_timeout_is_timestamp_wrap_safe();
     test_supervisor_requires_zero_and_open_loop_approval();
     test_supervisor_fault_requires_new_manual_zero();
+    test_supervisor_repeated_fault_preserves_first_reason();
+    test_supervisor_ignores_none_fault();
+    test_supervisor_blocks_normal_transitions_while_faulted();
+    test_supervisor_stop_returns_closed_loop_to_ready();
     printf("%s\n", failures == 0 ? "PASS" : "FAIL");
     return failures == 0 ? 0 : 1;
 }
