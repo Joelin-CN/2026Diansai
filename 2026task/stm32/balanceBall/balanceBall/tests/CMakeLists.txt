@@ -10,6 +10,7 @@ add_executable(test_balance
     ../App/Src/balance_controller.c
     ../App/Src/balance_measurement.c
     ../App/Src/balance_observer.c
+    ../App/Src/balance_supervisor.c
     ../App/Src/balance_target.c
 )
 target_include_directories(test_balance PRIVATE ../App/Inc)

@@ -4,6 +4,7 @@
 #include "balance_controller.h"
 #include "balance_measurement.h"
 #include "balance_observer.h"
+#include "balance_supervisor.h"
 #include "balance_target.h"
 
 static int failures;
@@ -310,6 +311,33 @@ static void test_measurement_timeout_is_timestamp_wrap_safe(void)
     CHECK_TRUE(balance_measurement_timed_out(&guard, 51U));
 }
 
+static void test_supervisor_requires_zero_and_open_loop_approval(void)
+{
+    BalanceSupervisor supervisor;
+    balance_supervisor_init(&supervisor);
+    CHECK_TRUE(supervisor.state == BALANCE_STATE_WAIT_MANUAL_ZERO);
+    CHECK_TRUE(!balance_supervisor_start_closed_loop(&supervisor));
+    balance_supervisor_confirm_manual_zero(&supervisor);
+    CHECK_TRUE(supervisor.state == BALANCE_STATE_OPEN_LOOP_CHECK);
+    CHECK_TRUE(!balance_supervisor_complete_open_loop(&supervisor, false));
+    CHECK_TRUE(balance_supervisor_complete_open_loop(&supervisor, true));
+    CHECK_TRUE(supervisor.state == BALANCE_STATE_READY);
+    CHECK_TRUE(balance_supervisor_start_closed_loop(&supervisor));
+    CHECK_TRUE(supervisor.state == BALANCE_STATE_CLOSED_LOOP);
+}
+
+static void test_supervisor_fault_requires_new_manual_zero(void)
+{
+    BalanceSupervisor supervisor;
+    balance_supervisor_init(&supervisor);
+    balance_supervisor_raise_fault(&supervisor, BALANCE_FAULT_CAMERA_TIMEOUT);
+    CHECK_TRUE(supervisor.state == BALANCE_STATE_FAULT);
+    CHECK_TRUE(supervisor.fault == BALANCE_FAULT_CAMERA_TIMEOUT);
+    balance_supervisor_acknowledge_fault(&supervisor);
+    CHECK_TRUE(supervisor.state == BALANCE_STATE_WAIT_MANUAL_ZERO);
+    CHECK_TRUE(supervisor.fault == BALANCE_FAULT_NONE);
+}
+
 int main(void)
 {
     test_observer_initializes_from_first_sample();
@@ -327,6 +355,8 @@ int main(void)
     test_measurement_sequence_order_is_wrap_safe();
     test_measurement_timeout_uses_last_accepted_frame();
     test_measurement_timeout_is_timestamp_wrap_safe();
+    test_supervisor_requires_zero_and_open_loop_approval();
+    test_supervisor_fault_requires_new_manual_zero();
     printf("%s\n", failures == 0 ? "PASS" : "FAIL");
     return failures == 0 ? 0 : 1;
 }
