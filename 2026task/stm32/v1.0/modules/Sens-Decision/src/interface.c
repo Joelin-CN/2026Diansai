@@ -2,6 +2,7 @@
 
 #include <stddef.h>
 #include <string.h>
+#include <stdio.h>
 
 #include "utils.h"
 
@@ -41,6 +42,8 @@ static sd_status_t ir_read(sensor_t *sensor, void *output,
                            uint64_t timestamp_us);
 static sd_status_t read_only_write(sensor_t *sensor, const void *input);
 static sd_status_t common_release(sensor_t *sensor);
+static const char *get_sensor_name(sensor_id_t id);
+static const char *get_status_string(sd_status_t status);
 
 static const sensor_vtable_t g_encoder_vtable = {
     encoder_init, encoder_read, read_only_write, common_release
@@ -52,13 +55,26 @@ static const sensor_vtable_t g_ir_vtable = {
     ir_init, ir_read, read_only_write, common_release
 };
 
+/**
+ * @brief 传感器对象数组（双轮差速底盘配置）
+ *
+ * @note 从四轮配置迁移到双轮配置（2026-07-30）
+ *       - 索引0: 左轮编码器 (SENSOR_ID_ENCODER_LEFT)
+ *       - 索引1: 右轮编码器 (SENSOR_ID_ENCODER_RIGHT)
+ *       - 索引2: IMU (SENSOR_ID_IMU)
+ *       - 索引3: 红外阵列 (SENSOR_ID_IR_ARRAY)
+ *       - 总数: 4个传感器对象
+ *
+ * @warning 私有数据指针必须指向有效的数组元素:
+ *          - g_encoder_private[0..1] (SD_ENCODER_COUNT=2)
+ *          - g_imu_private (单个对象)
+ *          - g_ir_private (单个对象)
+ */
 static sensor_t g_sensors[SENSOR_ID_COUNT] = {
-    {&g_encoder_vtable, &g_encoder_private[0], false},
-    {&g_encoder_vtable, &g_encoder_private[1], false},
-    {&g_encoder_vtable, &g_encoder_private[2], false},
-    {&g_encoder_vtable, &g_encoder_private[3], false},
-    {&g_imu_vtable, &g_imu_private, false},
-    {&g_ir_vtable, &g_ir_private, false}
+    {&g_encoder_vtable, &g_encoder_private[0], false},  /* 左轮编码器 */
+    {&g_encoder_vtable, &g_encoder_private[1], false},  /* 右轮编码器 */
+    {&g_imu_vtable, &g_imu_private, false},             /* IMU */
+    {&g_ir_vtable, &g_ir_private, false}                /* 红外阵列 */
 };
 
 sd_status_t sensors_configure_hal(const sensor_hal_t *hal) {
@@ -76,30 +92,58 @@ sd_status_t sensors_init_all(void) {
     size_t index;
     sd_status_t status;
 
+    printf("[SensDecision] ===== Sensor Initialization Start =====\n");
+
     if (!g_hal_configured) {
+        printf("[ERROR] HAL not configured - call sensors_configure_hal() first\n");
         return SD_ERR_NOT_INITIALIZED;
     }
+    printf("[SensDecision] HAL configuration: OK\n");
+
     status = sd_config_validate(&g_sens_decision_config);
     if (status != SD_OK) {
+        printf("[ERROR] Config validation failed: %s\n", get_status_string(status));
+        printf("[ERROR] Check encoder indices and parameter ranges\n");
         return status;
     }
+    printf("[SensDecision] Config validation: OK\n");
+
     for (index = 0U; index < SENSOR_ID_COUNT; ++index) {
         if (g_sensors[index].initialized) {
+            printf("[SensDecision] Sensor %u (%s): Already initialized\n",
+                   (unsigned)index, get_sensor_name((sensor_id_t)index));
             continue;
         }
+
+        printf("[SensDecision] Initializing sensor %u (%s)...\n",
+               (unsigned)index, get_sensor_name((sensor_id_t)index));
+
         status = g_sensors[index].vtable->init(&g_sensors[index]);
         if (status != SD_OK) {
+            printf("[ERROR] Sensor %u (%s) initialization failed: %s\n",
+                   (unsigned)index, get_sensor_name((sensor_id_t)index),
+                   get_status_string(status));
+
+            /* Rollback: Release all sensors initialized in this call */
+            printf("[SensDecision] Rolling back initialization...\n");
             while (index > 0U) {
                 --index;
                 if (initialized_this_call[index]) {
                     (void)sensor_release(&g_sensors[index]);
+                    printf("[SensDecision] Released sensor %u (%s)\n",
+                           (unsigned)index, get_sensor_name((sensor_id_t)index));
                 }
             }
             return status;
         }
+
+        printf("[SensDecision] Sensor %u (%s): OK\n",
+               (unsigned)index, get_sensor_name((sensor_id_t)index));
         g_sensors[index].initialized = true;
         initialized_this_call[index] = true;
     }
+
+    printf("[SensDecision] ===== All sensors initialized successfully =====\n");
     return SD_OK;
 }
 
@@ -292,4 +336,107 @@ static sd_status_t common_release(sensor_t *sensor) {
     }
     sensor->initialized = false;
     return SD_OK;
+}
+
+static const char *get_sensor_name(sensor_id_t id) {
+    switch (id) {
+        case SENSOR_ID_ENCODER_LEFT:
+            return "Encoder_Left";
+        case SENSOR_ID_ENCODER_RIGHT:
+            return "Encoder_Right";
+        case SENSOR_ID_IMU:
+            return "IMU";
+        case SENSOR_ID_IR_ARRAY:
+            return "IR_Array";
+        default:
+            return "Unknown";
+    }
+}
+
+static const char *get_status_string(sd_status_t status) {
+    switch (status) {
+        case SD_OK:
+            return "OK";
+        case SD_ERR_INVALID_ARGUMENT:
+            return "Invalid argument";
+        case SD_ERR_NOT_INITIALIZED:
+            return "Not initialized";
+        case SD_ERR_UNSUPPORTED:
+            return "Unsupported operation";
+        case SD_ERR_DATA_INVALID:
+            return "Invalid data";
+        case SD_ERR_NULL_POINTER:
+            return "NULL pointer";
+        default:
+            return "Unknown error";
+    }
+}
+
+void sensors_diagnostic_report(void) {
+    printf("\n========== SENSOR DIAGNOSTIC REPORT ==========\n");
+
+    /* Check HAL configuration */
+    if (!g_hal_configured) {
+        printf("[FAIL] HAL not configured\n");
+        printf("==============================================\n\n");
+        return;
+    }
+    printf("[OK] HAL configured\n");
+
+    /* Check config validation */
+    sd_status_t status = sd_config_validate(&g_sens_decision_config);
+    printf("Config validation: %s\n", status == SD_OK ? "[PASS]" : "[FAIL]");
+    if (status != SD_OK) {
+        printf("  Error: %s\n", get_status_string(status));
+    }
+
+    /* Test individual sensors */
+    printf("\nSensor Status:\n");
+
+    for (size_t i = 0; i < SENSOR_ID_COUNT; i++) {
+        sensor_id_t id = (sensor_id_t)i;
+        const char *name = get_sensor_name(id);
+        sensor_t *sensor = &g_sensors[i];
+
+        printf("  %u. %s: ", (unsigned)i, name);
+
+        if (!sensor->initialized) {
+            printf("[NOT INITIALIZED]\n");
+            continue;
+        }
+
+        /* Try to read sensor data */
+        if (id == SENSOR_ID_ENCODER_LEFT || id == SENSOR_ID_ENCODER_RIGHT) {
+            encoder_data_t data;
+            status = sensor_read(sensor, &data, 0);
+            if (status == SD_OK) {
+                printf("[OK] count=%ld\n", (long)data.count);
+            } else {
+                printf("[FAIL] %s\n", get_status_string(status));
+            }
+        } else if (id == SENSOR_ID_IMU) {
+            imu_data_t data;
+            status = sensor_read(sensor, &data, 0);
+            if (status == SD_OK) {
+                printf("[OK] accel=(%.2f, %.2f, %.2f) m/s^2\n",
+                       data.accel_mps2[0], data.accel_mps2[1], data.accel_mps2[2]);
+            } else {
+                printf("[FAIL] %s\n", get_status_string(status));
+            }
+        } else if (id == SENSOR_ID_IR_ARRAY) {
+            ir_array_data_t data;
+            status = sensor_read(sensor, &data, 0);
+            if (status == SD_OK) {
+                printf("[OK] mask=0x%04X, values=[", data.active_mask);
+                for (int j = 0; j < SD_IR_CHANNEL_COUNT; j++) {
+                    printf("%.0f%s", data.values[j], j < SD_IR_CHANNEL_COUNT - 1 ? ", " : "");
+                }
+                printf("]\n");
+            } else {
+                printf("[FAIL] %s\n", get_status_string(status));
+            }
+        }
+    }
+
+    printf("==============================================\n\n");
 }

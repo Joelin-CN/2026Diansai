@@ -16,6 +16,7 @@
 #include "encoder_adapter.h"
 #include "motor_adapter.h"
 #include "sensor_adapter.h"
+#include "speed_mode.h"
 
 #include "ir_uart_sensor.h"
 #include "icm42688_hal.h"
@@ -53,6 +54,7 @@ static trajectory_point_t g_trajectory;
 static uint8_t g_target_laps = 0;
 static unsigned g_cycle_counter = 0;
 static unsigned g_critical_failure_count = 0;
+static unsigned g_health_check_counter = 0;
 
 static const icm42688_config_t g_icm_config = {
     .interface_type = ICM42688_INTERFACE_SPI,
@@ -167,11 +169,23 @@ skip_icm42688:
     /* Step 8: Sensor HAL configure/init */
     const sensor_hal_t *hal = SensorAdapter_GetInterface();
     if (sensors_configure_hal(hal) != SD_OK) {
-        printf("[WARNING] sensors_configure_hal failed\n");
+        printf("[FATAL] sensors_configure_hal failed\n");
+        printf("[FATAL] Cannot initialize sensor HAL interface\n");
+        Motor_Stop();
+        return false;
     }
 
     if (sensors_init_all() != SD_OK) {
-        printf("[WARNING] sensors_init_all failed\n");
+        printf("[FATAL] Sensor initialization failed\n");
+        printf("[FATAL] System cannot operate without sensors\n");
+        printf("[FATAL] Please check:\n");
+        printf("  1. Encoder connections (TIM3=Left, TIM4=Right)\n");
+        printf("  2. IR sensor UART (USART2, 115200 baud)\n");
+        printf("  3. IMU SPI connection (SPI2, ICM42688)\n");
+        printf("  4. Sensor configuration (Sens-Decision/config.c)\n");
+        printf("  5. Hardware power supply and connections\n");
+        Motor_Stop();
+        return false;
     }
 
     printf("[TrackControlApp] Step 9: Sens-Decision objects/path...\n");
@@ -199,13 +213,26 @@ skip_icm42688:
     g_track_config.heading_gain = 1.0f;      /* Conservative heading correction */
     g_track_config.max_omega_radps = 3.0f;   /* Max turn rate (rad/s) */
     g_track_config.target_laps = target_laps;
-    g_track_config.line_speed_mps = 0.5f;    /* Conservative straight speed */
-    g_track_config.curve_speed_mps = 0.3f;   /* Conservative curve speed */
+    g_track_config.line_speed_mps = 0.5f;    /* Reference value only (not used by behavior planner) */
+    g_track_config.curve_speed_mps = 0.3f;   /* Reference value only (not used by behavior planner) */
 
     printf("[TrackControlApp] Config: lateral_gain=%.2f, heading_gain=%.2f\n",
            g_track_config.lateral_gain, g_track_config.heading_gain);
-    printf("[TrackControlApp] Config: line_speed=%.2f m/s, curve_speed=%.2f m/s\n",
-           g_track_config.line_speed_mps, g_track_config.curve_speed_mps);
+
+    /* -----------------------------------------------------------------------
+     * Step 10b: Set speed mode (overrides Sens-Decision default speeds)
+     * ----------------------------------------------------------------------- */
+    printf("[TrackControlApp] Step 10b: Configuring speed mode...\n");
+
+    /* IMPORTANT: Change this line to switch speed modes
+     * - SPEED_MODE_DEBUG:  First-time debugging (0.2 m/s, ultra-safe)
+     * - SPEED_MODE_SLOW:   After sensor validation (0.5 m/s, tuning)
+     * - SPEED_MODE_NORMAL: After PID tuning (1.0 m/s, normal operation)
+     * - SPEED_MODE_FAST:   Competition mode (1.5 m/s, high performance)
+     */
+    speed_mode_set(SPEED_MODE_DEBUG);  /* ← CHANGE THIS LINE TO ADJUST SPEED */
+
+    printf("[TrackControlApp] Active speed mode: %s\n", speed_mode_name(speed_mode_get()));
 
     printf("[TrackControlApp] Step 11: Motion Control init/start...\n");
     /* Step 11: Motion Control init/start */
@@ -294,6 +321,29 @@ void TrackControlApp_RunFastCycle(void) {
      * ----------------------------------------------------------------------- */
     if ((g_cycle_counter % 10U) == 0U) {
         const float dt = 0.020f;  /* 50 Hz = 20ms */
+
+        /* Periodic sensor health check (every 10 seconds at 50Hz) */
+        if (++g_health_check_counter >= 500U) {
+            g_health_check_counter = 0U;
+
+            /* Check sensor validity flags */
+            bool health_warning = false;
+            if (!g_sensor_frame.encoder_valid[0]) {
+                printf("[WARN] Left encoder not responding\n");
+                health_warning = true;
+            }
+            if (!g_sensor_frame.encoder_valid[1]) {
+                printf("[WARN] Right encoder not responding\n");
+                health_warning = true;
+            }
+            if (!g_sensor_frame.ir_valid) {
+                printf("[WARN] IR sensor not responding\n");
+                health_warning = true;
+            }
+            if (health_warning) {
+                printf("[INFO] Run sensors_diagnostic_report() for detailed analysis\n");
+            }
+        }
 
         /* Preprocess sensor data */
         sd_status_t status = preprocess_update(PlatformTime_GetUs64(), &g_sensor_frame);

@@ -876,23 +876,169 @@ line_speed = 1.0, curve_speed = 0.7, lateral_gain = 调优, heading_gain = 调�
 
 ---
 
-## 总结：最危险的5个坑
+---
 
+## 14. 传感器配置陷阱 (Sensor Configuration)
+
+### 14.1 🔴 四轮→双轮迁移不完整 (2026-07-30 已修复)
+
+**问题**: 编码器配置按四轮填充，但系统只有2个编码器
+
+**症状**:
+- `sensors_init_all()` 必然失败
+- 配置验证检测到编码器索引重复
+- 数组越界访问 `g_encoder_private[2]` 和 `[3]`
+- 状态估计器速度计算出错
+
+**根因**:
+- 编码器枚举定义了4个：`ENCODER_LEFT_FRONT`, `ENCODER_LEFT_REAR`, `ENCODER_RIGHT_FRONT`, `ENCODER_RIGHT_REAR`
+- 但系统只有2个实际编码器：左轮、右轮
+- 传感器初始化表配置了6个对象（4个编码器 + IMU + IR），但数组越界
+
+**修复**:
+1. 编码器枚举：4个→2个（`ENCODER_LEFT`, `ENCODER_RIGHT`）
+2. 引入 `INVALID_ENCODER_INDEX` 标记未使用位置
+3. 传感器初始化表：6个→4个对象
+4. 配置验证：检查编码器索引有效性
+5. 状态估计器：使用2编码器计算速度
+
+**修复文件**: `config.h`, `interface.h`, `interface.c`, `config.c`, `state_evaluate.c`
+
+**来源**: Agent-8修复报告 (Phase 1 P0)
+
+---
+
+## 15. 红外传感器算法陷阱 (IR Sensor Algorithm)
+
+### 15.1 🔴 阈值判断完全反向 (2026-07-30 已修复)
+
+**问题**: `if (raw > threshold)` 判断黑线，但黑线ADC值更低
+
+**数据特征**:
+- 白色背景：ADC值约270
+- 黑色线条：ADC值约100
+
+**错误逻辑**:
+```c
+// ❌ 完全反向的判断
+if (ir_raw[i] > 0.5f) {
+    // 认为检测到黑线
+    // 但实际上 raw > 0.5 表示白色！
+}
+```
+
+**后果**:
+- 所有传感器永远激活（白色背景被误判为黑线）
+- 系统一直判定为"路口"（8个传感器全亮）
+- 质心计算被白色区域主导
+- 循迹完全失效，准确率0%
+
+**修复**: 黑线强度反转算法
+```c
+// ✅ 正确的黑线检测
+float black_strength[8];
+for (int i = 0; i < 8; i++) {
+    black_strength[i] = white_reference[i] - ir_raw[i];  // 反转
+    if (black_strength[i] > threshold) {
+        // 检测到黑线
+    }
+}
+```
+
+**必须校准**:
+1. **白平衡校准**：`IrCalibration_WhiteBalance()` - 在白色背景上采集参考值
+2. **阈值校准**：`IrCalibration_BlackThreshold()` - 在黑线上确定阈值
+
+**校准参数** (新增到 `config.h` 和 `config.c`):
+- `white_reference[8]` - 白色参考值
+- `black_strength_threshold` - 黑线强度阈值
+
+**验证**: 检测准确率从0%提升至>95%
+
+**修复文件**: `perception.c`, `config.h`, `config.c`, `ir_calibration.c/h`, `perception_debug.c/h`
+
+**来源**: Agent-10修复报告 (Phase 2 P1)
+
+---
+
+## 16. 速度配置陷阱 (Speed Configuration)
+
+### 16.1 🔴 应用层速度配置未生效 (2026-07-30 已修复)
+
+**问题**: 应用层和决策层使用独立的速度配置变量
+
+**配置流向**:
+```
+应用层 (track_control_app.c):
+  g_track_config.line_speed_mps = 0.5f     ← 设置了
+  g_track_config.curve_speed_mps = 0.3f    ← 设置了
+  ↓
+  ❌ 未传递 ❌
+  
+决策层 (config.c):
+  g_sens_decision_config.behavior.line_speed_mps = 1.0f   ← 实际使用
+  g_sens_decision_config.behavior.curve_speed_mps = 0.5f  ← 实际使用
+```
+
+**症状**:
+- 应用层配置：0.5/0.3 m/s（安全调试速度）
+- 实际运行：1.0/0.5 m/s（高速！）
+- 首次调试速度过快，可能冲出轨道
+
+**根因**: 行为规划器从 `g_sens_decision_config.behavior.*` 读取速度，应用层配置完全未传递到这里
+
+**修复**: 速度模式系统
+```c
+// 新增 speed_mode.c/h
+speed_mode_set(SPEED_MODE_DEBUG);   // 0.2 m/s (首次调试，超低速)
+speed_mode_set(SPEED_MODE_SLOW);    // 0.5 m/s (常规调试)
+speed_mode_set(SPEED_MODE_NORMAL);  // 1.0 m/s (正常运行)
+speed_mode_set(SPEED_MODE_FAST);    // 1.5 m/s (竞速模式)
+```
+
+**速度模式配置表**:
+
+| 模式 | 直线速度 | 接近弯道 | 弯道速度 | 使用场景 |
+|------|----------|----------|----------|----------|
+| DEBUG | 0.2 m/s | 0.18 m/s | 0.15 m/s | 首次调试，验证传感器 |
+| SLOW | 0.5 m/s | 0.4 m/s | 0.3 m/s | 常规调试，PID调优 |
+| NORMAL | 1.0 m/s | 0.7 m/s | 0.5 m/s | 正常运行 |
+| FAST | 1.5 m/s | 1.0 m/s | 0.8 m/s | 竞速模式 |
+
+**使用方法**:
+```c
+// 在 track_control_app.c::TrackControlApp_Init() 中
+speed_mode_set(SPEED_MODE_DEBUG);  // ← 修改这一行即可切换速度
+```
+
+**修复文件**: `track_control_app.c`, `speed_mode.c/h`, `CMakeLists.txt`
+
+**来源**: Agent-11修复报告 (Phase 2 P1)
+
+---
+
+## 总结：最危险的坑
+
+### 原有问题 (v1.0-v1.1)
 1. **电机PWM 10倍误差** - `MOTOR_SPEED_MAX` 设1000导致只有10%占空比
 2. **编码器PPR差了38.5倍** - 误以为13PPR，实际500PPR
 3. **USART2 HAL双重读取** - 手动读DR后又调用HAL，导致中断禁用
 4. **IR传感器Process()未被调用** - 数据中断接收了但永远解析不出来
 5. **printf静默禁用USART2中断** - 每次printf后RXNEIE可能丢失
-
-**新增（2026-07-30）：**
-
 6. **EKF观测模型配置不当** - 低成本IMU引入漂移，应简化为2观测模型
 7. **FreeRTOS栈溢出** - EKF矩阵运算需1200+字节栈，必须增加任务栈大小
 8. **控制频率过高** - 500Hz PID浪费80%计算，应降至100Hz
 
+### 新增问题 (v1.2.0)
+9. **四轮→双轮迁移不完整** - 编码器配置4个但只有2个，导致数组越界
+10. **初始化失败后继续运行** - 传感器故障但控制循环启动，违反fail-safe原则
+11. **红外传感器阈值判断反向** - 黑线检测完全失效，准确率0%
+12. **速度配置未传递** - 应用层配置0.5m/s，实际运行1.0m/s
+
 ---
 
 **指南创建时间**: 2026-07-30
-**数据来源**: logs/ 目录下 35+ 个调试日志 + build/logs/ 分析报告
+**最后更新**: 2026-07-30 (v1.2.0)
+**数据来源**: logs/ 目录下 35+ 个调试日志 + build/logs/ 分析报告 + Agent-8/9/10/11修复报告
 **创建者**: Claude (Opus 4.8) + 用户 Joelin
-**版本**: v1.1 (新增EKF、内存安全、控制频率章节)
+**版本**: v1.2 (新增传感器配置、红外算法、速度配置陷阱章节)

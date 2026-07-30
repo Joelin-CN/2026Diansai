@@ -18,14 +18,25 @@ typedef struct {
     sd_status_t (*read_ir)(uint16_t *active_mask, float values[SD_IR_CHANNEL_COUNT]);
 } sensor_hal_t;
 
+/**
+ * @brief 传感器ID枚举（双轮差速底盘配置）
+ *
+ * @note 从四轮配置迁移到双轮配置（2026-07-30）
+ *       - 移除: ENCODER_LEFT_REAR, ENCODER_RIGHT_REAR (四轮后轮编码器)
+ *       - 保留: 2个编码器（左轮+右轮）+ IMU + 红外阵列
+ *
+ * @hardware 物理传感器映射:
+ *   - SENSOR_ID_ENCODER_LEFT:  TIM3编码器（左轮电机）
+ *   - SENSOR_ID_ENCODER_RIGHT: TIM4编码器（右轮电机）
+ *   - SENSOR_ID_IMU:           ICM42688（6轴IMU）
+ *   - SENSOR_ID_IR_ARRAY:      8通道红外传感器阵列
+ */
 typedef enum {
-    SENSOR_ID_ENCODER_LEFT_FRONT,
-    SENSOR_ID_ENCODER_LEFT_REAR,
-    SENSOR_ID_ENCODER_RIGHT_FRONT,
-    SENSOR_ID_ENCODER_RIGHT_REAR,
-    SENSOR_ID_IMU,
-    SENSOR_ID_IR_ARRAY,
-    SENSOR_ID_COUNT
+    SENSOR_ID_ENCODER_LEFT,   /* 左轮编码器（物理索引0） */
+    SENSOR_ID_ENCODER_RIGHT,  /* 右轮编码器（物理索引1） */
+    SENSOR_ID_IMU,            /* IMU传感器 */
+    SENSOR_ID_IR_ARRAY,       /* 红外传感器阵列 */
+    SENSOR_ID_COUNT           /* 传感器总数：4 */
 } sensor_id_t;
 
 typedef struct sensor sensor_t;
@@ -69,5 +80,11 @@ sd_status_t sensor_read(sensor_t *sensor, void *output, uint64_t timestamp_us);
 sd_status_t sensor_write(sensor_t *sensor, const void *input);
 sd_status_t sensor_release(sensor_t *sensor);
 sd_status_t sensors_release_all(void);
+
+/**
+ * @brief Run sensor diagnostic report
+ * @note Prints detailed status of each sensor for debugging
+ */
+void sensors_diagnostic_report(void);
 
 #endif

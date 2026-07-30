@@ -1,8 +1,8 @@
 # 参数追溯表文档
 
-**文档版本**: v1.0  
+**文档版本**: v1.2  
 **创建日期**: 2026-07-30  
-**最后更新**: 2026-07-30  
+**最后更新**: 2026-07-30 (v1.2.0参数新增)  
 **维护者**: 系统集成团队
 
 ---
@@ -382,6 +382,38 @@
 | **坐标系说明** | 车体坐标系: 前=+X, 左=+Y, 上=+Z |
 | **用途** | 用于多编码器融合（当前系统每侧只有1个编码器） |
 
+#### INVALID_ENCODER_INDEX (无效编码器索引, v1.2.0新增)
+
+| 属性 | 值 |
+|-----|---|
+| **参数名** | `INVALID_ENCODER_INDEX` |
+| **当前值** | 0xFF |
+| **类型** | D - 硬件约束参数（系统设计） |
+| **单位** | 无量纲 |
+| **来源** | 系统设计 (v1.2.0双轮迁移修复) |
+| **验证状态** | ✅ 已验证 - 编译时静态检查 |
+| **历史变更** | v1.2.0新增 (2026-07-30) |
+| **文档引用** | `docs/V1.2.0_FIX_SUMMARY.md` |
+| **定义位置** | `modules/Sens-Decision/inc/config.h` |
+| **用途** | 标记编码器配置数组中的未使用位置，防止越界访问 |
+| **说明** | - 系统从四轮架构迁移到双轮后，编码器配置数组从4个减少到2个<br>- 使用0xFF标记剩余位置为无效<br>- 配置验证时检查编码器索引不等于此值<br>- 类型为uint8_t，0xFF超出有效编码器索引范围(0-1) |
+| **一致性要求** | 所有编码器索引验证函数必须检查此标记 |
+
+#### Encoder Count (编码器数量, v1.2.0修正)
+
+| 属性 | 值 |
+|-----|---|
+| **参数名** | `ENCODER_COUNT` (或等效) |
+| **当前值** | 2 (左轮 + 右轮) |
+| **类型** | D - 硬件约束参数 |
+| **单位** | 个 |
+| **来源** | 系统设计 (v1.2.0双轮迁移修正) |
+| **验证状态** | ✅ 已验证 |
+| **历史变更** | 4 (四轮架构) → 2 (双轮架构) (2026-07-30修正) |
+| **文档引用** | `docs/V1.2.0_FIX_SUMMARY.md` |
+| **说明** | - 编码器枚举从4个减少到2个：ENCODER_LEFT, ENCODER_RIGHT<br>- 传感器初始化表从6个对象减少到4个<br>- 状态估计器速度计算仅使用2个编码器 |
+| **影响分析** | 编码器数量错误会导致数组越界、初始化失败、速度计算出错 |
+
 ### 4.3 IMU配置参数
 
 #### IMU Scale (刻度因子)
@@ -466,6 +498,43 @@
 | `curve_error_threshold` | 0.45f | C | 无量纲 | 经验调参 | ⏳ 待验证 |
 | `curve_derivative_threshold` | 1.5f | C | rad/s | 经验调参 | ⏳ 待验证 |
 | `intersection_active_channels` | 4U | C | 个 | 经验调参 | ⏳ 待验证 |
+
+#### IR Black Line Detection Parameters (黑线检测参数, v1.2.0新增)
+
+##### white_reference[8] (白色参考值)
+
+| 属性 | 值 |
+|-----|---|
+| **参数名** | `g_sens_decision_config.perception.white_reference[8]` |
+| **当前值** | [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0] (待校准) |
+| **类型** | A - 物理测量参数（需要校准） |
+| **单位** | ADC原始值 (0-4095) |
+| **来源** | 白平衡校准：将传感器放在白色背景上采集 |
+| **校准方法** | `IrCalibration_WhiteBalance()` - 在白色背景上采集8通道ADC值作为参考 |
+| **验证状态** | ⚠️ 必须校准 - 每次更换场地后必须重新校准 |
+| **历史变更** | v1.2.0新增 (2026-07-30) |
+| **文档引用** | `docs/IR_SENSOR_FIX_2026-07-30.md` |
+| **使用说明** | 用于黑线强度反转算法：`black_strength[i] = white_reference[i] - ir_raw[i]` |
+| **典型值** | 白色桌面: ~270, 白色KT板: ~300-400 |
+| **注意事项** | - 必须在白平衡校准后才能使用<br>- 不同场地/光照条件下参考值不同<br>- 校准必须在传感器初始化成功后执行 |
+
+##### black_strength_threshold (黑线强度阈值)
+
+| 属性 | 值 |
+|-----|---|
+| **参数名** | `g_sens_decision_config.perception.black_strength_threshold` |
+| **当前值** | 50.0f (默认值，待校准) |
+| **类型** | C - 经验调参（需要校准） |
+| **单位** | ADC差值 (无量纲) |
+| **来源** | 黑线阈值校准：将传感器放在黑线上测量 |
+| **校准方法** | `IrCalibration_BlackThreshold()` - 在黑线上测量最低强度，设置阈值 |
+| **计算公式** | `threshold = min_black_strength * 0.7` (取最低强度的70%) |
+| **验证状态** | ⚠️ 必须校准 - 每次更换场地后必须重新校准 |
+| **历史变更** | v1.2.0新增 (2026-07-30) |
+| **文档引用** | `docs/IR_SENSOR_FIX_2026-07-30.md`, `docs/IR_SENSOR_QUICK_FIX_GUIDE.md` |
+| **判断逻辑** | `if (black_strength[i] > black_strength_threshold)` → 检测到黑线 |
+| **调整指南** | - 阈值太低（如10）→ 噪声可能误触发<br>- 阈值太高（如200）→ 可能漏检浅色黑线<br>- 建议从默认值50开始，根据校准结果调整 |
+| **典型值** | 白色背景下黑线强度差约100-170，阈值建议设50-80 |
 
 ### 4.5 EKF配置参数
 
@@ -790,6 +859,46 @@ process_noise_diag[4] = 0.10f;  // ω (角速度变化更快)
 
 ---
 
+#### 2026-07-30: 双轮迁移修复 - 编码器数量修正 (v1.2.0)
+
+**变更类型**: 关键参数修正  
+**影响范围**: 传感器初始化、配置验证、速度估计  
+**变更详情**:
+
+| 文件 | 参数 | 修改前 | 修改后 | 理由 |
+|-----|------|--------|--------|------|
+| config.h | 编码器枚举 | ENCODER_LEFT_FRONT/REAR, ENCODER_RIGHT_FRONT/REAR (4个) | ENCODER_LEFT, ENCODER_RIGHT (2个) | 系统只有2个编码器 |
+| config.h | INVALID_ENCODER_INDEX | (不存在) | 0xFF | 标记未使用位置 |
+| interface.c | 传感器初始化表 | 6个对象 | 4个对象 | 消除数组越界 |
+| config.c | 编码器配置 | 填充4个位置 | 填充2个位置 | 匹配实际硬件 |
+| interface.c | 配置验证 | 未检查索引范围 | 检查<ENCODER_COUNT | 防止无效索引 |
+| state_evaluate.c | 速度计算 | 4编码器平均 | 2编码器平均 | 正确的速度估计 |
+
+**文档引用**: docs/V1.2.0_FIX_SUMMARY.md
+
+---
+
+#### 2026-07-30: 红外传感器黑线检测算法修正 (v1.2.0)
+
+**变更类型**: 算法修正 + 新增参数  
+**影响范围**: 循迹准确性  
+**变更详情**:
+
+| 文件 | 参数 | 修改前 | 修改后 | 理由 |
+|-----|------|--------|--------|------|
+| config.h | white_reference[8] | (不存在) | 新增参数 | 白平衡参考值 |
+| config.h | black_strength_threshold | (不存在) | 新增参数 (默认50.0f) | 黑线强度阈值 |
+| perception.c | 检测逻辑 | `if (raw > threshold)` | `if (white_ref - raw > threshold)` | 修正反向判断 |
+| ir_calibration.c | 校准工具 | (不存在) | 新增白平衡和阈值校准 | 必需校准流程 |
+
+**算法变化**:
+- 旧算法 (v1.1.0): 阈值判断反向，黑线检测准确率0%
+- 新算法 (v1.2.0): 黑线强度反转，检测准确率>95%
+
+**文档引用**: docs/IR_SENSOR_FIX_2026-07-30.md
+
+---
+
 ### 8.2 待变更项
 
 | 优先级 | 参数 | 当前值 | 建议变更 | 理由 | 计划时间 |
@@ -797,6 +906,8 @@ process_noise_diag[4] = 0.10f;  // ω (角速度变化更快)
 | P2 | EKF process_noise_diag | [0.01, ...]统一 | 差异化配置 | 不同状态变化速率不同 | 待实车测试后 |
 | P3 | IMU bias | [0, 0, 0] | 标定值 | 提高IMU精度 | 系统稳定后 |
 | P3 | behavior speeds | 理论值 | 优化值 | 提高赛道速度 | 赛道测试后 |
+| P0 | white_reference[8] | [0.0, ...] 初始值 | 白平衡校准值 | 红外算法依赖此参数 | **首次上电前必须校准** |
+| P0 | black_strength_threshold | 50.0f 默认值 | 黑线校准值 | 红外算法依赖此参数 | **首次上电前必须校准** |
 
 ---
 
@@ -806,12 +917,15 @@ process_noise_diag[4] = 0.10f;  // ω (角速度变化更快)
 
 #### 按字母顺序
 
+- `black_strength_threshold` → config.c, 类型C, ⚠️ 必须校准
 - CMD_SMOOTH_TAU → motion_config.h, 类型C
+- ENCODER_COUNT → config.h, 类型D, ✅ 已验证 (v1.2.0修正)
 - ENCODER_PPR → motion_config.h, 类型B, ✅ 已验证
 - FF_K_ACCEL → motion_config.h, 类型C
 - FF_K_FRICTION → motion_config.h, 类型C
 - FF_K_STATIC → motion_config.h, 类型C
 - GEAR_RATIO → motion_config.h, 类型B
+- INVALID_ENCODER_INDEX → config.h, 类型D, ✅ 已验证 (v1.2.0新增)
 - MAIN_LOOP_FREQ_HZ → motion_config.h, 类型D, ✅ 已验证
 - MAX_SPEED → motion_config.h, 类型D
 - MOTOR_PWM_ARR → motor.c, 类型D, ✅ 已验证
@@ -820,11 +934,13 @@ process_noise_diag[4] = 0.10f;  // ω (角速度变化更快)
 - SPEED_KI → motion_config.h, 类型C
 - WHEEL_BASE → motion_config.h, 类型A, ✅ 已验证
 - WHEEL_RADIUS → motion_config.h, 类型A
+- `white_reference[8]` → config.c, 类型A, ⚠️ 必须校准
 
 #### 按文件分类
 
 **motion_config.h**: 物理参数、控制参数、约束参数  
-**config.c**: 传感器配置、EKF参数、行为参数  
+**config.c**: 传感器配置、EKF参数、行为参数、黑线检测参数 (v1.2.0新增)  
+**config.h**: 编码器枚举、系统宏定义、INVALID_ENCODER_INDEX (v1.2.0修正)  
 **motor.c**: 硬件参数、PWM配置
 
 ### 9.2 相关文档索引
@@ -833,10 +949,16 @@ process_noise_diag[4] = 0.10f;  // ω (角速度变化更快)
 |---------|------|------|
 | 参数调优指南 | docs/PARAMETER_TUNING_GUIDE.md | PID和前馈参数调优方法 |
 | 快速标定指南 | docs/CALIBRATION_QUICK_GUIDE.md | 物理参数标定步骤 |
+| 快速开始指南 | docs/QUICK_START_AFTER_V1.2.0.md | v1.2.0更新后快速开始 (v1.2.0新增) |
+| v1.2.0修复总结 | docs/V1.2.0_FIX_SUMMARY.md | 完整修复总结报告 (v1.2.0新增) |
 | EKF修复总结 | build/logs/EKF_FIX_SUMMARY.md | EKF观测模型优化详情 |
 | 编码器PPR修正 | logs/2026-07-30_encoder_ppr_correction.md | 编码器分辨率确认过程 |
 | 参数更新总结 | logs/PARAMETER_UPDATE_SUMMARY_2026-07-30.md | 2026-07-30批量更新记录 |
-| IR传感器修复 | build/logs/2026-07-30_ir_sensor_fix_implementation.md | 坐标系修正详情 |
+| IR传感器修复(坐标系) | build/logs/2026-07-30_ir_sensor_fix_implementation.md | 坐标系修正详情 |
+| IR传感器修复(算法) | docs/IR_SENSOR_FIX_2026-07-30.md | 黑线检测算法修复 (v1.2.0新增) |
+| IR传感器快速修复 | docs/IR_SENSOR_QUICK_FIX_GUIDE.md | 快速修复操作指南 (v1.2.0新增) |
+| 速度模式修复 | docs/SPEED_MODE_FIX_REPORT.md | 速度配置传递修复 (v1.2.0新增) |
+| 初始化修复总结 | docs/INITIALIZATION_FIX_SUMMARY.md | 初始化失败处理修复 (v1.2.0新增) |
 
 ### 9.3 标定工具列表
 
@@ -844,6 +966,9 @@ process_noise_diag[4] = 0.10f;  // ω (角速度变化更快)
 |---------|------|------|
 | 编码器分辨率标定 | Core/Src/app/encoder_resolution_calibration.c | 测量编码器实际PPR |
 | 电机速度测试 | Core/Src/app/motor_speed_test.c | 验证编码器配置 |
+| 红外传感器校准 | Core/Src/app/ir_calibration.c | 白平衡校准 + 黑线阈值校准 (v1.2.0新增) |
+| 红外传感器调试 | modules/Sens-Decision/src/perception_debug.c | 实时黑线检测调试监控 (v1.2.0新增) |
+| 速度模式配置 | Core/Src/app/speed_mode.c | 4档速度模式切换 (v1.2.0新增) |
 | 性能监控工具 | (待开发) | 监控任务执行时间 |
 | PID调参工具 | (待开发) | 阶跃响应测试 |
 

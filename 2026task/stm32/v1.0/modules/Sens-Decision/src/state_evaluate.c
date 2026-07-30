@@ -74,23 +74,38 @@ sd_status_t state_evaluator_update(state_evaluator_t *evaluator, const sensor_fr
     }
     
     dt_s = (float)(frame->timestamp_us - evaluator->last_timestamp_us) * 1e-6f;
-    
-    if (dt_s < g_sens_decision_config.ekf.dt_min_s || 
+
+    if (dt_s < g_sens_decision_config.ekf.dt_min_s ||
         dt_s > g_sens_decision_config.ekf.dt_max_s) {
         evaluator->consecutive_valid_frames = 0;
         evaluator->consecutive_failure_frames++;
-        if (evaluator->consecutive_failure_frames >= 
+        if (evaluator->consecutive_failure_frames >=
             g_sens_decision_config.behavior.localization_failure_frames) {
             evaluator->state.localization_valid = false;
         }
         return SD_ERR_DATA_INVALID;
     }
-    
-    left_speed = (frame->encoders[g_sens_decision_config.vehicle.left_encoder_indices[0]].speed_mps +
-                  frame->encoders[g_sens_decision_config.vehicle.left_encoder_indices[1]].speed_mps) / 2.0f;
-    right_speed = (frame->encoders[g_sens_decision_config.vehicle.right_encoder_indices[0]].speed_mps +
-                   frame->encoders[g_sens_decision_config.vehicle.right_encoder_indices[1]].speed_mps) / 2.0f;
-    
+
+    /**
+     * 双轮差速底盘速度计算（2026-07-30迁移修复）
+     *
+     * @note 四轮→双轮迁移变更:
+     *       - 旧: 每侧有2个编码器，取平均值
+     *       - 新: 每侧只有1个编码器，直接使用
+     *
+     * @config 当前配置:
+     *   - left_encoder_indices[0] = 0 (左轮编码器)
+     *   - left_encoder_indices[1] = INVALID_ENCODER_INDEX (未使用)
+     *   - right_encoder_indices[0] = 1 (右轮编码器)
+     *   - right_encoder_indices[1] = INVALID_ENCODER_INDEX (未使用)
+     *
+     * @algorithm 双轮差速运动学:
+     *   - v = (v_left + v_right) / 2  (线速度)
+     *   - ω = (v_right - v_left) / L  (角速度, L=轮距)
+     */
+    left_speed = frame->encoders[g_sens_decision_config.vehicle.left_encoder_indices[0]].speed_mps;
+    right_speed = frame->encoders[g_sens_decision_config.vehicle.right_encoder_indices[0]].speed_mps;
+
     v_encoder = (right_speed + left_speed) / 2.0f;
     omega_encoder = (right_speed - left_speed) / g_sens_decision_config.vehicle.wheel_track_m;
 

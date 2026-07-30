@@ -58,6 +58,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     Core/Src/app/square_path.c
     Core/Src/app/track_path.c
     Core/Src/app/track_control_app.c
+    Core/Src/app/speed_mode.c
     # Core/Src/app/track_demo.c  # 示例代码，不参与编译
     Core/Src/app/imu_debug.c
     Core/Src/app/spi_diagnostic.c

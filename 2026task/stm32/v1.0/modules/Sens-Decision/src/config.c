@@ -133,10 +133,32 @@ void sd_config_reset_defaults(void) {
      *   - 轮距误差会导致转向角度误差
      */
     g_sens_decision_config.vehicle.wheel_track_m = 0.115f;
-    g_sens_decision_config.vehicle.left_encoder_indices[0] = 0U;
-    g_sens_decision_config.vehicle.left_encoder_indices[1] = 0U;
-    g_sens_decision_config.vehicle.right_encoder_indices[0] = 1U;
-    g_sens_decision_config.vehicle.right_encoder_indices[1] = 1U;
+
+    /**
+     * 双轮差速底盘编码器索引配置（2026-07-30迁移）
+     *
+     * @category 双轮配置（从四轮迁移）
+     *
+     * @config 当前配置:
+     *   - 左轮: 编码器0 (TIM3)
+     *   - 右轮: 编码器1 (TIM4)
+     *   - 索引[1]: 设为INVALID_ENCODER_INDEX（未使用）
+     *
+     * @note 数组保留2个元素是为了兼容可能的前后轮配置
+     *       双轮配置下，每侧只使用索引[0]，索引[1]标记为无效
+     *
+     * @validation 验证逻辑（config.c:sd_config_validate）
+     *   - 检查每个有效编码器索引只被引用1次
+     *   - INVALID_ENCODER_INDEX不参与重复检查
+     *
+     * @hardware 物理编码器映射:
+     *   - 编码器0 → 左轮电机（TIM3，4倍频）
+     *   - 编码器1 → 右轮电机（TIM4，4倍频）
+     */
+    g_sens_decision_config.vehicle.left_encoder_indices[0] = 0U;  /* 左轮使用编码器0 */
+    g_sens_decision_config.vehicle.left_encoder_indices[1] = INVALID_ENCODER_INDEX;  /* 双轮无第二编码器 */
+    g_sens_decision_config.vehicle.right_encoder_indices[0] = 1U;  /* 右轮使用编码器1 */
+    g_sens_decision_config.vehicle.right_encoder_indices[1] = INVALID_ENCODER_INDEX;  /* 双轮无第二编码器 */
 
     for (index = 0U; index < SD_ENCODER_COUNT; ++index) {
         sd_encoder_config_t *encoder = &g_sens_decision_config.encoders[index];
@@ -303,6 +325,71 @@ void sd_config_reset_defaults(void) {
     g_sens_decision_config.perception.intersection_active_channels = 4U;
 
     /**
+     * 白色背景参考值（黑线检测算法核心参数）
+     *
+     * @category A: 物理测量参数（需要校准）
+     *
+     * @value 270.0f (初始估计值，基于典型白色背景ADC读数)
+     *
+     * @origin 实测数据（白色背景约250-270）
+     *   - 测量方法: 将传感器置于白色背景上，记录各通道ADC值
+     *   - 这些值代表"没有黑线"时的基准反射率
+     *
+     * @calibration 白平衡校准（强烈推荐）
+     *   使用ir_calibration工具:
+     *   1. 将小车放在纯白色表面
+     *   2. 调用 ir_calibrate_white_balance()
+     *   3. 自动采样100次并更新此数组
+     *
+     * @algorithm 黑线强度反转算法:
+     *   black_strength[i] = white_reference[i] - current_value[i]
+     *   - 白色区域: black_strength ≈ 0 (270 - 270 = 0)
+     *   - 黑线区域: black_strength ≈ 170 (270 - 100 = 170)
+     *
+     * @warnings
+     *   - 光照条件变化时需要重新校准
+     *   - 传感器老化或更换后需要重新校准
+     *   - 不同传感器通道可能有差异（个体差异）
+     */
+    for (index = 0U; index < SD_IR_CHANNEL_COUNT; ++index) {
+        g_sens_decision_config.perception.white_reference[index] = 270.0f;
+    }
+
+    /**
+     * 黑线强度阈值（检测灵敏度）
+     *
+     * @category C: 经验调参（需要实验验证）
+     *
+     * @value 50.0f (初始保守值)
+     *
+     * @origin 理论估算
+     *   - 白色背景: ~270
+     *   - 黑线: ~100
+     *   - 差值: ~170
+     *   - 阈值设为差值的30%: 170 * 0.3 ≈ 50
+     *
+     * @calibration 自动校准（推荐）
+     *   使用ir_calibration工具:
+     *   1. 将小车居中对齐黑线
+     *   2. 调用 ir_calibrate_black_threshold()
+     *   3. 自动设置为最大黑线强度的50%
+     *
+     * @tuning_guide
+     *   如何判断阈值是否合适:
+     *   - 阈值过低: 白色也被误判为黑线（噪声敏感）
+     *   - 阈值过高: 黑线检测不到（灵敏度不足）
+     *
+     *   建议调整范围: 30.0 ~ 100.0
+     *   - 强光环境: 可适当提高（抗干扰）
+     *   - 弱光环境: 可适当降低（提高灵敏度）
+     *
+     * @warnings
+     *   - 必须在校准白色参考值后再校准此阈值
+     *   - 不同赛道表面反射率不同，可能需要微调
+     */
+    g_sens_decision_config.perception.black_strength_threshold = 50.0f;
+
+    /**
      * EKF初始协方差对角线元素
      *
      * @category C: 经验调参（需要实验）
@@ -456,19 +543,47 @@ sd_status_t sd_config_validate(const sens_decision_config_t *config) {
     if (config == NULL || !positive_finite(config->vehicle.wheel_track_m)) {
         return SD_ERR_INVALID_ARGUMENT;
     }
+
+    /**
+     * 编码器索引验证（支持双轮配置）
+     *
+     * @note 双轮差速底盘特殊处理:
+     *       - INVALID_ENCODER_INDEX (0xFF) 表示该位置未使用
+     *       - 只统计有效编码器索引的引用次数
+     *       - 每个有效编码器必须被引用恰好1次
+     *
+     * @validation 检查项:
+     *   1. 索引值必须 < SD_ENCODER_COUNT 或等于 INVALID_ENCODER_INDEX
+     *   2. 每个有效编码器索引被引用次数 == 1（不重复、不遗漏）
+     */
     for (index = 0U; index < 2U; ++index) {
-        if (config->vehicle.left_encoder_indices[index] >= SD_ENCODER_COUNT ||
-            config->vehicle.right_encoder_indices[index] >= SD_ENCODER_COUNT) {
-            return SD_ERR_INVALID_ARGUMENT;
+        uint8_t left_idx = config->vehicle.left_encoder_indices[index];
+        uint8_t right_idx = config->vehicle.right_encoder_indices[index];
+
+        /* 检查左侧编码器索引合法性 */
+        if (left_idx != INVALID_ENCODER_INDEX) {
+            if (left_idx >= SD_ENCODER_COUNT) {
+                return SD_ERR_INVALID_ARGUMENT;
+            }
+            ++encoder_index_counts[left_idx];
         }
-        ++encoder_index_counts[config->vehicle.left_encoder_indices[index]];
-        ++encoder_index_counts[config->vehicle.right_encoder_indices[index]];
+
+        /* 检查右侧编码器索引合法性 */
+        if (right_idx != INVALID_ENCODER_INDEX) {
+            if (right_idx >= SD_ENCODER_COUNT) {
+                return SD_ERR_INVALID_ARGUMENT;
+            }
+            ++encoder_index_counts[right_idx];
+        }
     }
+
+    /* 验证每个编码器被引用恰好1次（双轮配置：2个编码器各用1次） */
     for (index = 0U; index < SD_ENCODER_COUNT; ++index) {
         if (encoder_index_counts[index] != 1U) {
             return SD_ERR_INVALID_ARGUMENT;
         }
     }
+
     for (index = 0U; index < SD_ENCODER_COUNT; ++index) {
         const sd_encoder_config_t *encoder = &config->encoders[index];
         if (!positive_finite(encoder->wheel_radius_m) ||
@@ -498,11 +613,13 @@ sd_status_t sd_config_validate(const sens_decision_config_t *config) {
         !positive_finite(config->perception.curve_error_threshold) ||
         !positive_finite(config->perception.curve_derivative_threshold) ||
         config->perception.intersection_active_channels == 0U ||
-        config->perception.intersection_active_channels > SD_IR_CHANNEL_COUNT) {
+        config->perception.intersection_active_channels > SD_IR_CHANNEL_COUNT ||
+        !positive_finite(config->perception.black_strength_threshold)) {
         return SD_ERR_INVALID_ARGUMENT;
     }
     for (index = 0U; index < SD_IR_CHANNEL_COUNT; ++index) {
-        if (!isfinite(config->perception.weights[index])) {
+        if (!isfinite(config->perception.weights[index]) ||
+            !positive_finite(config->perception.white_reference[index])) {
             return SD_ERR_INVALID_ARGUMENT;
         }
     }

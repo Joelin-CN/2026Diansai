@@ -9,6 +9,16 @@
 #define SD_EKF_STATE_COUNT 5U
 #define SD_EKF_OBSERVATION_COUNT 2U  /* Changed from 3 to 2: removed IMU gyro observation */
 
+/**
+ * @brief 无效编码器索引标记（双轮配置专用）
+ *
+ * @note 用于标记未使用的编码器索引位置
+ *       双轮差速底盘：每侧只有1个编码器
+ *       - left_encoder_indices[0] = 实际编码器索引
+ *       - left_encoder_indices[1] = INVALID_ENCODER_INDEX（未使用）
+ */
+#define INVALID_ENCODER_INDEX 0xFFU
+
 typedef enum {
     SD_OK = 0,
     SD_ERR_INVALID_ARGUMENT = -1,
@@ -57,6 +67,8 @@ typedef struct {
     float curve_error_threshold;
     float curve_derivative_threshold;
     uint8_t intersection_active_channels;
+    float white_reference[SD_IR_CHANNEL_COUNT];  // 白色背景参考值（原始ADC值）
+    float black_strength_threshold;              // 黑线强度阈值（原始ADC差值）
 } sd_perception_config_t;
 
 typedef struct {
