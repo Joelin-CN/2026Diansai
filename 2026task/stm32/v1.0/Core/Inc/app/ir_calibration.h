@@ -73,4 +73,23 @@ void IrCalibration_PrintConfig(void);
  */
 void IrCalibration_Monitor(uint32_t duration_ms, uint32_t interval_ms);
 
+/**
+ * @brief 一步校准法 - 小车放置在轨迹上同时采集黑白数据
+ *
+ * @details 校准步骤:
+ *   1. 将小车放置在黑色轨迹上，确保探头3和4完全在黑线上
+ *   2. 其他探头（0,1,2,5,6,7）应在白色区域
+ *   3. 调用此函数
+ *   4. 自动采集100次样本
+ *   5. 自动计算白色参考值和黑线阈值
+ *
+ * @note 优势:
+ *   - 一次性完成校准，无需两步操作
+ *   - 更符合实际使用场景
+ *   - 减少操作错误
+ *
+ * @warning 确保探头3和4完全在黑线上，其他探头在白色区域
+ */
+void IrCalibration_OneStep(void);
+
 #endif // IR_CALIBRATION_H

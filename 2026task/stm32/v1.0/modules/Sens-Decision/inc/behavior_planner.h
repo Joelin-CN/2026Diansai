@@ -18,9 +18,7 @@
 
 typedef enum {
     BEHAVIOR_STATE_IDLE,
-    BEHAVIOR_STATE_LINE_FOLLOW,
-    BEHAVIOR_STATE_APPROACH_CURVE,
-    BEHAVIOR_STATE_CURVE,
+    BEHAVIOR_STATE_RUNNING,
     BEHAVIOR_STATE_LINE_LOST_DEGRADED,
     BEHAVIOR_STATE_STOPPED,
     BEHAVIOR_STATE_FAULT
@@ -51,7 +49,6 @@ typedef struct {
     behavior_state_t previous_running_state;
     uint16_t line_lost_frames;
     uint16_t critical_failure_count;
-    uint16_t stable_straight_frames;
     float last_valid_lateral_error;
     bool initialized;
 } behavior_planner_t;

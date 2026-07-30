@@ -58,6 +58,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     Core/Src/app/square_path.c
     Core/Src/app/track_path.c
     Core/Src/app/track_control_app.c
+    Core/Src/app/playground_track.c
     Core/Src/app/speed_mode.c
     # Core/Src/app/track_demo.c  # 示例代码，不参与编译
     Core/Src/app/imu_debug.c
@@ -74,6 +75,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     Core/Src/app/calibration_tool.c
     Core/Src/app/encoder_resolution_calibration.c
     Core/Src/app/ir_sensor_calibration.c
+    Core/Src/app/ir_calibration.c
     Core/Src/app/encoder_motor_test.c
     Core/Src/app/encoder_diagnostic.c
 

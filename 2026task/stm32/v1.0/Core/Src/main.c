@@ -106,9 +106,7 @@ int main(void)
   MX_USART3_UART_Init();
   MX_USART6_UART_Init();
   /* USER CODE BEGIN 2 */
-  UartDebug_Init();
-  printf("[UART5] Debug UART initialized @115200, PC12(TX) PD2(RX)\r\n");
-  printf("[SYSTEM] Entering FreeRTOS scheduler...\r\n");
+
   /* USER CODE END 2 */
 
   /* Init scheduler */

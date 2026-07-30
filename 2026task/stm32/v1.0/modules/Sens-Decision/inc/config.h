@@ -28,7 +28,8 @@ typedef enum {
     SD_ERR_HW_FAULT = -5,
     SD_ERR_UNSUPPORTED = -6,
     SD_ERR_DATA_INVALID = -7,
-    SD_ERR_NUMERIC = -8
+    SD_ERR_NUMERIC = -8,
+    SD_ERR_NULL_POINTER = -9
 } sd_status_t;
 
 typedef struct {
@@ -64,9 +65,6 @@ typedef struct {
     float weights[SD_IR_CHANNEL_COUNT];
     sd_position_t position;
     float heading_filter_alpha;
-    float curve_error_threshold;
-    float curve_derivative_threshold;
-    uint8_t intersection_active_channels;
     float white_reference[SD_IR_CHANNEL_COUNT];  // 白色背景参考值（原始ADC值）
     float black_strength_threshold;              // 黑线强度阈值（原始ADC差值）
 } sd_perception_config_t;
@@ -85,12 +83,10 @@ typedef struct {
     uint16_t line_recovery_frames;
     uint16_t line_lost_stop_frames;
     uint16_t critical_failure_frames;
-    uint16_t curve_exit_stable_frames;
     float idle_speed_mps;
     float line_speed_mps;
-    float approach_curve_speed_mps;
-    float curve_speed_mps;
     float degraded_speed_mps;
+    float speed_error_gain;  // 基于横向偏差的速度调节增益
 } sd_behavior_config_t;
 
 typedef struct {

@@ -202,7 +202,7 @@ Selection is based on `g_dist_m` alone — no IR pattern interpretation required
 | 1.500 – 3.071 m | Curve B→C (right) | 0.60 m/s | 2.5 | 1.5 | 3.0 |
 | 3.071 – 4.571 m | Straight C→D | 1.00 m/s | 1.5 | 1.0 | 3.0 |
 | 4.571 – 5.000 m | Curve D→A (early) | 0.60 m/s | 2.5 | 1.5 | 3.0 |
-| 5.000 m – stop | Curve D→A (approach) | **0.25 m/s** | 2.0 | 1.2 | 2.0 |
+| 5.000 m – A-line | Curve D→A (approach) | **0.25 m/s** | 2.0 | 1.2 | 2.0 |
 
 **Rationale for 0.25 m/s approach speed**:
 MotionControl built-in decel limit = 3.0 m/s².

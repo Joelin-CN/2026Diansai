@@ -832,21 +832,23 @@ void TrackControlApp_RunFastCycle(void) {
 
 ### 11.1 分阶段调试
 
+> **v1.3.0 更新**: 曲线速度和接近弯道速度已移除。速度现由 `speed_error_gain` 根据横向偏差连续调节。
+
 **第1阶段：验证基本功能（低速）**:
 ```c
-line_speed = 0.3, curve_speed = 0.2, lateral_gain = 0.5, heading_gain = 0.0
+speed_mode_set(SPEED_MODE_DEBUG);  // 0.2 m/s, speed_error_gain = 0.3
 // 目标：稳定完成1圈（先关航向修正）
 ```
 
 **第2阶段：提升性能（中速）**:
 ```c
-line_speed = 0.6, curve_speed = 0.4, lateral_gain = 1.0, heading_gain = 0.5
+speed_mode_set(SPEED_MODE_SLOW);   // 0.5 m/s, speed_error_gain = 0.3
 // 目标：稳定完成10圈
 ```
 
 **第3阶段：冲击极限（高速）**:
 ```c
-line_speed = 1.0, curve_speed = 0.7, lateral_gain = 调优, heading_gain = 调优
+speed_mode_set(SPEED_MODE_NORMAL); // 1.0 m/s, speed_error_gain 可微调
 // 目标：最短时间完成20圈
 ```
 
@@ -1001,14 +1003,17 @@ speed_mode_set(SPEED_MODE_NORMAL);  // 1.0 m/s (正常运行)
 speed_mode_set(SPEED_MODE_FAST);    // 1.5 m/s (竞速模式)
 ```
 
-**速度模式配置表**:
+**速度模式配置表** (v1.3.0 更新):
 
-| 模式 | 直线速度 | 接近弯道 | 弯道速度 | 使用场景 |
-|------|----------|----------|----------|----------|
-| DEBUG | 0.2 m/s | 0.18 m/s | 0.15 m/s | 首次调试，验证传感器 |
-| SLOW | 0.5 m/s | 0.4 m/s | 0.3 m/s | 常规调试，PID调优 |
-| NORMAL | 1.0 m/s | 0.7 m/s | 0.5 m/s | 正常运行 |
-| FAST | 1.5 m/s | 1.0 m/s | 0.8 m/s | 竞速模式 |
+| 模式 | 直线速度 | 使用场景 |
+|------|----------|----------|
+| DEBUG | 0.2 m/s | 首次调试，验证传感器 |
+| SLOW | 0.5 m/s | 常规调试，PID调优 |
+| NORMAL | 1.0 m/s | 正常运行 |
+| FAST | 1.5 m/s | 竞速模式 |
+
+> **v1.3.0 注意**: 弯道速度由 `speed_error_gain` (默认0.3) 根据横向偏差实时调节，不再需要预设弯道速度。
+> 速度公式: `speed = line_speed * clamp(1.0 - 0.3 * |lateral_error|, 0.4, 1.0)`
 
 **使用方法**:
 ```c
@@ -1043,7 +1048,7 @@ speed_mode_set(SPEED_MODE_DEBUG);  // ← 修改这一行即可切换速度
 ---
 
 **指南创建时间**: 2026-07-30
-**最后更新**: 2026-07-30 (v1.2.0)
+**最后更新**: 2026-07-30 (v1.3.0 - 移除曲线/弯道速度建议，更新分阶段调试指南)
 **数据来源**: logs/ 目录下 35+ 个调试日志 + build/logs/ 分析报告 + Agent-8/9/10/11修复报告
 **创建者**: Claude (Opus 4.8) + 用户 Joelin
-**版本**: v1.2 (新增传感器配置、红外算法、速度配置陷阱章节)
+**版本**: v1.3 (移除过时的曲线检测调优建议，更新速度模式表)

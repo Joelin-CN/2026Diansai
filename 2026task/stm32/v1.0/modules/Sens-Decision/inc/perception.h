@@ -15,19 +15,11 @@
 #include "config.h"
 #include "interface.h"
 
-typedef enum {
-    ROAD_EVENT_NONE,
-    ROAD_EVENT_CURVE_ENTRY,
-    ROAD_EVENT_INTERSECTION,
-    ROAD_EVENT_LINE_LOST
-} road_event_t;
-
 typedef struct {
     float lateral_error;
     float heading_error;
     uint16_t active_mask;
     uint16_t lost_count;
-    road_event_t event;
     bool line_valid;
 } perception_result_t;
 

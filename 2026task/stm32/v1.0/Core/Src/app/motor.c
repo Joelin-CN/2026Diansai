@@ -111,9 +111,10 @@ void Motor_Init(void) {
 
 void Motor_SetSpeed(int16_t left, int16_t right) {
     // Note: MOTOR_B -> Left wheel, MOTOR_C -> Right wheel
+    // IMPORTANT: Left motor (MOTOR_B) is physically reversed, so negate the speed
     _set_wheel(TIM_CHANNEL_1,
                MOTOR_B_IN1_GPIO_Port, MOTOR_B_IN1_Pin,
-               MOTOR_B_IN2_GPIO_Port, MOTOR_B_IN2_Pin, left);
+               MOTOR_B_IN2_GPIO_Port, MOTOR_B_IN2_Pin, -left);
     _set_wheel(TIM_CHANNEL_2,
                MOTOR_C_IN1_GPIO_Port, MOTOR_C_IN1_Pin,
                MOTOR_C_IN2_GPIO_Port, MOTOR_C_IN2_Pin, right);

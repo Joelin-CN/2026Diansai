@@ -1,8 +1,8 @@
 # 参数追溯表文档
 
-**文档版本**: v1.2  
-**创建日期**: 2026-07-30  
-**最后更新**: 2026-07-30 (v1.2.0参数新增)  
+**文档版本**: v1.3
+**创建日期**: 2026-07-30
+**最后更新**: 2026-07-30 (v1.3.0算法简化 - 移除6参数，新增 speed_error_gain)
 **维护者**: 系统集成团队
 
 ---
@@ -495,9 +495,8 @@
 |-------|--------|------|------|------|---------|
 | `active_high` | true | D | bool | 硬件特性 | ✅ 已验证 |
 | `heading_filter_alpha` | 0.3f | C | 无量纲 | 经验调参 | ⏳ 待验证 |
-| `curve_error_threshold` | 0.45f | C | 无量纲 | 经验调参 | ⏳ 待验证 |
-| `curve_derivative_threshold` | 1.5f | C | rad/s | 经验调参 | ⏳ 待验证 |
-| `intersection_active_channels` | 4U | C | 个 | 经验调参 | ⏳ 待验证 |
+
+> **v1.3.0 移除**: `curve_error_threshold` (was 0.45), `curve_derivative_threshold` (was 1.5), `intersection_active_channels` (was 4) -- 线型事件检测已移除，无需这些参数。参见 `docs/MODIFICATION_SUMMARY_2026-07-30.md`。
 
 #### IR Black Line Detection Parameters (黑线检测参数, v1.2.0新增)
 
@@ -591,7 +590,8 @@ process_noise_diag[4] = 0.10f;  // ω (角速度变化更快)
 | `line_recovery_frames` | 3U | C | 帧 | 经验调参 | ⏳ 待验证 |
 | `line_lost_stop_frames` | 20U | C | 帧 | 经验调参 | ⏳ 待验证 |
 | `critical_failure_frames` | 5U | C | 帧 | 经验调参 | ⏳ 待验证 |
-| `curve_exit_stable_frames` | 5U | C | 帧 | 经验调参 | ⏳ 待验证 |
+
+> **v1.3.0 移除**: `curve_exit_stable_frames` (was 5U) -- 弯道退出逻辑已移除。
 
 #### Speed Settings (速度设定)
 
@@ -599,9 +599,26 @@ process_noise_diag[4] = 0.10f;  // ω (角速度变化更快)
 |-------|--------|------|------|------|---------|
 | `idle_speed_mps` | 0.0f | D | m/s | 系统设计 | ✅ 已设定 |
 | `line_speed_mps` | 1.0f | C | m/s | 经验调参 | ⏳ 待验证 |
-| `approach_curve_speed_mps` | 0.7f | C | m/s | 经验调参 | ⏳ 待验证 |
-| `curve_speed_mps` | 0.5f | C | m/s | 经验调参 | ⏳ 待验证 |
 | `degraded_speed_mps` | 0.25f | C | m/s | 经验调参 | ⏳ 待验证 |
+| `speed_error_gain` | 0.3f | C | 无量纲 | 经验调参 (v1.3.0新增) | ⏳ 待验证 |
+
+> **v1.3.0 移除**: `approach_curve_speed_mps` (was 0.7f), `curve_speed_mps` (was 0.5f) -- 弯道状态已移除，速度由偏差连续调节。
+
+#### speed_error_gain (速度误差增益, v1.3.0新增)
+
+| 属性 | 值 |
+|-----|---|
+| **参数名** | `g_sens_decision_config.behavior.speed_error_gain` |
+| **当前值** | 0.3f |
+| **类型** | C - 经验调参 |
+| **单位** | 无量纲 |
+| **来源** | 系统设计 (v1.3.0算法简化) |
+| **计算公式** | `speed = line_speed * clamp(1.0 - gain * \|lateral_error\|, 0.4, 1.0)` |
+| **历史变更** | v1.3.0新增 (2026-07-30) |
+| **文档引用** | `docs/MODIFICATION_SUMMARY_2026-07-30.md` |
+| **调参指南** | - 默认值 0.3: lateral_error=1.0时速度降至70%<br>- 增大 (如0.5): 更激进减速，配合高KP<br>- 减小 (如0.2): 更保守，依赖PD转向<br>- 设置为0: 关闭偏差调速，始终全速 |
+| **调整范围** | 0.0f ~ 2.0f |
+| **注意事项** | 速度最低clamp到40%，防止完全停止 |
 
 ### 4.7 轨迹规划参数
 
@@ -742,7 +759,7 @@ process_noise_diag[4] = 0.10f;  // ω (角速度变化更快)
 | FF_K_FRICTION | 300.0f | 恒速测试 | 30分钟 |
 | FF_K_STATIC | 80.0f | 启动测试 | 20分钟 |
 | EKF observation_noise | [0.03, 0.08] | 静态噪声采集 | 30分钟 |
-| behavior speeds | 1.0f, 0.7f, 0.5f... | 赛道测试 | 60分钟 |
+| speed_error_gain | 0.3f | 偏差调速测试 (v1.3.0) | 60分钟 |
 
 **P2参数总验证时间**: 约170分钟
 
@@ -859,6 +876,31 @@ process_noise_diag[4] = 0.10f;  // ω (角速度变化更快)
 
 ---
 
+#### 2026-07-30: IR算法简化 - 参数删除与新增 (v1.3.0)
+
+**变更类型**: 算法简化 + 参数调整
+**影响范围**: 感知层、行为规划层、速度控制
+**变更详情**:
+
+| 文件 | 参数 | 修改前 | 修改后 | 理由 |
+|-----|------|--------|--------|------|
+| config.h/c | curve_error_threshold | 0.45f | (已删除) | 曲线检测已移除 |
+| config.h/c | curve_derivative_threshold | 1.5f | (已删除) | 曲线检测已移除 |
+| config.h/c | intersection_active_channels | 4U | (已删除) | 交叉路口检测已移除 |
+| config.h/c | approach_curve_speed_mps | 0.7f | (已删除) | APPROACH_CURVE状态已移除 |
+| config.h/c | curve_speed_mps | 0.5f | (已删除) | CURVE状态已移除 |
+| config.h/c | curve_exit_stable_frames | 5U | (已删除) | 弯道退出逻辑已移除 |
+| config.h/c | speed_error_gain | (不存在) | 0.3f | 新增：基于偏差的连续速度调节 |
+
+**行为状态机变化**:
+- 7状态 → 5状态（移除 APPROACH_CURVE, CURVE）
+- LINE_FOLLOW → RUNNING（重命名）
+- 速度控制：事件驱动降速 → 偏差连续调速
+
+**文档引用**: `docs/MODIFICATION_SUMMARY_2026-07-30.md`, `docs/IR_ALGORITHM_ANALYSIS_2026-07-30.md`
+
+---
+
 #### 2026-07-30: 双轮迁移修复 - 编码器数量修正 (v1.2.0)
 
 **变更类型**: 关键参数修正  
@@ -905,7 +947,7 @@ process_noise_diag[4] = 0.10f;  // ω (角速度变化更快)
 |-------|------|--------|---------|------|---------|
 | P2 | EKF process_noise_diag | [0.01, ...]统一 | 差异化配置 | 不同状态变化速率不同 | 待实车测试后 |
 | P3 | IMU bias | [0, 0, 0] | 标定值 | 提高IMU精度 | 系统稳定后 |
-| P3 | behavior speeds | 理论值 | 优化值 | 提高赛道速度 | 赛道测试后 |
+| P3 | speed_error_gain | 0.3f | 优化值 | 提高赛道速度 | 赛道测试后 |
 | P0 | white_reference[8] | [0.0, ...] 初始值 | 白平衡校准值 | 红外算法依赖此参数 | **首次上电前必须校准** |
 | P0 | black_strength_threshold | 50.0f 默认值 | 黑线校准值 | 红外算法依赖此参数 | **首次上电前必须校准** |
 
@@ -930,6 +972,7 @@ process_noise_diag[4] = 0.10f;  // ω (角速度变化更快)
 - MAX_SPEED → motion_config.h, 类型D
 - MOTOR_PWM_ARR → motor.c, 类型D, ✅ 已验证
 - PID_CONTROL_FREQ_HZ → motion_config.h, 类型D, ✅ 已验证
+- `speed_error_gain` → config.c, 类型C, ⏳ 待验证 (v1.3.0新增)
 - SPEED_KP → motion_config.h, 类型C
 - SPEED_KI → motion_config.h, 类型C
 - WHEEL_BASE → motion_config.h, 类型A, ✅ 已验证
@@ -939,7 +982,7 @@ process_noise_diag[4] = 0.10f;  // ω (角速度变化更快)
 #### 按文件分类
 
 **motion_config.h**: 物理参数、控制参数、约束参数  
-**config.c**: 传感器配置、EKF参数、行为参数、黑线检测参数 (v1.2.0新增)  
+**config.c**: 传感器配置、EKF参数、行为参数、speed_error_gain (v1.3.0新增)、黑线检测参数 (v1.2.0新增)  
 **config.h**: 编码器枚举、系统宏定义、INVALID_ENCODER_INDEX (v1.2.0修正)  
 **motor.c**: 硬件参数、PWM配置
 
@@ -959,6 +1002,9 @@ process_noise_diag[4] = 0.10f;  // ω (角速度变化更快)
 | IR传感器快速修复 | docs/IR_SENSOR_QUICK_FIX_GUIDE.md | 快速修复操作指南 (v1.2.0新增) |
 | 速度模式修复 | docs/SPEED_MODE_FIX_REPORT.md | 速度配置传递修复 (v1.2.0新增) |
 | 初始化修复总结 | docs/INITIALIZATION_FIX_SUMMARY.md | 初始化失败处理修复 (v1.2.0新增) |
+| IR算法简化总结 | docs/MODIFICATION_SUMMARY_2026-07-30.md | IR算法简化修改清单 (v1.3.0) |
+| IR算法分析 | docs/IR_ALGORITHM_ANALYSIS_2026-07-30.md | 算法问题深度分析 (v1.3.0) |
+| 算法简化验证 | docs/VALIDATION_AFTER_ALGORITHM_SIMPLIFICATION.md | 实车测试清单 (v1.3.0) |
 
 ### 9.3 标定工具列表
 

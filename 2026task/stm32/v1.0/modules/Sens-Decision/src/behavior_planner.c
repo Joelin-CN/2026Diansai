@@ -14,9 +14,7 @@
 
 static const char *behavior_state_names[] = {
     "IDLE",
-    "LINE_FOLLOW",
-    "APPROACH_CURVE",
-    "CURVE",
+    "RUNNING",
     "LINE_LOST_DEGRADED",
     "STOPPED",
     "FAULT"
@@ -37,7 +35,6 @@ void behavior_planner_init(behavior_planner_t *planner) {
     planner->previous_running_state = BEHAVIOR_STATE_IDLE;
     planner->line_lost_frames = 0U;
     planner->critical_failure_count = 0U;
-    planner->stable_straight_frames = 0U;
     planner->last_valid_lateral_error = 0.0f;
     planner->initialized = true;
 }
@@ -55,11 +52,9 @@ sd_status_t behavior_planner_update(behavior_planner_t *planner,
     }
     
     new_state = planner->current_state;
-    
-    was_running_state = (planner->current_state == BEHAVIOR_STATE_LINE_FOLLOW ||
-                        planner->current_state == BEHAVIOR_STATE_APPROACH_CURVE ||
-                        planner->current_state == BEHAVIOR_STATE_CURVE);
-    
+
+    was_running_state = (planner->current_state == BEHAVIOR_STATE_RUNNING);
+
     if (was_running_state) {
         planner->last_valid_lateral_error = input->perception->lateral_error;
     }
@@ -84,10 +79,8 @@ sd_status_t behavior_planner_update(behavior_planner_t *planner,
                input->perception->line_valid) {
         new_state = BEHAVIOR_STATE_IDLE;
     } else if (!input->perception->line_valid) {
-        if (planner->current_state == BEHAVIOR_STATE_LINE_FOLLOW ||
-            planner->current_state == BEHAVIOR_STATE_APPROACH_CURVE ||
-            planner->current_state == BEHAVIOR_STATE_CURVE) {
-            
+        if (planner->current_state == BEHAVIOR_STATE_RUNNING) {
+
             planner->previous_running_state = planner->current_state;
             planner->line_lost_frames = 1U;
             new_state = BEHAVIOR_STATE_LINE_LOST_DEGRADED;
@@ -106,26 +99,7 @@ sd_status_t behavior_planner_update(behavior_planner_t *planner,
                    input->command == BEHAVIOR_CMD_START &&
                    input->vehicle->localization_valid &&
                    input->perception->line_valid) {
-            new_state = BEHAVIOR_STATE_LINE_FOLLOW;
-        } else if (planner->current_state == BEHAVIOR_STATE_LINE_FOLLOW &&
-                   input->perception->event == ROAD_EVENT_CURVE_ENTRY) {
-            new_state = BEHAVIOR_STATE_APPROACH_CURVE;
-        } else if (planner->current_state == BEHAVIOR_STATE_APPROACH_CURVE &&
-                   (fabsf(input->perception->heading_error) >= 0.2f ||
-                    fabsf(input->path_curvature) >= 0.2f)) {
-            new_state = BEHAVIOR_STATE_CURVE;
-            planner->stable_straight_frames = 0U;
-        } else if (planner->current_state == BEHAVIOR_STATE_CURVE) {
-            if (fabsf(input->perception->heading_error) < 0.1f &&
-                fabsf(input->path_curvature) < 0.1f) {
-                planner->stable_straight_frames++;
-                if (planner->stable_straight_frames >= g_sens_decision_config.behavior.curve_exit_stable_frames) {
-                    new_state = BEHAVIOR_STATE_LINE_FOLLOW;
-                    planner->stable_straight_frames = 0U;
-                }
-            } else {
-                planner->stable_straight_frames = 0U;
-            }
+            new_state = BEHAVIOR_STATE_RUNNING;
         }
     }
     
@@ -142,14 +116,15 @@ sd_status_t behavior_planner_update(behavior_planner_t *planner,
         case BEHAVIOR_STATE_IDLE:
             output->speed_limit_mps = g_sens_decision_config.behavior.idle_speed_mps;
             break;
-        case BEHAVIOR_STATE_LINE_FOLLOW:
-            output->speed_limit_mps = g_sens_decision_config.behavior.line_speed_mps;
-            break;
-        case BEHAVIOR_STATE_APPROACH_CURVE:
-            output->speed_limit_mps = g_sens_decision_config.behavior.approach_curve_speed_mps;
-            break;
-        case BEHAVIOR_STATE_CURVE:
-            output->speed_limit_mps = g_sens_decision_config.behavior.curve_speed_mps;
+        case BEHAVIOR_STATE_RUNNING:
+            // 基于偏差的连续速度调节
+            // 偏差大 → 适当减速，偏差小 → 全速
+            {
+                float error_mag = fabsf(input->perception->lateral_error);
+                float speed_factor = 1.0f - g_sens_decision_config.behavior.speed_error_gain * error_mag;
+                if (speed_factor < 0.4f) speed_factor = 0.4f;  // 最低40%速度
+                output->speed_limit_mps = g_sens_decision_config.behavior.line_speed_mps * speed_factor;
+            }
             break;
         case BEHAVIOR_STATE_LINE_LOST_DEGRADED:
             output->speed_limit_mps = g_sens_decision_config.behavior.degraded_speed_mps *

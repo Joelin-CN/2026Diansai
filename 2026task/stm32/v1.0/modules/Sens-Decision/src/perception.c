@@ -102,7 +102,6 @@ sd_status_t perception_update(perception_t *perception,
     if (active_count == 0) {
         ++perception->lost_count;
         result->lost_count = perception->lost_count;
-        result->event = ROAD_EVENT_LINE_LOST;
         result->lateral_error = 0.0f;
         result->heading_error = perception->heading_error;
     } else {
@@ -140,16 +139,6 @@ sd_status_t perception_update(perception_t *perception,
         }
 
         result->heading_error = perception->heading_error;
-
-        /* 步骤5: 道路事件检测 */
-        if (active_count >= g_sens_decision_config.perception.intersection_active_channels) {
-            result->event = ROAD_EVENT_INTERSECTION;
-        } else if (fabsf(result->lateral_error) >= g_sens_decision_config.perception.curve_error_threshold &&
-                   fabsf(result->heading_error) >= g_sens_decision_config.perception.curve_derivative_threshold) {
-            result->event = ROAD_EVENT_CURVE_ENTRY;
-        } else {
-            result->event = ROAD_EVENT_NONE;
-        }
     }
 
     perception->prev_lateral_error = result->lateral_error;

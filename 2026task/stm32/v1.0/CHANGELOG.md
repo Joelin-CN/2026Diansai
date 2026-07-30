@@ -7,6 +7,126 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-07-30
+
+### Added
+
+- **操场型循迹模块（Playground Track）**：为电赛第2/4题设计的分段自适应循迹控制器
+  - **第2题（Full Lap）**：顺时针绕圈A→A，≤20秒，停车精度≤2cm
+  - **第4题（A→B Straight）**：梯形速度曲线，≤8秒，钢球摆动≤1cm
+  - **新文件**：
+    - `Core/Inc/app/playground_track.h` - 公共API头文件
+    - `Core/Src/app/playground_track.c` - 完整实现（600+行）
+  - **修改文件**：
+    - `Core/Src/freertos.c` - 添加 `TEST_MODE_PLAYGROUND_TRACK` 分支
+    - `CMakeLists.txt` - 添加 `playground_track.c` 到构建列表
+
+### Features - Playground Track
+
+- **分段速度控制**（第2题）：
+  - 直道A→B / C→D：1.00 m/s
+  - 弯道B→C / D→A前段：0.60 m/s
+  - 接近段（最后0.6m）：0.25 m/s
+  - 自动根据累计里程切换段落（无需IR模式识别）
+
+- **分段PD增益**：
+  - 直道：kp=1.5, kd=1.0, ω_max=3.0 rad/s
+  - 弯道：kp=2.5, kd=1.5, ω_max=3.0 rad/s
+  - 接近：kp=2.0, kd=1.2, ω_max=2.0 rad/s
+
+- **A线检测（横线停车）**：
+  - 检测≥6个通道同时激活 + 里程>5.5m → 识别为启停线
+  - 检测后立即发送v=0指令，MotionControl以3.0m/s²减速
+  - 预测停车偏差：v²/(2a) = 0.25²/6.0 ≈ 1cm < 2cm要求
+
+- **梯形速度曲线（第4题）**：
+  - v_max = 0.50 m/s，a = 0.30 m/s²
+  - 加速段：0→0.5m，1.67秒
+  - 匀速段：0.5→1.08m，1.33秒
+  - 减速段：1.08→1.5m，1.67秒
+  - 总时长：~4.7秒（留3.3秒余量）
+  - 钢球位移：L·sin(arctan(a/g)) ≈ 0.46cm < 1cm
+
+- **状态机**：
+  - 第2题：IDLE → TASK2_RUN → TASK2_APPROACH_A → STOPPED
+  - 第4题：IDLE → TASK4_ACCEL → TASK4_CRUISE → TASK4_DECEL → STOPPED
+  - 故障保护：第2题200ms丢线→FAULT，第4题100ms丢线→FAULT
+
+### Architecture
+
+- **简化架构**：相比track_control_app.c，移除EKF/behavior_planner/trajectory_generator
+  - 保留：perception（lateral_error计算）+ MotionControl（差速PID）
+  - 无累积漂移：里程由编码器直接积分，单圈无需EKF校正
+  - 决策简化：distance-based查表选速度，lateral_error PD控制ω
+
+- **频率分层（与现有架构一致）**：
+  - 500 Hz：Encoder_Poll()
+  - 100 Hz：MotionControl_Update()
+  - 50 Hz：perception_update() + 状态机决策
+
+### Documentation
+
+- `docs/superpowers/specs/2026-07-30-playground-track-design.md` - 设计规格（已审批）
+- `docs/handoff/2026-07-30-playground-track-impl-handoff.md` - 实现交接文档
+- `docs/SESSION_FIX_LOG_2026-07-30_PART4.md` - 本次会话实现日志
+
+### Testing
+
+验证步骤（P0 - 上车前必过）：
+1. 编译无错误/警告
+2. 先设v_straight=0.5m/s半速测试一圈
+3. A线检测准确性验证（手动横跨3次无误报）
+4. 第2题停车偏差≤2cm
+5. 第4题钢球偏移≤1cm
+
+### Migration Guide
+
+切换到操场型循迹模式：
+```c
+// freertos.c 第65行附近，取消注释：
+#define TEST_MODE_PLAYGROUND_TRACK
+
+// 选择任务（第152行附近）：
+PlaygroundTrack_Init(PLAYGROUND_TASK_LAP);           // 第2题（绕圈）
+// PlaygroundTrack_Init(PLAYGROUND_TASK_AB_STRAIGHT); // 第4题（A→B）
+```
+
+切换回Pure Pursuit模式：
+```c
+// freertos.c 第65行附近：
+// #define TEST_MODE_PLAYGROUND_TRACK
+#define TEST_MODE_TRACK_CONTROL
+```
+
+## [1.3.0] - 2026-07-30
+
+### Changed
+- **IR循迹算法简化**：移除线型事件检测（curve/intersection），IR无法可靠区分弯道与偏差
+- **感知层输出简化**：只输出 `lateral_error` + `heading_error` + `line_valid`，不再输出 `road_event_t`
+- **行为状态机简化**：7状态 → 5状态（移除 `APPROACH_CURVE` 和 `CURVE` 状态）
+- **速度控制改进**：从事件驱动降速改为基于 `lateral_error` 的连续速度调节
+  - `speed = line_speed * (1 - speed_error_gain * |lateral_error|)`, clamped to [0.4, 1.0]
+
+### Removed
+- `road_event_t` 枚举和 `perception_result_t.event` 字段
+- 6个冗余参数：
+  - `curve_error_threshold` (was 0.45)
+  - `curve_derivative_threshold` (was 1.5)
+  - `intersection_active_channels` (was 4)
+  - `approach_curve_speed_mps` (was 0.7 m/s)
+  - `curve_speed_mps` (was 0.5 m/s)
+  - `curve_exit_stable_frames` (was 5)
+- 行为状态：`BEHAVIOR_STATE_APPROACH_CURVE`, `BEHAVIOR_STATE_CURVE`
+- `behavior_planner_t.stable_straight_frames` 字段
+
+### Added
+- `speed_error_gain` 参数（默认 0.3）：基于横向偏差的连续速度调节增益
+- `BEHAVIOR_STATE_RUNNING` 状态（替代 `BEHAVIOR_STATE_LINE_FOLLOW`）
+
+### Fixed
+- 消除伪曲线检测导致的直线上误降速问题（1.0→0.7→0.5 m/s 三级降速误触发）
+- 消除物理上不可能触发的交叉路口检测（操场型轨迹无交叉口）
+
 ## [1.2.1] - 2026-07-30
 
 ### Changed - Geometry Update
@@ -205,6 +325,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Key Changes |
 |---------|------|-------------|
+| 1.3.0 | 2026-07-30 | IR algorithm simplification: removed event detection, simplified FSM (7→5 states), continuous speed control |
 | 1.2.1 | 2026-07-30 | Geometry update (wheelbase 214mm, IR at 183mm), coordinate system documentation fix |
 | 1.2.0 | 2026-07-30 | Dual-wheel migration fix, initialization failure handling, IR sensor algorithm fix, speed config fix |
 | 1.1.0 | 2026-07-30 | EKF fix, stack overflow prevention, frequency optimization, interrupt priority resolution |
@@ -214,11 +335,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 **Maintenance Notes:**
 
+- v1.3.0 modifications completed by agent cluster (3 agents: analysis, implementation, documentation)
 - All modifications in v1.2.0 completed by autonomous agent cluster (4 agents: Phase 1 P0 issues, Phase 2 P1 issues)
 - All modifications in v1.1.0 completed by autonomous agent cluster (7 agents)
+- v1.3.0 compilation verified: 0 errors, 0 warnings
 - Code changes validated through static analysis
 - Hardware testing and validation pending
-- See `docs/MODIFICATIONS_SUMMARY_2026-07-30.md` for detailed agent execution report
+- See `docs/MODIFICATION_SUMMARY_2026-07-30.md` for v1.3.0 modification summary
+- See `docs/SESSION_FIX_LOG_2026-07-30_PART3.md` for v1.3.0 session log
 - See `docs/V1.2.0_FIX_SUMMARY.md` for v1.2.0 comprehensive fix summary
 
 ---

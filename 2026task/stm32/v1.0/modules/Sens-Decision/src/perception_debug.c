@@ -84,25 +84,9 @@ void perception_debug_print(const ir_array_data_t *ir_data,
     printf("Line Valid:    %s\r\n", result->line_valid ? "YES" : "NO");
     printf("Lost Count:    %u\r\n", result->lost_count);
 
-    // 道路事件
-    printf("Event:         ");
-    switch (result->event) {
-        case ROAD_EVENT_NONE:
-            printf("NORMAL TRACKING\r\n");
-            break;
-        case ROAD_EVENT_CURVE_ENTRY:
-            printf("CURVE ENTRY\r\n");
-            break;
-        case ROAD_EVENT_INTERSECTION:
-            printf("INTERSECTION\r\n");
-            break;
-        case ROAD_EVENT_LINE_LOST:
-            printf("LINE LOST\r\n");
-            break;
-        default:
-            printf("UNKNOWN\r\n");
-            break;
-    }
+    // 速度调节因子
+    printf("Speed Factor:  %.2f\r\n",
+           1.0f - g_sens_decision_config.behavior.speed_error_gain * fabsf(result->lateral_error));
 
     printf("======================================\r\n\r\n");
 }
@@ -139,13 +123,11 @@ void perception_debug_print_compact(const ir_array_data_t *ir_data,
     // 状态
     printf("| Act: %u/8 | Err: %+.3f", active_count, result->lateral_error);
 
-    // 事件标记
-    if (result->event == ROAD_EVENT_INTERSECTION) {
-        printf(" | INTERSECTION");
-    } else if (result->event == ROAD_EVENT_LINE_LOST) {
+    // 状态标记
+    if (!result->line_valid) {
         printf(" | LINE_LOST");
-    } else if (result->event == ROAD_EVENT_CURVE_ENTRY) {
-        printf(" | CURVE");
+    } else if (fabsf(result->heading_error) > 2.0f) {
+        printf(" | HIGH_HDG");
     }
 
     printf("\r\n");
@@ -211,14 +193,14 @@ bool perception_debug_selfcheck(void) {
         printf("  ✓ Weight sum ≈ 0 (%.3f)\r\n", weight_sum);
     }
 
-    // 检查4: 路口检测配置
-    printf("\r\n[4] Intersection Detection:\r\n");
-    uint8_t int_channels = config->intersection_active_channels;
-    if (int_channels < 4 || int_channels > 8) {
-        printf("  ❌ Active channels threshold: %u (should be 4-8)\r\n", int_channels);
+    // 检查4: 速度调节增益
+    printf("\r\n[4] Speed Error Gain:\r\n");
+    float gain = g_sens_decision_config.behavior.speed_error_gain;
+    if (gain < 0.0f || gain > 2.0f) {
+        printf("  ❌ Speed error gain: %.3f (out of range 0-2)\r\n", gain);
         passed = false;
     } else {
-        printf("  ✓ Active channels threshold: %u\r\n", int_channels);
+        printf("  ✓ Speed error gain: %.3f\r\n", gain);
     }
 
     // 检查5: 滤波器参数

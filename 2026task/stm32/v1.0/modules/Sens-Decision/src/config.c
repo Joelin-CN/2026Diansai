@@ -329,9 +329,6 @@ void sd_config_reset_defaults(void) {
     g_sens_decision_config.perception.position.y_m = 0.0f;
     g_sens_decision_config.perception.position.z_m = -0.02f;
     g_sens_decision_config.perception.heading_filter_alpha = 0.3f;
-    g_sens_decision_config.perception.curve_error_threshold = 0.45f;
-    g_sens_decision_config.perception.curve_derivative_threshold = 1.5f;
-    g_sens_decision_config.perception.intersection_active_channels = 4U;
 
     /**
      * 白色背景参考值（黑线检测算法核心参数）
@@ -361,7 +358,7 @@ void sd_config_reset_defaults(void) {
      *   - 不同传感器通道可能有差异（个体差异）
      */
     for (index = 0U; index < SD_IR_CHANNEL_COUNT; ++index) {
-        g_sens_decision_config.perception.white_reference[index] = 270.0f;
+        g_sens_decision_config.perception.white_reference[index] = 1136.0f;  // 2026-07-30校准：反向传感器
     }
 
     /**
@@ -396,7 +393,7 @@ void sd_config_reset_defaults(void) {
      *   - 必须在校准白色参考值后再校准此阈值
      *   - 不同赛道表面反射率不同，可能需要微调
      */
-    g_sens_decision_config.perception.black_strength_threshold = 50.0f;
+    g_sens_decision_config.perception.black_strength_threshold = 427.0f;  // 2026-07-30校准：反向传感器 50%
 
     /**
      * EKF初始协方差对角线元素
@@ -529,12 +526,16 @@ void sd_config_reset_defaults(void) {
     g_sens_decision_config.behavior.line_recovery_frames = 3U;
     g_sens_decision_config.behavior.line_lost_stop_frames = 20U;
     g_sens_decision_config.behavior.critical_failure_frames = 5U;
-    g_sens_decision_config.behavior.curve_exit_stable_frames = 5U;
     g_sens_decision_config.behavior.idle_speed_mps = 0.0f;
     g_sens_decision_config.behavior.line_speed_mps = 1.0f;
-    g_sens_decision_config.behavior.approach_curve_speed_mps = 0.7f;
-    g_sens_decision_config.behavior.curve_speed_mps = 0.5f;
     g_sens_decision_config.behavior.degraded_speed_mps = 0.25f;
+
+    /**
+     * 基于横向偏差的速度调节增益
+     * speed = line_speed * (1 - gain * |lateral_error|), 最小40%
+     * 默认值 0.3: lateral_error=1.0 时速度降至70%, lateral_error=2.0 时速度降至40%
+     */
+    g_sens_decision_config.behavior.speed_error_gain = 0.3f;
 
     g_sens_decision_config.trajectory.lookahead_distance_m = 0.25f;
     g_sens_decision_config.trajectory.curvature_speed_gain = 1.0f;
@@ -619,10 +620,6 @@ sd_status_t sd_config_validate(const sens_decision_config_t *config) {
         !isfinite(config->perception.heading_filter_alpha) ||
         config->perception.heading_filter_alpha < 0.0f ||
         config->perception.heading_filter_alpha > 1.0f ||
-        !positive_finite(config->perception.curve_error_threshold) ||
-        !positive_finite(config->perception.curve_derivative_threshold) ||
-        config->perception.intersection_active_channels == 0U ||
-        config->perception.intersection_active_channels > SD_IR_CHANNEL_COUNT ||
         !positive_finite(config->perception.black_strength_threshold)) {
         return SD_ERR_INVALID_ARGUMENT;
     }
@@ -653,13 +650,12 @@ sd_status_t sd_config_validate(const sens_decision_config_t *config) {
         config->behavior.line_recovery_frames == 0U ||
         config->behavior.line_lost_stop_frames == 0U ||
         config->behavior.critical_failure_frames == 0U ||
-        config->behavior.curve_exit_stable_frames == 0U ||
         !isfinite(config->behavior.idle_speed_mps) ||
         config->behavior.idle_speed_mps < 0.0f ||
         !positive_finite(config->behavior.line_speed_mps) ||
-        !positive_finite(config->behavior.approach_curve_speed_mps) ||
-        !positive_finite(config->behavior.curve_speed_mps) ||
-        !positive_finite(config->behavior.degraded_speed_mps)) {
+        !positive_finite(config->behavior.degraded_speed_mps) ||
+        !isfinite(config->behavior.speed_error_gain) ||
+        config->behavior.speed_error_gain < 0.0f) {
         return SD_ERR_INVALID_ARGUMENT;
     }
     if (!positive_finite(config->trajectory.lookahead_distance_m) ||

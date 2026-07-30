@@ -143,44 +143,53 @@ void IrCalibration_BlackThreshold(void) {
 }
 
 void IrCalibration_PrintConfig(void) {
-    printf("\r\n========== IR Calibration Configuration ==========\r\n");
+    printf("\r\n========== IR Configuration ==========\r\n");
+    osDelay(20);
 
-    printf("White Reference Values:\r\n");
-    printf("  Channel: ");
+    printf("White Reference:\r\n");
+    osDelay(10);
+    printf("  Ch: ");
     for (uint8_t i = 0; i < SD_IR_CHANNEL_COUNT; i++) {
-        printf("%7u ", i);
+        printf("%6u ", i);
     }
     printf("\r\n");
+    osDelay(10);
 
-    printf("  Value:   ");
+    printf("  Val:");
     for (uint8_t i = 0; i < SD_IR_CHANNEL_COUNT; i++) {
-        printf("%7.1f ", g_sens_decision_config.perception.white_reference[i]);
+        printf("%6.0f ", g_sens_decision_config.perception.white_reference[i]);
     }
     printf("\r\n");
+    osDelay(10);
 
-    printf("\r\nBlack Strength Threshold: %.1f\r\n",
-           g_sens_decision_config.perception.black_strength_threshold);
+    printf("\r\nThreshold: %.1f\r\n", g_sens_decision_config.perception.black_strength_threshold);
+    osDelay(10);
 
-    printf("\r\nSensor Weights:\r\n");
-    printf("  Channel: ");
+    printf("\r\nWeights:\r\n");
+    osDelay(10);
+    printf("  Ch: ");
     for (uint8_t i = 0; i < SD_IR_CHANNEL_COUNT; i++) {
-        printf("%7u ", i);
+        printf("%6u ", i);
     }
     printf("\r\n");
+    osDelay(10);
 
-    printf("  Weight:  ");
+    printf("  Wgt:");
     for (uint8_t i = 0; i < SD_IR_CHANNEL_COUNT; i++) {
-        printf("%7.2f ", g_sens_decision_config.perception.weights[i]);
+        printf("%6.2f ", g_sens_decision_config.perception.weights[i]);
     }
     printf("\r\n");
+    osDelay(10);
 
-    printf("===================================================\r\n\r\n");
+    printf("======================================\r\n");
+    osDelay(50);
 }
 
 void IrCalibration_Monitor(uint32_t duration_ms, uint32_t interval_ms) {
-    printf("\r\n========== IR Sensor Real-Time Monitor ==========\r\n");
-    printf("[INFO] Monitoring for %u ms (interval: %u ms)\r\n", duration_ms, interval_ms);
-    printf("[INFO] Press Ctrl+C to stop (if supported)\r\n\r\n");
+    printf("\r\n=== IR Monitor ===\r\n");
+    osDelay(100);
+    printf("Duration: %lu ms, Interval: %lu ms\r\n", (unsigned long)duration_ms, (unsigned long)interval_ms);
+    osDelay(100);
 
     uint32_t elapsed = 0;
     uint32_t sample_count = 0;
@@ -192,17 +201,7 @@ void IrCalibration_Monitor(uint32_t duration_ms, uint32_t interval_ms) {
         if (IrUartSensor_GetAnalog(raw)) {
             sample_count++;
 
-            printf("[%6u ms] Sample #%u:\r\n", elapsed, sample_count);
-
-            // 原始值
-            printf("  Raw:      ");
-            for (uint8_t i = 0; i < SD_IR_CHANNEL_COUNT; i++) {
-                printf("%4u ", raw[i]);
-            }
-            printf("\r\n");
-
-            // 黑线强度
-            printf("  Strength: ");
+            // 计算黑线强度和横向偏差
             uint8_t active_count = 0;
             float weighted_sum = 0.0f;
             float strength_sum = 0.0f;
@@ -212,7 +211,6 @@ void IrCalibration_Monitor(uint32_t duration_ms, uint32_t interval_ms) {
                 if (strength < 0.0f) {
                     strength = 0.0f;
                 }
-                printf("%4.0f ", strength);
 
                 if (strength > g_sens_decision_config.perception.black_strength_threshold) {
                     active_count++;
@@ -220,34 +218,176 @@ void IrCalibration_Monitor(uint32_t duration_ms, uint32_t interval_ms) {
                     strength_sum += strength;
                 }
             }
-            printf("\r\n");
 
-            // 状态
             float lateral_error = 0.0f;
             if (strength_sum > 1e-6f) {
                 lateral_error = weighted_sum / strength_sum;
             }
 
-            printf("  Active channels: %u/8\r\n", active_count);
-            printf("  Lateral error: %+.3f\r\n", lateral_error);
+            // 分段输出，每段后延迟
+            printf("[%5lu]", (unsigned long)elapsed);
+            osDelay(20);
+
+            for (uint8_t i = 0; i < SD_IR_CHANNEL_COUNT; i++) {
+                printf(" %4u", raw[i]);
+                if (i == 3) osDelay(20);  // 中间延迟一次
+            }
+            osDelay(20);
+
+            printf(" | A:%u E:%+.2f", active_count, lateral_error);
+            osDelay(20);
 
             if (active_count == 0) {
-                printf("  Status: LINE LOST\r\n");
-            } else if (active_count >= g_sens_decision_config.perception.intersection_active_channels) {
-                printf("  Status: INTERSECTION DETECTED\r\n");
-            } else {
-                printf("  Status: LINE TRACKING\r\n");
+                printf(" LOST");
             }
-
             printf("\r\n");
+            osDelay(50);  // 行尾大延迟
         } else {
-            printf("[%6u ms] No data available\r\n", elapsed);
+            printf("[%5lu] No data\r\n", (unsigned long)elapsed);
+            osDelay(50);
         }
 
         osDelay(interval_ms);
         elapsed += interval_ms;
     }
 
-    printf("[INFO] Monitoring complete. Total samples: %u\r\n", sample_count);
-    printf("==================================================\r\n\r\n");
+    printf("Complete. Samples: %lu\r\n", (unsigned long)sample_count);
+    osDelay(100);
+    printf("==================\r\n");
+    osDelay(100);
+}
+
+void IrCalibration_OneStep(void) {
+    printf("\r\n========== IR One-Step Calibration ==========\r\n");
+    osDelay(20);
+    printf("[INFO] Place robot on track:\r\n");
+    osDelay(10);
+    printf("  Sensors 3&4 (center) on BLACK line\r\n");
+    osDelay(10);
+    printf("  Sensors 0,1,2,5,6,7 on WHITE surface\r\n");
+    osDelay(10);
+    printf("[INFO] Stabilizing (2 sec)...\r\n");
+    osDelay(10);
+
+    osDelay(2000);  // 稳定时间
+
+    // 采样统计
+    float sum_white[6];  // 存储白色探头(0,1,2,5,6,7)的累积值
+    float sum_black[2];  // 存储黑色探头(3,4)的累积值
+    memset(sum_white, 0, sizeof(sum_white));
+    memset(sum_black, 0, sizeof(sum_black));
+
+    const uint16_t samples = 100;
+    uint16_t successful_reads = 0;
+
+    printf("[INFO] Sampling 100 times...\r\n");
+    osDelay(10);
+
+    for (uint16_t n = 0; n < samples; n++) {
+        IrUartSensor_Process();
+        uint16_t raw[SD_IR_CHANNEL_COUNT];
+
+        if (IrUartSensor_GetAnalog(raw)) {
+            // 白色探头累加
+            sum_white[0] += (float)raw[0];
+            sum_white[1] += (float)raw[1];
+            sum_white[2] += (float)raw[2];
+            sum_white[3] += (float)raw[5];
+            sum_white[4] += (float)raw[6];
+            sum_white[5] += (float)raw[7];
+
+            // 黑色探头累加
+            sum_black[0] += (float)raw[3];
+            sum_black[1] += (float)raw[4];
+
+            successful_reads++;
+        }
+
+        osDelay(10);  // 10ms采样间隔
+    }
+
+    if (successful_reads < samples / 2) {
+        printf("[ERROR] Failed: only %u/%u reads\r\n", successful_reads, samples);
+        osDelay(20);
+        printf("[ERROR] Check IR sensor connection\r\n");
+        osDelay(20);
+        return;
+    }
+
+    printf("[INFO] Success: %u/%u samples\r\n", successful_reads, samples);
+    osDelay(20);
+
+    // 计算白色探头的平均值
+    float white_avg = 0.0f;
+    for (uint8_t i = 0; i < 6; i++) {
+        white_avg += sum_white[i] / successful_reads;
+    }
+    white_avg /= 6.0f;
+
+    // 计算黑色探头的平均值
+    float black_avg = (sum_black[0] + sum_black[1]) / (2.0f * successful_reads);
+
+    // 检测传感器类型：黑色读数更高说明是反向传感器
+    bool sensor_inverted = (black_avg > white_avg);
+
+    if (sensor_inverted) {
+        // 反向传感器：黑色高值，白色低值
+        // white_reference设为黑色读数（作为参考基准）
+        for (uint8_t i = 0; i < SD_IR_CHANNEL_COUNT; i++) {
+            g_sens_decision_config.perception.white_reference[i] = black_avg;
+        }
+        // 黑线强度 = 黑色值 - 白色值（正值）
+        float black_strength = black_avg - white_avg;
+        // 阈值：取黑线强度的一半作为判定标准
+        // 这样只有strength < 一半时才认为是黑线
+        g_sens_decision_config.perception.black_strength_threshold = black_strength * 0.5f;
+    } else {
+        // 正向传感器：白色高值，黑色低值（原逻辑）
+        for (uint8_t i = 0; i < SD_IR_CHANNEL_COUNT; i++) {
+            g_sens_decision_config.perception.white_reference[i] = white_avg;
+        }
+        float black_strength = white_avg - black_avg;
+        if (black_strength < 0.0f) {
+            black_strength = 0.0f;
+        }
+        g_sens_decision_config.perception.black_strength_threshold = black_strength * 0.6f;
+    }
+
+    // 重新计算用于显示
+    float black_strength = sensor_inverted ? (black_avg - white_avg) : (white_avg - black_avg);
+    if (black_strength < 0.0f) {
+        black_strength = 0.0f;
+    }
+
+    // 设置阈值为黑线强度的60%
+    g_sens_decision_config.perception.black_strength_threshold = black_strength * 0.6f;
+
+    // 打印结果
+    printf("\r\n[RESULTS]\r\n");
+    osDelay(10);
+    printf("  Sensor type: %s\r\n", sensor_inverted ? "INVERTED (black=high)" : "NORMAL (white=high)");
+    osDelay(10);
+    printf("  White avg: %.1f\r\n", white_avg);
+    osDelay(10);
+    printf("  Black avg: %.1f\r\n", black_avg);
+    osDelay(10);
+    printf("  Strength:  %.1f\r\n", black_strength);
+    osDelay(10);
+    printf("  Threshold: %.1f (%s)\r\n", g_sens_decision_config.perception.black_strength_threshold,
+           sensor_inverted ? "50%" : "60%");
+    osDelay(10);
+
+    // 验证黑线强度是否足够
+    if (black_strength < 20.0f) {
+        printf("\r\n[WARNING] Strength too low (%.1f)\r\n", black_strength);
+        osDelay(20);
+        printf("  Check: Sensors 3&4 on black line?\r\n");
+        osDelay(20);
+    } else {
+        printf("\r\n[SUCCESS] Calibration complete!\r\n");
+        osDelay(20);
+    }
+
+    printf("=============================================\r\n");
+    osDelay(50);
 }
