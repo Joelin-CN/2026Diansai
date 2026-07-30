@@ -1,5 +1,6 @@
 #include <math.h>
 #include <stdio.h>
+#include "balance_controller.h"
 #include "balance_observer.h"
 #include "balance_target.h"
 
@@ -91,6 +92,60 @@ static void test_target_ramps_without_overshoot(void)
     CHECK_NEAR(balance_target_step(&target, 0.5f), 5.0f, 0.0001f);
 }
 
+static BalanceControllerConfig controller_config(void)
+{
+    const BalanceControllerConfig config = {
+        .kp = 2.0f,
+        .kv = 0.5f,
+        .ki = 1.0f,
+        .integral_zone_cm = 1.0f,
+        .integral_limit = 2.0f,
+        .output_limit = 10.0f,
+    };
+    return config;
+}
+
+static void test_controller_uses_velocity_as_damping(void)
+{
+    BalanceController controller;
+    BalanceControlOutput output;
+    const BalanceControllerConfig config = controller_config();
+    const BalanceEstimate estimate = { .position_cm = 1.0f, .velocity_cm_s = 2.0f };
+    balance_controller_init(&controller, &config);
+    output = balance_controller_step(&controller, 0.0f, &estimate, 0.03f, false);
+    CHECK_NEAR(output.error_cm, -1.0f, 0.0001f);
+    CHECK_NEAR(output.limited, -3.0f, 0.0001f);
+}
+
+static void test_controller_integrates_only_inside_zone(void)
+{
+    BalanceController controller;
+    BalanceControlOutput output;
+    const BalanceControllerConfig config = controller_config();
+    BalanceEstimate estimate = { .position_cm = -0.5f, .velocity_cm_s = 0.0f };
+    balance_controller_init(&controller, &config);
+    output = balance_controller_step(&controller, 0.0f, &estimate, 1.0f, true);
+    CHECK_NEAR(controller.integral, 0.5f, 0.0001f);
+    estimate.position_cm = -2.0f;
+    output = balance_controller_step(&controller, 0.0f, &estimate, 1.0f, true);
+    CHECK_NEAR(controller.integral, 0.5f, 0.0001f);
+    (void)output;
+}
+
+static void test_controller_does_not_wind_up_into_saturation(void)
+{
+    BalanceController controller;
+    BalanceControlOutput output;
+    BalanceControllerConfig config = controller_config();
+    const BalanceEstimate estimate = { .position_cm = -0.5f, .velocity_cm_s = 0.0f };
+    config.kp = 30.0f;
+    balance_controller_init(&controller, &config);
+    output = balance_controller_step(&controller, 0.0f, &estimate, 1.0f, true);
+    CHECK_TRUE(output.saturated);
+    CHECK_NEAR(controller.integral, 0.0f, 0.0001f);
+    CHECK_NEAR(output.limited, 10.0f, 0.0001f);
+}
+
 int main(void)
 {
     test_observer_initializes_from_first_sample();
@@ -98,6 +153,9 @@ int main(void)
     test_observer_rejects_duplicate_and_resets_after_gap();
     test_target_rejects_non_competition_position();
     test_target_ramps_without_overshoot();
+    test_controller_uses_velocity_as_damping();
+    test_controller_integrates_only_inside_zone();
+    test_controller_does_not_wind_up_into_saturation();
     printf("%s\n", failures == 0 ? "PASS" : "FAIL");
     return failures == 0 ? 0 : 1;
 }
