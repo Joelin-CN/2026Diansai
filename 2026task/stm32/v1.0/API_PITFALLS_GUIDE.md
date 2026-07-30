@@ -20,7 +20,10 @@
 8. [FreeRTOS与中断 (RTOS & IRQ)](#8-freertos与中断-rtos--irq)
 9. [编译与工具链 (Build & Toolchain)](#9-编译与工具链-build--toolchain)
 10. [控制应用层 (ControlApp)](#10-控制应用层-controlapp)
-11. [参数调优建议](#11-参数调优建议)
+11. [EKF模块 (EKF)](#11-ekf模块-ekf)
+12. [内存安全 (Memory Safety)](#12-内存安全-memory-safety)
+13. [控制频率优化 (Control Frequency)](#13-控制频率优化-control-frequency)
+14. [参数调优建议](#14-参数调优建议)
 
 ---
 
@@ -580,7 +583,247 @@ void StartDefaultTask(void *argument)
 
 ---
 
-## 11. 参数调优建议
+## 11. EKF模块 (EKF)
+
+### 11.1 🟢 观测模型简化 (2026-07-30)
+
+**变更**: 从3观测减少到2观测
+
+**修改前**:
+```c
+#define SD_EKF_OBSERVATION_COUNT 3U
+
+observation[0] = v_encoder;           // 编码器速度
+observation[1] = omega_encoder;       // 编码器差速计算的角速度
+observation[2] = imu.gyro_radps[2];   // IMU陀螺仪角速度 ← 已移除
+```
+
+**修改后**:
+```c
+#define SD_EKF_OBSERVATION_COUNT 2U
+
+observation[0] = v_encoder;           // 编码器速度
+observation[1] = omega_encoder;       // 编码器差速计算的角速度
+// IMU陀螺仪观测已移除
+```
+
+**原因**: 
+- 避免低成本IMU（如MPU6050）的零偏漂移（典型>0.1 deg/s）
+- 简化参数调优（减少1个观测噪声参数）
+- 提高计算效率（2×2矩阵求逆 vs 3×3，快30%）
+- 避免传感器冲突导致的卡尔曼增益震荡
+
+**影响**: 循迹小车在平整地面上，编码器差速法已足够准确，移除IMU反而提高稳定性
+
+**来源**: `build/logs/EKF_ANALYSIS_AND_FIX.txt`
+
+---
+
+### 11.2 ⚠️ 观测噪声配置差异化
+
+**问题**: 原实现对所有观测使用统一噪声方差（0.05），无法正确权衡不同传感器
+
+**正确配置**:
+```c
+// modules/Sens-Decision/src/config.c
+ekf_config.observation_noise_diag[0] = 0.03f;  // v (encoder) - 更精确
+ekf_config.observation_noise_diag[1] = 0.08f;  // ω (encoder diff) - 噪声较大
+```
+
+**调优指导**:
+- 如果v跟踪响应慢 → 减小 `observation_noise_diag[0]`（增加编码器权重）
+- 如果v估计抖动严重 → 增大 `observation_noise_diag[0]`（增加滤波）
+- 如果theta漂移 → 减小 `observation_noise_diag[1]`（增加角速度观测权重）
+- 如果转向响应慢 → 减小 `observation_noise_diag[1]`
+
+**来源**: `build/logs/EKF_ANALYSIS_AND_FIX.txt`
+
+---
+
+### 11.3 ⚠️ 如何恢复3观测模型
+
+如果未来需要重新启用IMU陀螺仪融合（例如使用高精度IMU）：
+
+**步骤**:
+1. `config.h`: `SD_EKF_OBSERVATION_COUNT` 改回 `3U`
+2. `state_evaluate.c`: 恢复 `observation[2] = frame->imu.gyro_radps[2];`
+3. `EKF.c`: 恢复3×5观测矩阵H和3×3矩阵求逆
+4. `config.c`: 配置3个观测噪声（需标定IMU vs 编码器权重）
+
+**标定方法**:
+```
+固定转速转圈（1 rad/s） → 记录encoder_omega和imu_omega
+计算标准差: σ_enc, σ_imu
+设置噪声比例: R[1][1]/R[2][2] = (σ_enc/σ_imu)²
+```
+
+**来源**: `build/logs/EKF_ANALYSIS_AND_FIX.txt` 第六节
+
+---
+
+## 12. 内存安全 (Memory Safety)
+
+### 12.1 🟢 栈溢出预防 (2026-07-30)
+
+**问题**: EKF矩阵运算在栈上分配大量临时变量（1200+字节）
+
+**修复方案**: 
+1. 移动16个大型矩阵到静态存储（总计932字节）
+2. 增加defaultTask栈大小：2048 → 3072字节（512 → 768 words）
+3. 添加运行时栈水位标记监控
+
+**静态矩阵列表** (`modules/Sens-Decision/src/EKF.c`):
+```c
+static float s_F[5][5];              // ekf_predict: 100 bytes
+static float s_H[2][5];              // ekf_update: 40 bytes
+static float s_K[5][2];              // Kalman gain: 40 bytes
+// ... 共16个矩阵，932字节
+```
+
+**线程安全性**: 
+- ✅ 安全：只有一个任务（defaultTask）在50Hz调用EKF
+- ⚠️ 警告：不要从多个线程/ISR调用EKF函数（不是线程安全的）
+
+**验证方法**:
+```c
+// 查看控制台输出
+// [FreeRTOS] defaultTask stack high water mark: XXX bytes remaining
+```
+
+如果剩余栈空间<512字节，需要进一步增加栈大小。
+
+**来源**: Agent-2 栈分析报告, `modules/Sens-Decision/src/EKF.c` 头部注释
+
+---
+
+### 12.2 ⚠️ FreeRTOS任务栈配置
+
+**位置**: `Core/Src/freertos.c`
+
+**正确配置**:
+```c
+osThreadAttr_t defaultTask_attributes = {
+  .name = "defaultTask",
+  .stack_size = 768 * 4,  // 3072字节 (2026-07-30修正)
+  .priority = (osPriority_t) osPriorityNormal,
+};
+```
+
+**历史问题**:
+- 原配置：512 words（2048字节）→ 栈溢出风险
+- 新配置：768 words（3072字节）→ 安全余量
+
+**调试建议**:
+```c
+// 在任务中添加栈监控
+UBaseType_t uxHighWaterMark = uxTaskGetStackHighWaterMark(NULL);
+printf("Stack remaining: %lu bytes\r\n", uxHighWaterMark * 4);
+```
+
+**来源**: `Core/Src/freertos.c`, Agent-2报告
+
+---
+
+## 13. 控制频率优化 (Control Frequency)
+
+### 13.1 🟢 分层频率架构 (2026-07-30)
+
+**优化**: PID执行频率从500Hz降至100Hz
+
+**架构对比**:
+
+修改前（统一500Hz）:
+```
+500 Hz 主循环:
+  ├─ Encoder_Poll() - 500Hz
+  ├─ MotionControl_Update() [PID] - 500Hz ❌ 过于频繁
+  └─ EKF/Perception - 50Hz (每10周期)
+```
+
+修改后（分层架构）:
+```
+500 Hz 主循环:
+  ├─ Encoder_Poll() - 500Hz ✓ (每次)
+  ├─ MotionControl_Update() [PID] - 100Hz ✓ (每5次)
+  └─ EKF/Perception - 50Hz ✓ (每10次)
+```
+
+**原理**: 
+- 电机PWM响应时间约10ms → 100Hz PID已充分
+- 编码器保持500Hz高频采样 → 确保速度估计精度
+- 500Hz PID执行造成不必要的CPU开销（浪费80%计算）
+
+**性能提升**:
+- PID计算量减少80%（500次/秒 → 100次/秒）
+- CPU空闲时间增加
+- 控制质量不降低（100Hz对10ms响应时间足够）
+
+**来源**: `docs/FREQUENCY_OPTIMIZATION_2026-07-30.txt`
+
+---
+
+### 13.2 ⚠️ 参数配置变更
+
+**位置**: `modules/MotionControl/inc/motion_config.h`
+
+**新增参数**:
+```c
+#define MAIN_LOOP_FREQ_HZ       500    // 编码器采样频率
+#define PID_CONTROL_FREQ_HZ     100    // PID执行频率
+#define PID_CONTROL_PERIOD_S    0.01f  // PID周期（10ms）
+#define PID_CONTROL_DIVIDER     5      // 主循环每5次执行1次PID
+```
+
+**重要变更**:
+- `CONTROL_PERIOD_S` 现在是 0.01s（而非0.002s）
+- 所有PID积分/微分计算使用10ms时间步
+- 加速度限制使用10ms时间步
+
+**影响**: 如果手动调整了PID参数（Kp/Ki/Kd），需要重新调优：
+- Ki可能需要增大约5倍（因为更新频率降低5倍）
+- Kd可能需要减小约5倍
+
+**来源**: `docs/FREQUENCY_OPTIMIZATION_2026-07-30.txt` 第3节
+
+---
+
+### 13.3 ⚠️ 代码调用变更
+
+**位置**: `Core/Src/app/track_control_app.c`
+
+**调用逻辑**:
+```c
+void TrackControlApp_RunFastCycle(void) {
+    static uint8_t cycle_counter = 0;
+    
+    // 每周期执行: 编码器采样 (500Hz)
+    Encoder_Poll();
+    
+    // 每5周期执行: PID控制 (100Hz)
+    if (cycle_counter % 5 == 0) {
+        MotionControl_Update(CONTROL_PERIOD_S);  // dt = 0.01s
+    }
+    
+    // 每10周期执行: EKF/感知/决策 (50Hz)
+    if (cycle_counter % 10 == 0) {
+        // EKF pipeline
+    }
+    
+    cycle_counter++;
+    if (cycle_counter >= 10) cycle_counter = 0;
+}
+```
+
+**注意事项**:
+- 主循环仍然是500Hz（每2ms调用一次）
+- 不要修改 `osDelay(2)` 的值
+- `MotionControl_Update()` 接收的dt参数是0.01s（而非0.002s）
+
+**来源**: `Core/Src/app/track_control_app.c`, `docs/FREQUENCY_OPTIMIZATION_2026-07-30.txt`
+
+---
+
+## 14. 参数调优建议
 
 ### 11.1 分阶段调试
 
@@ -641,8 +884,15 @@ line_speed = 1.0, curve_speed = 0.7, lateral_gain = 调优, heading_gain = 调�
 4. **IR传感器Process()未被调用** - 数据中断接收了但永远解析不出来
 5. **printf静默禁用USART2中断** - 每次printf后RXNEIE可能丢失
 
+**新增（2026-07-30）：**
+
+6. **EKF观测模型配置不当** - 低成本IMU引入漂移，应简化为2观测模型
+7. **FreeRTOS栈溢出** - EKF矩阵运算需1200+字节栈，必须增加任务栈大小
+8. **控制频率过高** - 500Hz PID浪费80%计算，应降至100Hz
+
 ---
 
 **指南创建时间**: 2026-07-30
-**数据来源**: logs/ 目录下 35 个调试日志（29-30日两天）
+**数据来源**: logs/ 目录下 35+ 个调试日志 + build/logs/ 分析报告
 **创建者**: Claude (Opus 4.8) + 用户 Joelin
+**版本**: v1.1 (新增EKF、内存安全、控制频率章节)

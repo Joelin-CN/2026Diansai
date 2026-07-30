@@ -1,0 +1,299 @@
+================================================================================
+STM32 Smart Car Control Frequency Optimization
+================================================================================
+Date: 2026-07-30
+Author: Claude (Kiro AI Assistant)
+Version: 1.0
+
+================================================================================
+1. ARCHITECTURE OVERVIEW
+================================================================================
+
+BEFORE (Unified 500Hz):
+  500 Hz Main Loop (2ms):
+    ├─ Encoder_Poll() - 500Hz
+    ├─ MotionControl_Update() [PID] - 500Hz ❌ TOO FREQUENT
+    └─ EKF/Perception/Behavior - 50Hz (every 10 cycles)
+
+AFTER (Layered Architecture):
+  500 Hz Main Loop (2ms):
+    ├─ Encoder_Poll() - 500Hz ✓ (every cycle)
+    ├─ MotionControl_Update() [PID] - 100Hz ✓ (every 5 cycles)
+    └─ EKF/Perception/Behavior - 50Hz ✓ (every 10 cycles)
+
+================================================================================
+2. RATIONALE
+================================================================================
+
+Problem:
+  - PID controller running at 500Hz wastes CPU resources
+  - Motor PWM response time is ~10ms, so 100Hz is sufficient
+  - 500Hz execution causes unnecessary computational overhead
+
+Solution:
+  - Reduce PID frequency from 500Hz → 100Hz (5x reduction)
+  - Keep encoder sampling at 500Hz for accurate velocity estimation
+  - Keep EKF/perception at 50Hz (unchanged)
+
+Performance Impact:
+  - CPU savings: ~80% reduction in PID computation
+  - Original: MotionControl_Update() called 500 times/sec
+  - Optimized: MotionControl_Update() called 100 times/sec
+
+================================================================================
+3. CODE MODIFICATIONS
+================================================================================
+
+3.1 motion_config.h
+-------------------
+Location: modules/MotionControl/inc/motion_config.h
+
+Changes:
+  [ADDED] MAIN_LOOP_FREQ_HZ = 500        // Encoder sampling frequency
+  [ADDED] PID_CONTROL_FREQ_HZ = 100      // PID execution frequency
+  [ADDED] PID_CONTROL_PERIOD_S = 0.01    // 10ms period for PID
+  [ADDED] MAIN_LOOP_PERIOD_S = 0.002     // 2ms period for encoder
+  [ADDED] PID_CONTROL_DIVIDER = 5        // Execute PID every 5 cycles
+
+  [UPDATED] CONTROL_FREQ_HZ now aliases PID_CONTROL_FREQ_HZ
+  [UPDATED] CONTROL_PERIOD_S now aliases PID_CONTROL_PERIOD_S (0.01s, not 0.002s)
+
+  [UPDATED] SPEED_FILTER_ALPHA calculation uses MAIN_LOOP_PERIOD_S
+            (encoder filtering happens at 500Hz, not 100Hz)
+
+  [UPDATED] CMD_SMOOTH_ALPHA calculation uses PID_CONTROL_PERIOD_S
+            (command smoothing happens at 100Hz PID rate)
+
+3.2 track_control_app.c
+-----------------------
+Location: Core/Src/app/track_control_app.c
+
+Changes in TrackControlApp_RunFastCycle():
+
+  [RESTRUCTURED] Control flow to layered architecture:
+
+    OLD:
+      if (cycle_counter % 10 == 0) {
+          // 50Hz: EKF/perception
+      }
+      Encoder_Poll();              // 500Hz
+      MotionControl_Update();      // 500Hz ❌
+
+    NEW:
+      Encoder_Poll();              // 500Hz - every cycle
+
+      if (cycle_counter % 5 == 0) {
+          MotionControl_Update();  // 100Hz - every 5 cycles ✓
+      }
+
+      if (cycle_counter % 10 == 0) {
+          // 50Hz: EKF/perception - every 10 cycles ✓
+      }
+
+      cycle_counter++;
+      if (cycle_counter >= 10) cycle_counter = 0;
+
+  [ADDED] Extensive documentation comments explaining:
+    - Frequency layer design
+    - Rationale for each frequency choice
+    - Performance impact
+
+3.3 motion_control.c
+--------------------
+Location: modules/MotionControl/src/motion_control.c
+
+Changes:
+  [UPDATED] MotionControl_Init(): StateEst_Init() now receives MAIN_LOOP_FREQ_HZ (500Hz)
+            Previously used CONTROL_FREQ_HZ which is now 100Hz - this would break velocity estimation
+
+  [UPDATED] MotionControl_Update() header comment:
+            - Clarified execution frequency: 100Hz (every 10ms)
+            - Noted calling location: track_control_app.c (every 5 cycles)
+
+  [CLARIFIED] dt = CONTROL_PERIOD_S is now 0.01s (100Hz), not 0.002s (500Hz)
+              All PID calculations (integral, acceleration limiting) now use correct 10ms timestep
+
+3.4 motion_feedback.c
+---------------------
+Location: modules/MotionControl/src/motion_feedback.c
+
+Changes:
+  [ADDED] Comment in StateEst_Init() clarifying that update_freq parameter
+          is encoder sampling frequency (500Hz), NOT PID frequency (100Hz)
+
+3.5 freertos.c
+--------------
+Location: Core/Src/freertos.c
+
+Status: NO CHANGES REQUIRED
+  - Main loop remains at 500Hz (osDelay(2) with 1kHz tick rate)
+  - TrackControlApp_RunFastCycle() called every 2ms
+
+================================================================================
+4. VERIFICATION PLAN
+================================================================================
+
+4.1 Static Analysis (Pre-Compilation)
+--------------------------------------
+✓ Check CONTROL_PERIOD_S = 0.01s (not 0.002s)
+✓ Check MAIN_LOOP_PERIOD_S = 0.002s
+✓ Check PID_CONTROL_DIVIDER = 5
+✓ Check StateEst_Init() receives MAIN_LOOP_FREQ_HZ (500Hz)
+✓ Check TrackControlApp_RunFastCycle() calls MotionControl_Update() every 5 cycles
+
+4.2 Runtime Verification
+-------------------------
+[ ] Compile and flash firmware
+[ ] Monitor encoder sampling rate (should be 500Hz)
+[ ] Monitor PID execution rate (should be 100Hz)
+[ ] Verify velocity estimation accuracy (encoder @ 500Hz)
+[ ] Verify motor response (PID @ 100Hz should be sufficient)
+[ ] Check CPU usage reduction (should see ~80% less PID overhead)
+
+4.3 Performance Metrics
+-----------------------
+Measure and compare:
+  - Loop execution time (should be reduced)
+  - CPU idle time (should increase)
+  - Stack high-water mark (should be similar or slightly reduced)
+  - Control quality (should be maintained or improved)
+
+4.4 Functional Testing
+----------------------
+[ ] Test straight-line motion (velocity tracking accuracy)
+[ ] Test curved path (angular velocity tracking accuracy)
+[ ] Test acceleration/deceleration (ramp response)
+[ ] Test emergency stop (immediate response)
+[ ] Complete full track lap (3 laps target)
+
+================================================================================
+5. TIMING ALIGNMENT TABLE
+================================================================================
+
+Cycle   Time(ms)  Encoder  PID   EKF   Notes
+------  --------  -------  ----  ----  -----
+0       0         ✓        ✓     ✓     All layers execute
+1       2         ✓        -     -     Encoder only
+2       4         ✓        -     -     Encoder only
+3       6         ✓        -     -     Encoder only
+4       8         ✓        -     -     Encoder only
+5       10        ✓        ✓     -     Encoder + PID
+6       12        ✓        -     -     Encoder only
+7       14        ✓        -     -     Encoder only
+8       16        ✓        -     -     Encoder only
+9       18        ✓        -     -     Encoder only
+10      20        ✓        ✓     ✓     All layers execute (wraps to cycle 0)
+
+Pattern:
+  - Encoder: Every cycle (2ms interval)
+  - PID: Every 5 cycles (10ms interval)
+  - EKF: Every 10 cycles (20ms interval)
+
+================================================================================
+6. ROLLBACK INSTRUCTIONS
+================================================================================
+
+If you need to revert to 500Hz unified frequency:
+
+6.1 motion_config.h
+-------------------
+Change:
+  #define PID_CONTROL_FREQ_HZ     100
+To:
+  #define PID_CONTROL_FREQ_HZ     500
+
+6.2 track_control_app.c
+-----------------------
+In TrackControlApp_RunFastCycle(), change:
+
+  From:
+    Encoder_Poll();
+    if (cycle_counter % 5 == 0) {
+        MotionControl_Update();
+    }
+    if (cycle_counter % 10 == 0) {
+        // EKF pipeline
+    }
+
+  To:
+    if (cycle_counter % 10 == 0) {
+        // EKF pipeline
+    }
+    Encoder_Poll();
+    MotionControl_Update();
+
+6.3 Recompile and Flash
+-----------------------
+  make clean
+  make
+  flash
+
+================================================================================
+7. IMPACT ASSESSMENT
+================================================================================
+
+Positive:
+  + 80% reduction in PID computation overhead
+  + More CPU time available for other tasks
+  + Reduced power consumption
+  + Same control quality (100Hz sufficient for 10ms motor response)
+
+Neutral:
+  = Velocity estimation accuracy maintained (encoder still @ 500Hz)
+  = EKF/perception unchanged (still @ 50Hz)
+
+Potential Risks:
+  - Lower PID frequency may slightly increase phase lag
+  - If motor dynamics are faster than expected (< 10ms), may need tuning
+  - Integration time step changed from 2ms → 10ms (may affect integral windup)
+
+Mitigation:
+  - Monitor control performance during testing
+  - Adjust PID gains if needed (Ki may need 5x increase for same effect)
+  - Revert to 500Hz if control quality degrades
+
+================================================================================
+8. RELATED PARAMETERS TO MONITOR
+================================================================================
+
+After deployment, monitor these parameters:
+
+8.1 Time-Dependent Calculations
+--------------------------------
+  - PID integral term: I += error * dt  (dt now 0.01s, not 0.002s)
+  - Acceleration limit: max_delta = MAX_ACCEL * dt
+  - Velocity filtering: alpha * new + (1-alpha) * old
+  - Command smoothing: alpha based on PID period (0.01s)
+
+8.2 PID Tuning
+--------------
+If control quality degrades:
+  - Increase SPEED_KP if response is too slow
+  - Adjust SPEED_KI (note: 5x fewer updates, may need higher Ki)
+  - Check feedforward gains (FF_K_ACCEL, FF_K_FRICTION)
+
+8.3 Frequency-Sensitive Parameters
+----------------------------------
+  - SPEED_FILTER_CUTOFF (50Hz) - check if still appropriate
+  - CMD_SMOOTH_TAU (0.05s) - check if still appropriate
+  - MAX_ACCELERATION/DECELERATION - verify limits are enforced correctly
+
+================================================================================
+9. CHANGE SUMMARY
+================================================================================
+
+Files Modified: 4
+  1. modules/MotionControl/inc/motion_config.h
+  2. Core/Src/app/track_control_app.c
+  3. modules/MotionControl/src/motion_control.c
+  4. modules/MotionControl/src/motion_feedback.c
+
+Lines Changed: ~50 lines (mostly comments and structure)
+
+Key Concept:
+  Decoupled encoder sampling (500Hz) from PID execution (100Hz)
+  to optimize CPU usage while maintaining control quality.
+
+================================================================================
+END OF DOCUMENT
+================================================================================

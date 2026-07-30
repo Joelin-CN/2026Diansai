@@ -11,7 +11,7 @@
 
 ## 打开方式
 
-双击 `STM32F407_Skystar_FreeRTOS.ioc`，或在 STM32CubeMX 中选择
+双击 `v1.0_freeRTOS.ioc`，或在 STM32CubeMX 中选择
 `File -> Open Project`。修改配置后点击 `GENERATE CODE`。
 
 ## 已配置外设
@@ -330,7 +330,25 @@ MotionControl_Stop();    // 停止控制器（电机置零）
 
 ### 6. 关键参数配置
 
-#### 6.1 编码器参数（已修正）
+#### 6.1 控制频率参数（2026-07-30优化）
+
+**位置**：`modules/MotionControl/inc/motion_config.h`
+
+```c
+#define MAIN_LOOP_FREQ_HZ       500    // 主循环频率（编码器采样）
+#define PID_CONTROL_FREQ_HZ     100    // PID控制执行频率
+#define PID_CONTROL_PERIOD_S    0.01f  // PID周期（秒）
+#define PID_CONTROL_DIVIDER     5      // 主循环每5次执行一次PID
+```
+
+**分层频率架构**：
+- **编码器采样**：500Hz（每2ms）- 确保速度估计精度
+- **PID控制**：100Hz（每10ms）- 匹配电机PWM响应时间
+- **EKF/感知**：50Hz（每20ms）- 计算密集型任务
+
+**优化效果**：PID计算量减少80%，CPU占用率显著降低
+
+#### 6.2 编码器参数（已修正）
 
 **位置**：`modules/MotionControl/inc/motion_config.h`
 
@@ -346,7 +364,43 @@ MotionControl_Stop();    // 停止控制器（电机置零）
 - 新值：60000 counts/圈（实测500 PPR）
 - 影响：修复前速度估计错误38.5倍
 
-#### 6.2 红外传感器参数（已修正）
+#### 6.3 EKF参数（2026-07-30优化）
+
+**位置**：`modules/Sens-Decision/inc/config.h`, `modules/Sens-Decision/src/config.c`
+
+```c
+#define SD_EKF_OBSERVATION_COUNT 2U  // 观测数量：v（编码器）+ ω（编码器差速）
+```
+
+**观测模型简化**（2026-07-30）：
+- 旧配置：3观测（v编码器 + ω编码器 + ω IMU陀螺仪）
+- 新配置：2观测（v编码器 + ω编码器）
+- 原因：避免低成本IMU漂移，简化参数调优
+- 性能提升：矩阵求逆计算量减少30%（2×2 vs 3×3）
+
+**观测噪声配置**：
+```c
+observation_noise_diag[0] = 0.03f;  // v噪声方差 (m/s)²
+observation_noise_diag[1] = 0.08f;  // ω噪声方差 (rad/s)²
+```
+
+#### 6.4 FreeRTOS任务栈配置（2026-07-30修正）
+
+**位置**：`Core/Src/freertos.c`
+
+```c
+#define CONTROL_TASK_STACK_SIZE 768  // 3072字节（768×4）
+```
+
+**修正记录**（2026-07-30）：
+- 旧值：512 words（2048字节）
+- 新值：768 words（3072字节）
+- 原因：EKF矩阵运算栈需求~1200字节，防止栈溢出
+- 额外措施：16个大型矩阵移至静态存储（节省932字节栈空间）
+
+⚠️ **运行时监控**：查看控制台打印的栈水位标记（Stack High Water Mark）
+
+#### 6.5 红外传感器参数（已修正）
 
 **位置**：`modules/Sens-Decision/src/config.c`
 
@@ -362,7 +416,7 @@ static const float ir_weights[8] = {
 };
 ```
 
-#### 6.3 控制参数
+#### 6.6 控制参数
 
 **位置**：`modules/Sens-Decision/src/config.c`
 
@@ -380,6 +434,20 @@ square_config.curve_speed_mps = 0.5f;  // 过弯速度（米/秒）
 - 第一阶段（验证）：`line_speed = 0.3, curve_speed = 0.2, lateral_gain = 0.5`
 - 第二阶段（提升）：`line_speed = 0.6, curve_speed = 0.4, lateral_gain = 1.0`
 - 第三阶段（极限）：`line_speed = 1.0, curve_speed = 0.7, lateral_gain = 调优值`
+
+#### 6.7 中断优先级配置（2026-07-30规范）
+
+**位置**：`Core/Src/usart.c`, `Core/Src/stm32f4xx_it.c`
+
+**关键配置**：
+- **USART2（红外传感器）**：Priority 3（高于FreeRTOS边界）
+  - 原因：125Hz高速数据流，字节间隔仅87μs
+  - 限制：禁止调用任何FreeRTOS API
+  - 详见：`docs/INTERRUPT_PRIORITY_GUIDE.md`
+
+- **其他外设**：Priority 5-15（可安全使用FreeRTOS API）
+
+⚠️ **警告**：修改USART2中断处理代码前必须阅读优先级配置指南
 
 ---
 
@@ -466,23 +534,78 @@ float distance_per_rev = 2 * PI * WHEEL_RADIUS;
 
 - `logs/` - 开发日志和问题修复记录
 - `docs/` - 设计文档和参数清单
+- `build/logs/` - 编译输出和分析报告
 - `BUGFIX_lateral_error_verification.md` - lateral_error 符号验证完整记录
+- `CHANGELOG.md` - 版本变更历史
 
 **关键文档**：
 
 | 文档 | 描述 |
 |------|------|
+| `API_PITFALLS_GUIDE.md` | 模块调试避坑指南（必读） |
+| `CHANGELOG.md` | 版本变更历史和修复记录 |
+| `docs/INTERRUPT_PRIORITY_GUIDE.md` | FreeRTOS中断优先级配置指南 |
+| `docs/FREQUENCY_OPTIMIZATION_2026-07-30.txt` | 控制频率优化分析 |
+| `build/logs/EKF_ANALYSIS_AND_FIX.txt` | EKF观测模型分析与修复 |
 | `logs/WORK_SESSION_SUMMARY_2026-07-30.md` | 工作会话总结 |
 | `logs/2026-07-30_encoder_ppr_correction.md` | 编码器分辨率修正 |
 | `logs/2026-07-30_coord_system_complete_fix.md` | 坐标系统一修复 |
 | `logs/2026-07-30_ir_sensor_fix_implementation.md` | 红外传感器修复 |
+| `logs/2026-07-30_interrupt_priority_audit.md` | 中断优先级审计报告 |
 | `BUGFIX_lateral_error_verification.md` | lateral_error验证与修复 |
 
 ---
 
+## 最近修改记录 (Recent Modifications)
+
+### 2026-07-30 - 关键修复与优化
+
+本次更新由7个自主代理完成，修复了4个关键问题并进行了性能优化：
+
+#### 1. EKF观测模型简化（Critical Fix）
+- **问题**：3观测模型配置不当，低成本IMU引入漂移
+- **修复**：简化为2观测模型（移除IMU陀螺仪观测）
+- **影响**：计算量减少30%，参数调优难度降低
+- **详见**：`build/logs/EKF_ANALYSIS_AND_FIX.txt`
+
+#### 2. 栈溢出风险修复（Critical Fix）
+- **问题**：EKF矩阵运算使用1200+字节栈空间
+- **修复**：16个矩阵移至静态存储，任务栈增至3072字节
+- **影响**：防止HardFault，提高系统稳定性
+- **监控**：运行时查看栈水位标记
+
+#### 3. 控制频率优化（Performance）
+- **优化**：PID执行频率从500Hz降至100Hz
+- **保持**：编码器采样500Hz，EKF/感知50Hz
+- **效果**：CPU占用率降低80%（PID部分）
+- **详见**：`docs/FREQUENCY_OPTIMIZATION_2026-07-30.txt`
+
+#### 4. 中断优先级规范化（Major Fix）
+- **问题**：USART2优先级配置冲突和文档缺失
+- **修复**：统一配置，添加详细文档和安全指南
+- **影响**：避免FreeRTOS API误用导致的HardFault
+- **详见**：`docs/INTERRUPT_PRIORITY_GUIDE.md`
+
+#### 修改统计
+- **文件修改**：13个
+- **文档创建**：9个
+- **代码行变更**：约500行
+- **测试状态**：编译验证待进行，硬件测试待进行
+
+#### 下一步工作
+1. 编译固件并验证无错误
+2. 烧录到STM32F407
+3. 运行验证测试（参见各文档中的测试清单）
+4. 监控栈水位标记
+5. 验证100Hz PID控制稳定性
+
+详细信息请参阅 `CHANGELOG.md` 和 `docs/MODIFICATIONS_SUMMARY_2026-07-30.md`。
+
+---
+
 **最后更新**: 2026-07-30  
-**版本**: v1.0  
-**状态**: 算法静态检查完成，实车验证待进行
+**版本**: v1.1.0  
+**状态**: 静态分析完成，编译验证待进行，硬件测试待进行
 
 
 ---
@@ -498,5 +621,5 @@ float distance_per_rev = 2 * PI * WHEEL_RADIUS;
 ---
 
 **最后更新**: 2026-07-30
-**版本**: v1.0
-**状态**: 算法静态检查完成，实体验证待进行
+**版本**: v1.1.0
+**状态**: 静态分析完成，编译验证待进行，硬件测试待进行

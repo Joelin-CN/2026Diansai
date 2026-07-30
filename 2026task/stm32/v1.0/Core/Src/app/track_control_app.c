@@ -225,11 +225,73 @@ skip_icm42688:
 }
 
 /* ============================================================================
- * Fast Cycle: 500 Hz Motion Control, 50 Hz Sens-Decision
+ * Fast Cycle: Layered Frequency Architecture (Optimized 2026-07-30)
+ * ============================================================================
+ *
+ * Frequency Layer Design:
+ *   500 Hz (2ms) - Main loop, encoder sampling
+ *   100 Hz (10ms) - PID controller (every 5 cycles)
+ *   50 Hz (20ms) - EKF/perception/behavior (every 10 cycles)
+ *
+ * Rationale:
+ *   - Encoder @ 500Hz: High-frequency sampling ensures accurate velocity estimation
+ *   - PID @ 100Hz: Matches motor PWM response time (~10ms), saves 80% CPU vs 500Hz
+ *   - EKF @ 50Hz: Computationally intensive, lower frequency sufficient for perception
+ *
+ * Performance Impact:
+ *   - Original: MotionControl_Update() 500 times/sec
+ *   - Optimized: MotionControl_Update() 100 times/sec
+ *   - CPU savings: ~80% reduction in PID computation overhead
+ *
  * ============================================================================ */
 
+/**
+ * @brief Main control loop - 500Hz execution
+ *
+ * Implements layered frequency architecture (2026-07-30 optimization):
+ *
+ * FREQUENCY LAYERS:
+ * - Every cycle (500Hz, 2ms): Encoder sampling
+ * - Every 5 cycles (100Hz, 10ms): PID control execution
+ * - Every 10 cycles (50Hz, 20ms): EKF/Perception/Planning
+ *
+ * RATIONALE:
+ * - Encoder sampling at 500Hz ensures accurate velocity estimation
+ * - PID at 100Hz matches motor PWM response time (~10ms)
+ * - EKF/Planning at 50Hz reduces computational load for heavy algorithms
+ * - Original 500Hz PID wasted 80% CPU on unnecessary updates
+ *
+ * TIMING ALIGNMENT:
+ * Cycle 0:  Encoder + PID + EKF (all layers)
+ * Cycle 1-4: Encoder only
+ * Cycle 5:  Encoder + PID
+ * Cycle 6-9: Encoder only
+ * Cycle 10: Wraps to 0 (all layers again)
+ *
+ * @note Call this function every 2ms from FreeRTOS task
+ * @note Modified 2026-07-30: Added frequency layering for performance
+ *
+ * @see docs/FREQUENCY_OPTIMIZATION_2026-07-30.txt for detailed analysis
+ */
 void TrackControlApp_RunFastCycle(void) {
-    /* Every 10th cycle: Run Sens-Decision pipeline at 50 Hz */
+    /* -----------------------------------------------------------------------
+     * Layer 1: 500Hz - Encoder Sampling (every cycle)
+     * High-frequency encoder polling is critical for accurate velocity estimation
+     * ----------------------------------------------------------------------- */
+    Encoder_Poll();
+
+    /* -----------------------------------------------------------------------
+     * Layer 2: 100Hz - PID Control (every 5 cycles = 10ms)
+     * Motor PWM response time is ~10ms, so 100Hz control frequency is sufficient
+     * ----------------------------------------------------------------------- */
+    if ((g_cycle_counter % 5U) == 0U) {
+        MotionControl_Update(&g_motion_control);
+    }
+
+    /* -----------------------------------------------------------------------
+     * Layer 3: 50Hz - EKF/Perception/Decision (every 10 cycles = 20ms)
+     * Computationally intensive pipeline runs at lower frequency
+     * ----------------------------------------------------------------------- */
     if ((g_cycle_counter % 10U) == 0U) {
         const float dt = 0.020f;  /* 50 Hz = 20ms */
 
@@ -308,11 +370,11 @@ void TrackControlApp_RunFastCycle(void) {
         }
     }
 
-    /* Every cycle: Execute motion control at 500 Hz */
-    Encoder_Poll();
-    MotionControl_Update(&g_motion_control);
-
+    /* Increment cycle counter (wraps at 10 to align with 50Hz layer) */
     g_cycle_counter++;
+    if (g_cycle_counter >= 10U) {
+        g_cycle_counter = 0U;
+    }
 }
 
 /* ============================================================================

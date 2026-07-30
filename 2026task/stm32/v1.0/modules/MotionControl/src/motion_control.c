@@ -148,7 +148,7 @@ bool MotionControl_Init(MotionControl_t *ctrl,
                   encoder,
                   WHEEL_RADIUS,
                   ENCODER_PPR,
-                  CONTROL_FREQ_HZ);
+                  MAIN_LOOP_FREQ_HZ);  /* Use main loop frequency (500Hz) for encoder sampling */
 
     /* 左右轮速度控制器（前馈+反馈） */
     WheelController_Init(&ctrl->wheel_left,
@@ -174,6 +174,9 @@ bool MotionControl_Init(MotionControl_t *ctrl,
 
 /* ============================================================================
  * 主控制循环
+ * ---------------------------------------------------------------------------
+ * 频率: 100Hz (每10ms执行一次)
+ * 调用位置: track_control_app.c (每5个主循环周期调用一次)
  * ============================================================================ */
 
 void MotionControl_Update(MotionControl_t *ctrl) {
@@ -181,7 +184,8 @@ void MotionControl_Update(MotionControl_t *ctrl) {
         return;
     }
 
-    const float dt = CONTROL_PERIOD_S;
+    /* PID控制周期: 10ms (100Hz) - 匹配执行器响应时间 */
+    const float dt = CONTROL_PERIOD_S;  /* 0.01s (100Hz) */
 
 #if ENABLE_PERFORMANCE_MONITOR
     /* 记录开始时间 */

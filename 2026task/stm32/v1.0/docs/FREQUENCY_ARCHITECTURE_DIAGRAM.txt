@@ -1,0 +1,173 @@
+================================================================================
+STM32 Smart Car - Layered Frequency Architecture
+================================================================================
+
+TIMING DIAGRAM
+==============
+
+Time    Cycle   Encoder   PID      EKF      Notes
+(ms)    #       500Hz     100Hz    50Hz
+────────────────────────────────────────────────────────────────────────────
+0       0       ●         ●        ●        All layers execute
+2       1       ●         -        -        Encoder only
+4       2       ●         -        -        Encoder only
+6       3       ●         -        -        Encoder only
+8       4       ●         -        -        Encoder only
+10      5       ●         ●        -        Encoder + PID
+12      6       ●         -        -        Encoder only
+14      7       ●         -        -        Encoder only
+16      8       ●         -        -        Encoder only
+18      9       ●         -        -        Encoder only
+20      0       ●         ●        ●        All layers execute (cycle wraps)
+
+
+FREQUENCY RATIOS
+================
+
+Main Loop:     500 Hz (base frequency)
+PID Control:   100 Hz (1/5 of main loop)
+EKF/Perception: 50 Hz (1/10 of main loop, 1/2 of PID)
+
+Divider ratios:
+  - PID executes every 5 main loop cycles
+  - EKF executes every 10 main loop cycles
+  - EKF executes every 2 PID cycles
+
+
+CODE FLOW
+=========
+
+TrackControlApp_RunFastCycle() [Called every 2ms by FreeRTOS]
+│
+├─ [Every cycle] Encoder_Poll()
+│  └─ Samples encoder at 500Hz for accurate velocity estimation
+│
+├─ [Every 5 cycles] if (cycle_counter % 5 == 0)
+│  └─ MotionControl_Update()
+│     ├─ StateEst_Update()        // Read encoder, calculate wheel speeds
+│     ├─ SmoothCommand()          // Low-pass filter velocity commands
+│     ├─ ClampAcceleration()      // Limit acceleration rate
+│     ├─ DiffKin_Inverse()        // Convert (v,ω) → (v_left, v_right)
+│     ├─ WheelController_Update() // PID + Feedforward for each wheel
+│     └─ motor->setDifferentialPWM() // Output PWM to motors
+│
+├─ [Every 10 cycles] if (cycle_counter % 10 == 0)
+│  └─ EKF/Perception/Decision Pipeline
+│     ├─ preprocess_update()           // Sensor data preprocessing
+│     ├─ state_evaluator_update()      // EKF state estimation
+│     ├─ perception_update()           // Line detection/tracking
+│     ├─ behavior_planner_update()     // High-level decision making
+│     ├─ trajectory_generate()         // Path planning
+│     └─ MotionControl_SetVelocityCommand() // Set target (v,ω)
+│
+└─ cycle_counter++ (wraps at 10)
+
+
+KEY PARAMETERS
+==============
+
+motion_config.h:
+  MAIN_LOOP_FREQ_HZ      = 500    // Encoder sampling frequency
+  PID_CONTROL_FREQ_HZ    = 100    // PID execution frequency
+  MAIN_LOOP_PERIOD_S     = 0.002  // 2ms (encoder period)
+  PID_CONTROL_PERIOD_S   = 0.010  // 10ms (PID period)
+  PID_CONTROL_DIVIDER    = 5      // Execute PID every 5 cycles
+
+track_control_app.c:
+  cycle_counter % 5  == 0  →  Execute PID (100Hz)
+  cycle_counter % 10 == 0  →  Execute EKF (50Hz)
+
+motion_control.c:
+  StateEst_Init(..., MAIN_LOOP_FREQ_HZ)  // 500Hz for encoder
+  dt = CONTROL_PERIOD_S                  // 0.01s for PID calculations
+
+
+CRITICAL TIMING DEPENDENCIES
+=============================
+
+1. Encoder Velocity Estimation:
+   velocity = (delta_counts / PPR) × circumference × sampling_frequency
+   Must use MAIN_LOOP_FREQ_HZ (500Hz), not PID_CONTROL_FREQ_HZ (100Hz)
+
+2. PID Integral Term:
+   integral += error × dt
+   dt must be PID_CONTROL_PERIOD_S (0.01s), not MAIN_LOOP_PERIOD_S (0.002s)
+
+3. Acceleration Limiting:
+   max_delta = MAX_ACCELERATION × dt
+   dt must be PID_CONTROL_PERIOD_S (0.01s)
+
+4. Low-Pass Filter (Encoder):
+   alpha = 2π × f_cutoff × dt / (1 + 2π × f_cutoff × dt)
+   dt must be MAIN_LOOP_PERIOD_S (0.002s) - filtering happens at encoder rate
+
+5. Command Smoothing:
+   alpha = dt / (tau + dt)
+   dt must be PID_CONTROL_PERIOD_S (0.01s) - smoothing happens at PID rate
+
+
+PERFORMANCE COMPARISON
+======================
+
+                          BEFORE (500Hz)    AFTER (100Hz)    SAVINGS
+────────────────────────────────────────────────────────────────────────
+PID calls per second:     500               100              80%
+PID calls per 10ms:       5                 1                80%
+Encoder polls per 10ms:   5                 5                0% (unchanged)
+EKF calls per second:     50                50               0% (unchanged)
+
+Estimated CPU time per second:
+  Encoder polling:        ~500 × 10µs  = 5ms  (unchanged)
+  PID control:            ~500 × 50µs  = 25ms → ~100 × 50µs = 5ms (20ms saved)
+  EKF/Perception:         ~50 × 200µs  = 10ms (unchanged)
+  Total control overhead: 40ms → 20ms (50% reduction)
+
+
+WHY THIS ARCHITECTURE WORKS
+============================
+
+1. Encoder @ 500Hz:
+   - High-frequency sampling reduces quantization error in velocity estimation
+   - Critical for accurate speed feedback in PID loop
+   - Encoder counts are integers; higher sampling = better resolution
+
+2. PID @ 100Hz:
+   - Motor PWM response time is ~10ms (limited by inductance, inertia)
+   - Commanding faster than actuator can respond provides no benefit
+   - 100Hz = 10ms period matches actuator dynamics
+   - Reduces CPU load without sacrificing control quality
+
+3. EKF @ 50Hz:
+   - Computationally expensive (matrix operations, Kalman filtering)
+   - Vehicle dynamics change slowly (position, heading)
+   - 20ms update rate sufficient for trajectory tracking
+   - Frees CPU for other tasks
+
+
+TESTING CHECKLIST
+=================
+
+[ ] Compile without errors
+[ ] Verify CONTROL_PERIOD_S = 0.01 (not 0.002)
+[ ] Verify encoder velocity calculation accuracy
+[ ] Test straight-line motion (velocity tracking)
+[ ] Test curved motion (omega tracking)
+[ ] Monitor CPU usage (should see reduction)
+[ ] Complete full track lap
+[ ] Verify no integral windup issues (dt changed 5x)
+[ ] Check acceleration limiting works correctly
+[ ] Verify command smoothing is appropriate
+
+
+ROLLBACK PROCEDURE
+==================
+
+If control quality degrades:
+
+1. Change PID_CONTROL_FREQ_HZ from 100 → 500 in motion_config.h
+2. Move MotionControl_Update() outside the "if (cycle_counter % 5)" block
+3. Recompile and test
+
+This reverts to unified 500Hz architecture.
+
+================================================================================

@@ -7,7 +7,7 @@
 #define SD_ENCODER_COUNT 2U
 #define SD_IR_CHANNEL_COUNT 8U
 #define SD_EKF_STATE_COUNT 5U
-#define SD_EKF_OBSERVATION_COUNT 3U
+#define SD_EKF_OBSERVATION_COUNT 2U  /* Changed from 3 to 2: removed IMU gyro observation */
 
 typedef enum {
     SD_OK = 0,

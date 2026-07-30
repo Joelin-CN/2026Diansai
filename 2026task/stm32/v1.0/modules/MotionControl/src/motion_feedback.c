@@ -111,7 +111,7 @@ void PID_SetIntegralLimits(PID_t *pid, float min, float max) {
  * 状态估计器实现
  * ============================================================================ */
 
-void StateEst_Init(StateEstimator_t *est, 
+void StateEst_Init(StateEstimator_t *est,
                    EncoderInterface_t *encoder,
                    float wheel_radius,
                    float encoder_ppr,
@@ -119,13 +119,13 @@ void StateEst_Init(StateEstimator_t *est,
     est->encoder = encoder;
     est->wheel_radius = wheel_radius;
     est->encoder_ppr = encoder_ppr;
-    est->update_freq = update_freq;
-    
+    est->update_freq = update_freq;  /* NOTE: This is encoder sampling frequency (500Hz), NOT PID frequency */
+
     // 初始化历史数据
     memset(est->prev_count, 0, sizeof(est->prev_count));
     memset(est->wheel_speed, 0, sizeof(est->wheel_speed));
     memset(est->wheel_speed_filtered, 0, sizeof(est->wheel_speed_filtered));
-    
+
     est->v_left = 0.0f;
     est->v_right = 0.0f;
 }

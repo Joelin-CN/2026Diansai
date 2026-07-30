@@ -93,10 +93,16 @@ sd_status_t state_evaluator_update(state_evaluator_t *evaluator, const sensor_fr
     
     v_encoder = (right_speed + left_speed) / 2.0f;
     omega_encoder = (right_speed - left_speed) / g_sens_decision_config.vehicle.wheel_track_m;
-    
+
+    /* Observation vector (2D):
+     * observation[0]: Linear velocity from encoders
+     * observation[1]: Angular velocity from encoder differential
+     *
+     * NOTE: IMU gyro (frame->imu.gyro_radps[2]) is no longer used in EKF.
+     * The encoder-based omega estimation is sufficient for line-following.
+     */
     observation[0] = v_encoder;
     observation[1] = omega_encoder;
-    observation[2] = frame->imu.gyro_radps[2];
     
     for (i = 0; i < SD_EKF_OBSERVATION_COUNT; ++i) {
         if (!isfinite(observation[i])) {

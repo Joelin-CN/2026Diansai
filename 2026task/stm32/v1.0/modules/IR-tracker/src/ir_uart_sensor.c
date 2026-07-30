@@ -77,8 +77,11 @@ void IrUartSensor_Init(void)
     // Enable UART receive interrupt
     __HAL_UART_ENABLE_IT(IR_UART_HANDLE, UART_IT_RXNE);
 
-    // Set interrupt priority and enable
-    HAL_NVIC_SetPriority(IR_UART_IRQn, 5, 0);
+    // Note: USART2 interrupt priority is already configured in usart.c (HAL_MspInit)
+    // as Priority 3 (above FreeRTOS boundary) for low-latency IR sensor data reception.
+    // Do NOT reconfigure here to avoid conflicts.
+
+    // Ensure interrupt is enabled (in case it was disabled elsewhere)
     HAL_NVIC_EnableIRQ(IR_UART_IRQn);
 
     // WORKAROUND: Force enable RXNEIE by directly setting CR1 register

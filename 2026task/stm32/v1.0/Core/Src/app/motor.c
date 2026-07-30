@@ -10,8 +10,64 @@
 #include "main.h"
 #include <stdlib.h>
 
-#define MOTOR_PWM_ARR  8399U   // TIM1 ARR，对应20kHz、100%占空比
-#define MOTOR_SPEED_MAX 100    // 输入范围：-100到+100（百分比）
+/**
+ * @brief TIM1 ARR值 - PWM周期配置
+ *
+ * @category D: 硬件约束参数（固定）
+ *
+ * @value 8399
+ *
+ * @origin 硬件计算
+ *   目标: 生成20 kHz PWM频率
+ *
+ *   计算依据:
+ *   - 系统时钟: 168 MHz (STM32F407)
+ *   - TIM1时钟: 168 MHz (APB2时钟，预分频器PSC=0)
+ *   - 目标PWM频率: 20 kHz
+ *   - 计算公式: ARR = (TIM_CLK / PWM_FREQ) - 1
+ *   - ARR = 168,000,000 / 20,000 - 1 = 8399
+ *
+ * @validation
+ *   - CubeMX配置文件: v1.0_freeRTOS.ioc
+ *   - 实测PWM频率应为 20.0 kHz ± 0.1 kHz
+ *   - 使用示波器验证
+ *
+ * @tuning_guide
+ *   PWM频率选择原则:
+ *   - 太低 (< 10 kHz): 电机噪音大，转矩脉动明显
+ *   - 适中 (15-25 kHz): 平衡性能和效率（推荐）
+ *   - 太高 (> 30 kHz): 开关损耗增加，效率降低
+ *
+ *   修改PWM频率:
+ *   1. 确定新的目标频率 f (Hz)
+ *   2. 计算新的ARR = 168,000,000 / f - 1
+ *   3. 同步修改CubeMX配置
+ *   4. 重新生成代码
+ *
+ * @warnings
+ *   - 不可随意修改，会改变PWM频率
+ *   - 修改后必须更新CubeMX配置
+ *   - TB6612驱动器支持的PWM频率范围: 1kHz ~ 100kHz
+ */
+#define MOTOR_PWM_ARR  8399U
+
+/**
+ * @brief 电机速度输入范围
+ *
+ * @category D: 硬件约束参数（设计值）
+ *
+ * @value 100 (对应百分比模式)
+ *
+ * @origin 设计选择
+ *   - 使用百分比模式: -100% ~ +100%
+ *   - 便于理解和使用
+ *   - 内部转换为PWM脉宽: pulse = |speed| × ARR / 100
+ *
+ * @warnings
+ *   - 输入范围: -100 到 +100
+ *   - 超出范围会被自动限幅
+ */
+#define MOTOR_SPEED_MAX 100
 
 static void _set_wheel(uint32_t ch,
                        GPIO_TypeDef *in1p, uint16_t in1,

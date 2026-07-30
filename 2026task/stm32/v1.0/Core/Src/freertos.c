@@ -53,7 +53,7 @@
 osThreadId_t defaultTaskHandle;
 const osThreadAttr_t defaultTask_attributes = {
   .name = "defaultTask",
-  .stack_size = 512 * 4,
+  .stack_size = 768 * 4,  /* Increased from 512*4 (2048) to 768*4 (3072) bytes for EKF safety */
   .priority = (osPriority_t) osPriorityNormal,
 };
 
@@ -130,11 +130,31 @@ void StartDefaultTask(void *argument)
 
   printf("[TrackControlApp] Running — target laps: %u\r\n", (unsigned)TARGET_LAPS);
 
+#if (INCLUDE_uxTaskGetStackHighWaterMark == 1)
+  /* Report initial stack watermark for monitoring */
+  UBaseType_t stack_watermark = uxTaskGetStackHighWaterMark(NULL);
+  printf("[RTOS] defaultTask stack size: 3072 bytes, high-water mark: %u words (%u bytes free)\r\n",
+         (unsigned)stack_watermark, (unsigned)(stack_watermark * 4));
+#endif
+
   /* 500 Hz control loop (2 ms tick, assuming 1 kHz FreeRTOS tick rate) */
+  uint32_t loop_counter = 0;
   for (;;)
   {
       TrackControlApp_RunFastCycle();
       osDelay(2);
+
+#if (INCLUDE_uxTaskGetStackHighWaterMark == 1)
+      /* Report stack usage every 10 seconds (5000 loops at 500Hz) */
+      if (++loop_counter >= 5000U) {
+          loop_counter = 0;
+          stack_watermark = uxTaskGetStackHighWaterMark(NULL);
+          printf("[RTOS] Stack high-water mark: %u words (%u bytes free, %u%% used)\r\n",
+                 (unsigned)stack_watermark,
+                 (unsigned)(stack_watermark * 4),
+                 (unsigned)(100 - (stack_watermark * 400 / 3072)));
+      }
+#endif
   }
 
   /* USER CODE END StartDefaultTask */

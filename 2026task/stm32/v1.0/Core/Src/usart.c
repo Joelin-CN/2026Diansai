@@ -362,8 +362,10 @@ void HAL_UART_MspInit(UART_HandleTypeDef* uartHandle)
     __HAL_LINKDMA(uartHandle,hdmatx,hdma_usart2_tx);
 
     /* USART2 interrupt Init */
-    // Priority 3 (higher than default 5) for high-speed IR sensor data (125 Hz)
-    // Must be lower than configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY (5) for FreeRTOS
+    // ⚠️  Priority 3 is HIGHER than FreeRTOS syscall boundary (5)
+    // This means USART2_IRQHandler CANNOT call ANY FreeRTOS API
+    // Rationale: Low-latency response for 125Hz IR sensor (87μs byte interval)
+    // See: stm32f4xx_it.c for detailed restrictions
     HAL_NVIC_SetPriority(USART2_IRQn, 3, 0);
     HAL_NVIC_EnableIRQ(USART2_IRQn);
   /* USER CODE BEGIN USART2_MspInit 1 */

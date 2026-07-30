@@ -359,16 +359,46 @@ void EXTI9_5_IRQHandler(void)
 /**
   * @brief USART2 全局中断处理函数（红外传感器数据接收）
   *
-  * @note 修复说明 (2026-07-30):
-  *       本函数采用纯中断模式处理USART2接收，不调用HAL_UART_IRQHandler()
-  *       以避免双重读取DR寄存器导致的数据丢失和ORE错误。
+  * ⚠️  ============================================================
+  * ⚠️  CRITICAL ISR - Priority 3 (ABOVE FreeRTOS syscall boundary)
+  * ⚠️  ============================================================
   *
-  * @details 技术要点:
-  *       1. 红外传感器以125Hz频率发送59字节帧，字节间隔约87μs
-  *       2. 中断处理必须在87μs内完成，否则会触发ORE (Overrun Error)
-  *       3. 手动读取DR寄存器后自动清除RXNE标志，避免HAL状态机干扰
-  *       4. 主动清除ORE/FE/NE错误标志，防止HAL进入错误恢复模式并禁用中断
+  * === STRICT RESTRICTIONS (MUST READ BEFORE ANY MODIFICATION) ===
   *
+  * This ISR runs at Priority 3, which is HIGHER than the FreeRTOS
+  * configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY (5).
+  *
+  * ❌ DO NOT call ANY FreeRTOS API:
+  *    - osDelay(), osSemaphoreAcquire(), osMessageQueuePut(), osMutexAcquire()
+  *    - xSemaphoreGive(), xQueueSend(), vTaskNotifyGive(), etc.
+  *
+  * ❌ DO NOT call HAL functions with _IT or _DMA suffix:
+  *    - HAL_UART_Transmit_IT(), HAL_UART_Receive_IT()
+  *
+  * ❌ DO NOT call printf() or any function that uses RTOS mutexes
+  *
+  * ❌ DO NOT use taskENTER_CRITICAL() / taskEXIT_CRITICAL()
+  *    (They have no effect at this priority level)
+  *
+  * ✅ ONLY safe operations:
+  *    - Direct register access (huart2.Instance->DR, CR1, SR)
+  *    - Simple memory writes to volatile buffers
+  *    - Atomic flag updates
+  *
+  * === Rationale ===
+  * Priority 3 ensures low-latency response for 125Hz IR sensor data stream.
+  * Byte interval: 87μs. Any FreeRTOS blocking would cause Overrun Errors.
+  *
+  * === Technical Details ===
+  * 1. 红外传感器以125Hz频率发送59字节帧，字节间隔约87μs
+  * 2. 中断处理必须在87μs内完成，否则会触发ORE (Overrun Error)
+  * 3. 手动读取DR寄存器后自动清除RXNE标志，避免HAL状态机干扰
+  * 4. 主动清除ORE/FE/NE错误标志，防止HAL进入错误恢复模式并禁用中断
+  *
+  * ⚠️  CODE REVIEW REQUIRED FOR ANY MODIFICATION
+  *
+  * @see Core/Src/usart.c:367 - Priority configuration
+  * @see FreeRTOSConfig.h:142 - configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY = 5
   * @see logs/2026-07-30_ir_sensor_fix_implementation.md - 详细修复记录
   * @see logs/2026-07-30_ir_sensor_race_condition_analysis.md - 竞态问题分析
   */
