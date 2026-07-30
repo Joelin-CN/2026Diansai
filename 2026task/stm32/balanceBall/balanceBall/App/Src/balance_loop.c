@@ -244,8 +244,6 @@ bool balance_loop_process_measurement(BalanceLoop *loop,
             if (loop->has_saturation_error
                 && abs_error >= loop->previous_saturation_abs_error_cm) {
                 loop->saturation_frames++;
-            } else if (!loop->has_saturation_error) {
-                loop->saturation_frames = 1U;
             } else {
                 loop->saturation_frames = 0U;
             }

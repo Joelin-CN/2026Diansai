@@ -491,6 +491,7 @@ static void test_loop_faults_after_sustained_output_saturation(void)
         { .sequence = 3U, .rx_timestamp_ms = 1060U, .valid = true, .position_cm = -2.0f },
         { .sequence = 4U, .rx_timestamp_ms = 1090U, .valid = true, .position_cm = -2.0f },
         { .sequence = 5U, .rx_timestamp_ms = 1120U, .valid = true, .position_cm = -2.0f },
+        { .sequence = 6U, .rx_timestamp_ms = 1150U, .valid = true, .position_cm = -2.0f },
     };
     config.controller.kp = 30.0f;
     balance_loop_init(&loop, &config);
@@ -500,7 +501,8 @@ static void test_loop_faults_after_sustained_output_saturation(void)
     CHECK_TRUE(balance_loop_start(&loop));
     CHECK_TRUE(balance_loop_process_measurement(&loop, &samples[2], &command));
     CHECK_TRUE(balance_loop_process_measurement(&loop, &samples[3], &command));
-    CHECK_TRUE(!balance_loop_process_measurement(&loop, &samples[4], &command));
+    CHECK_TRUE(balance_loop_process_measurement(&loop, &samples[4], &command));
+    CHECK_TRUE(!balance_loop_process_measurement(&loop, &samples[5], &command));
     CHECK_TRUE(loop.supervisor.fault == BALANCE_FAULT_OUTPUT_SATURATION);
 }
 
@@ -778,7 +780,7 @@ static void test_loop_actuator_limit_prevents_downstream_windup_for_both_signs(v
     check_loop_actuator_anti_windup(-1.0f, -1.0f);
 }
 
-static void test_loop_actuator_limit_allows_integral_that_relives_saturation(void)
+static void test_loop_actuator_limit_allows_integral_that_relieves_saturation(void)
 {
     BalanceLoop loop;
     BalanceActuatorCommand command;
@@ -1017,7 +1019,7 @@ int main(void)
     test_loop_ready_timeout_requires_two_new_frames_to_rewarm();
     test_loop_delayed_frame_faults_before_accepting_or_commanding();
     test_loop_actuator_limit_prevents_downstream_windup_for_both_signs();
-    test_loop_actuator_limit_allows_integral_that_relives_saturation();
+    test_loop_actuator_limit_allows_integral_that_relieves_saturation();
     test_loop_saturated_shrinking_error_does_not_fault();
     test_loop_invalid_configuration_is_latched();
     test_loop_rejects_nonfinite_and_inconsistent_configuration();
