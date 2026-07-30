@@ -1,5 +1,6 @@
 #include <math.h>
 #include <stdio.h>
+#include "balance_actuator.h"
 #include "balance_controller.h"
 #include "balance_observer.h"
 #include "balance_target.h"
@@ -146,6 +147,42 @@ static void test_controller_does_not_wind_up_into_saturation(void)
     CHECK_NEAR(output.limited, 10.0f, 0.0001f);
 }
 
+static void test_actuator_applies_direction_absolute_and_slew_limits(void)
+{
+    BalanceActuator actuator;
+    BalanceActuatorCommand command;
+    const BalanceActuatorConfig config = {
+        .control_sign = -1.0f,
+        .position_limit = 4.0f,
+        .max_delta_per_frame = 1.0f,
+        .speed = 20.0f,
+        .acceleration = 50.0f,
+    };
+
+    balance_actuator_init(&actuator, &config);
+    command = balance_actuator_limit(&actuator, 10.0f);
+    CHECK_NEAR(command.position, -1.0f, 0.0001f);
+    CHECK_TRUE(command.position_limited);
+    CHECK_TRUE(command.slew_limited);
+    CHECK_NEAR(command.speed, 20.0f, 0.0001f);
+    CHECK_NEAR(command.acceleration, 50.0f, 0.0001f);
+    command = balance_actuator_limit(&actuator, 10.0f);
+    CHECK_NEAR(command.position, -2.0f, 0.0001f);
+}
+
+static void test_actuator_reset_returns_command_state_to_zero(void)
+{
+    BalanceActuator actuator;
+    const BalanceActuatorConfig config = {
+        .control_sign = 1.0f, .position_limit = 4.0f,
+        .max_delta_per_frame = 1.0f, .speed = 20.0f, .acceleration = 50.0f,
+    };
+    balance_actuator_init(&actuator, &config);
+    (void)balance_actuator_limit(&actuator, 3.0f);
+    balance_actuator_reset(&actuator);
+    CHECK_NEAR(actuator.previous_position, 0.0f, 0.0001f);
+}
+
 int main(void)
 {
     test_observer_initializes_from_first_sample();
@@ -156,6 +193,8 @@ int main(void)
     test_controller_uses_velocity_as_damping();
     test_controller_integrates_only_inside_zone();
     test_controller_does_not_wind_up_into_saturation();
+    test_actuator_applies_direction_absolute_and_slew_limits();
+    test_actuator_reset_returns_command_state_to_zero();
     printf("%s\n", failures == 0 ? "PASS" : "FAIL");
     return failures == 0 ? 0 : 1;
 }
