@@ -1,6 +1,7 @@
 #include <math.h>
 #include <stdio.h>
 #include "balance_actuator.h"
+#include "balance_loop.h"
 #include "balance_controller.h"
 #include "balance_measurement.h"
 #include "balance_observer.h"
@@ -386,6 +387,245 @@ static void test_supervisor_stop_returns_closed_loop_to_ready(void)
     CHECK_TRUE(supervisor.fault == BALANCE_FAULT_NONE);
 }
 
+static BalanceLoopConfig loop_config(void)
+{
+    const BalanceLoopConfig config = {
+        .observer = { .alpha = 1.0f, .beta = 0.2f,
+                      .min_dt_s = 0.010f, .max_dt_s = 0.100f },
+        .controller = { .kp = 1.0f, .kv = 0.0f, .ki = 0.0f,
+                        .integral_zone_cm = 1.0f, .integral_limit = 1.0f,
+                        .output_limit = 4.0f },
+        .actuator = { .control_sign = 1.0f, .position_limit = 4.0f,
+                      .max_delta_per_frame = 1.0f, .speed = 20.0f,
+                      .acceleration = 50.0f },
+        .measurement = { .min_position_cm = -11.5f, .max_position_cm = 11.5f,
+                         .max_jump_cm = 4.0f, .timeout_ms = 100U },
+        .target_rate_cm_s = 2.0f,
+        .ball_end_zone_cm = 11.0f,
+        .saturation_frame_limit = 3U,
+        .saturation_error_min_cm = 1.0f,
+    };
+    return config;
+}
+
+static void prepare_loop(BalanceLoop *loop)
+{
+    balance_loop_confirm_manual_zero(loop);
+    CHECK_TRUE(balance_loop_complete_open_loop(loop, true));
+}
+
+static void warm_loop(BalanceLoop *loop, BalanceActuatorCommand *command)
+{
+    const BalanceMeasurement first = {
+        .sequence = 1U, .rx_timestamp_ms = 1000U, .valid = true,
+        .position_cm = 1.0f,
+    };
+    const BalanceMeasurement second = {
+        .sequence = 2U, .rx_timestamp_ms = 1030U, .valid = true,
+        .position_cm = 1.0f,
+    };
+    CHECK_TRUE(!balance_loop_process_measurement(loop, &first, command));
+    CHECK_TRUE(!balance_loop_process_measurement(loop, &second, command));
+}
+
+static void test_loop_emits_one_command_per_fresh_frame(void)
+{
+    BalanceLoop loop;
+    BalanceActuatorCommand command;
+    const BalanceLoopConfig config = loop_config();
+    const BalanceMeasurement third = {
+        .sequence = 3U, .rx_timestamp_ms = 1060U, .valid = true,
+        .position_cm = 1.0f,
+    };
+    balance_loop_init(&loop, &config);
+    prepare_loop(&loop);
+    CHECK_TRUE(!balance_loop_start(&loop));
+    warm_loop(&loop, &command);
+    CHECK_TRUE(balance_loop_start(&loop));
+    CHECK_TRUE(balance_loop_process_measurement(&loop, &third, &command));
+    CHECK_TRUE(!balance_loop_process_measurement(&loop, &third, &command));
+    CHECK_NEAR(command.position, -1.0f, 0.0001f);
+}
+
+static void test_loop_faults_on_camera_timeout_and_clears_control_state(void)
+{
+    BalanceLoop loop;
+    BalanceActuatorCommand command;
+    const BalanceLoopConfig config = loop_config();
+    balance_loop_init(&loop, &config);
+    prepare_loop(&loop);
+    warm_loop(&loop, &command);
+    CHECK_TRUE(balance_loop_start(&loop));
+    loop.controller.integral = 0.75f;
+    balance_loop_poll(&loop, 1131U);
+    CHECK_TRUE(loop.supervisor.state == BALANCE_STATE_FAULT);
+    CHECK_TRUE(loop.supervisor.fault == BALANCE_FAULT_CAMERA_TIMEOUT);
+    CHECK_NEAR(loop.controller.integral, 0.0f, 0.0001f);
+    CHECK_TRUE(!loop.camera_ready);
+}
+
+static void test_loop_faults_before_commanding_near_tube_end(void)
+{
+    BalanceLoop loop;
+    BalanceActuatorCommand command;
+    const BalanceLoopConfig config = loop_config();
+    const BalanceMeasurement sample = {
+        .sequence = 1U, .rx_timestamp_ms = 1000U, .valid = true,
+        .position_cm = 11.1f,
+    };
+    balance_loop_init(&loop, &config);
+    prepare_loop(&loop);
+    CHECK_TRUE(!balance_loop_process_measurement(&loop, &sample, &command));
+    CHECK_TRUE(loop.supervisor.fault == BALANCE_FAULT_BALL_END_ZONE);
+}
+
+static void test_loop_faults_after_sustained_output_saturation(void)
+{
+    BalanceLoop loop;
+    BalanceActuatorCommand command;
+    BalanceLoopConfig config = loop_config();
+    const BalanceMeasurement samples[] = {
+        { .sequence = 1U, .rx_timestamp_ms = 1000U, .valid = true, .position_cm = -2.0f },
+        { .sequence = 2U, .rx_timestamp_ms = 1030U, .valid = true, .position_cm = -2.0f },
+        { .sequence = 3U, .rx_timestamp_ms = 1060U, .valid = true, .position_cm = -2.0f },
+        { .sequence = 4U, .rx_timestamp_ms = 1090U, .valid = true, .position_cm = -2.0f },
+        { .sequence = 5U, .rx_timestamp_ms = 1120U, .valid = true, .position_cm = -2.0f },
+    };
+    config.controller.kp = 30.0f;
+    balance_loop_init(&loop, &config);
+    prepare_loop(&loop);
+    (void)balance_loop_process_measurement(&loop, &samples[0], &command);
+    (void)balance_loop_process_measurement(&loop, &samples[1], &command);
+    CHECK_TRUE(balance_loop_start(&loop));
+    CHECK_TRUE(balance_loop_process_measurement(&loop, &samples[2], &command));
+    CHECK_TRUE(balance_loop_process_measurement(&loop, &samples[3], &command));
+    CHECK_TRUE(!balance_loop_process_measurement(&loop, &samples[4], &command));
+    CHECK_TRUE(loop.supervisor.fault == BALANCE_FAULT_OUTPUT_SATURATION);
+}
+
+static void test_loop_exposes_last_control_telemetry(void)
+{
+    BalanceLoop loop;
+    BalanceActuatorCommand command;
+    BalanceTelemetry telemetry;
+    const BalanceLoopConfig config = loop_config();
+    const BalanceMeasurement third = {
+        .sequence = 3U, .rx_timestamp_ms = 1060U, .valid = true,
+        .position_cm = 1.0f,
+    };
+    balance_loop_init(&loop, &config);
+    prepare_loop(&loop);
+    warm_loop(&loop, &command);
+    CHECK_TRUE(balance_loop_start(&loop));
+    CHECK_TRUE(balance_loop_process_measurement(&loop, &third, &command));
+    balance_loop_get_telemetry(&loop, &telemetry);
+    CHECK_TRUE(telemetry.valid);
+    CHECK_TRUE(telemetry.timestamp_ms == 1060U);
+    CHECK_NEAR(telemetry.raw_position_cm, 1.0f, 0.0001f);
+    CHECK_NEAR(telemetry.estimate.position_cm, 1.0f, 0.0001f);
+    CHECK_NEAR(telemetry.control.error_cm, -1.0f, 0.0001f);
+    CHECK_NEAR(telemetry.command.position, -1.0f, 0.0001f);
+    CHECK_TRUE(telemetry.state == BALANCE_STATE_CLOSED_LOOP);
+}
+
+static void test_loop_stop_clears_control_state_and_requires_fresh_camera_data(void)
+{
+    BalanceLoop loop;
+    const BalanceLoopConfig config = loop_config();
+    balance_loop_init(&loop, &config);
+    loop.supervisor.state = BALANCE_STATE_CLOSED_LOOP;
+    loop.controller.integral = 0.75f;
+    loop.camera_ready = true;
+    balance_loop_stop(&loop);
+    CHECK_TRUE(loop.supervisor.state == BALANCE_STATE_READY);
+    CHECK_NEAR(loop.controller.integral, 0.0f, 0.0001f);
+    CHECK_TRUE(!loop.camera_ready);
+    CHECK_TRUE(!balance_loop_start(&loop));
+}
+
+static void test_loop_rejects_bad_frame_classes_without_advancing_or_emitting(void)
+{
+    BalanceLoop loop;
+    BalanceActuatorCommand command;
+    BalanceTelemetry before;
+    BalanceTelemetry after;
+    const BalanceLoopConfig config = loop_config();
+    BalanceMeasurement sample = {
+        .sequence = 3U, .rx_timestamp_ms = 1060U, .valid = true,
+        .position_cm = 1.0f,
+    };
+    balance_loop_init(&loop, &config);
+    prepare_loop(&loop);
+    warm_loop(&loop, &command);
+    CHECK_TRUE(balance_loop_start(&loop));
+    CHECK_TRUE(balance_loop_process_measurement(&loop, &sample, &command));
+    balance_loop_get_telemetry(&loop, &before);
+
+    CHECK_TRUE(!balance_loop_process_measurement(&loop, &sample, &command));
+    sample.sequence = 2U;
+    sample.rx_timestamp_ms = 1090U;
+    CHECK_TRUE(!balance_loop_process_measurement(&loop, &sample, &command));
+    sample.sequence = 4U;
+    sample.valid = false;
+    CHECK_TRUE(!balance_loop_process_measurement(&loop, &sample, &command));
+    balance_loop_get_telemetry(&loop, &after);
+    CHECK_TRUE(loop.supervisor.state == BALANCE_STATE_CLOSED_LOOP);
+    CHECK_TRUE(loop.measurement.last.sequence == 3U);
+    CHECK_TRUE(after.timestamp_ms == before.timestamp_ms);
+    CHECK_NEAR(after.command.position, before.command.position, 0.0001f);
+}
+
+static void test_loop_target_selection_clears_integral_only_when_accepted(void)
+{
+    BalanceLoop loop;
+    const BalanceLoopConfig config = loop_config();
+    balance_loop_init(&loop, &config);
+    prepare_loop(&loop);
+    loop.controller.integral = 0.75f;
+    CHECK_TRUE(!balance_loop_select_target(&loop, 3.0f));
+    CHECK_NEAR(loop.controller.integral, 0.75f, 0.0001f);
+    CHECK_TRUE(balance_loop_select_target(&loop, 5.0f));
+    CHECK_NEAR(loop.controller.integral, 0.0f, 0.0001f);
+}
+
+static void test_loop_preserves_first_fault_and_resets_control_state(void)
+{
+    BalanceLoop loop;
+    const BalanceLoopConfig config = loop_config();
+    balance_loop_init(&loop, &config);
+    loop.controller.integral = 0.75f;
+    loop.camera_ready = true;
+    balance_loop_raise_motor_fault(&loop);
+    balance_loop_emergency_stop(&loop);
+    CHECK_TRUE(loop.supervisor.fault == BALANCE_FAULT_MOTOR_COMMUNICATION);
+    CHECK_NEAR(loop.controller.integral, 0.0f, 0.0001f);
+    CHECK_TRUE(!loop.camera_ready);
+}
+
+static void test_loop_fault_preserves_last_emitted_telemetry(void)
+{
+    BalanceLoop loop;
+    BalanceActuatorCommand command;
+    BalanceTelemetry telemetry;
+    const BalanceLoopConfig config = loop_config();
+    const BalanceMeasurement third = {
+        .sequence = 3U, .rx_timestamp_ms = 1060U, .valid = true,
+        .position_cm = 1.0f,
+    };
+    balance_loop_init(&loop, &config);
+    prepare_loop(&loop);
+    warm_loop(&loop, &command);
+    CHECK_TRUE(balance_loop_start(&loop));
+    CHECK_TRUE(balance_loop_process_measurement(&loop, &third, &command));
+    balance_loop_raise_motor_fault(&loop);
+    balance_loop_get_telemetry(&loop, &telemetry);
+    CHECK_TRUE(telemetry.valid);
+    CHECK_TRUE(telemetry.timestamp_ms == 1060U);
+    CHECK_NEAR(telemetry.command.position, command.position, 0.0001f);
+    CHECK_TRUE(telemetry.state == BALANCE_STATE_FAULT);
+    CHECK_TRUE(telemetry.fault == BALANCE_FAULT_MOTOR_COMMUNICATION);
+}
+
 int main(void)
 {
     test_observer_initializes_from_first_sample();
@@ -409,6 +649,16 @@ int main(void)
     test_supervisor_ignores_none_fault();
     test_supervisor_blocks_normal_transitions_while_faulted();
     test_supervisor_stop_returns_closed_loop_to_ready();
+    test_loop_emits_one_command_per_fresh_frame();
+    test_loop_faults_on_camera_timeout_and_clears_control_state();
+    test_loop_faults_before_commanding_near_tube_end();
+    test_loop_faults_after_sustained_output_saturation();
+    test_loop_exposes_last_control_telemetry();
+    test_loop_stop_clears_control_state_and_requires_fresh_camera_data();
+    test_loop_rejects_bad_frame_classes_without_advancing_or_emitting();
+    test_loop_target_selection_clears_integral_only_when_accepted();
+    test_loop_preserves_first_fault_and_resets_control_state();
+    test_loop_fault_preserves_last_emitted_telemetry();
     printf("%s\n", failures == 0 ? "PASS" : "FAIL");
     return failures == 0 ? 0 : 1;
 }

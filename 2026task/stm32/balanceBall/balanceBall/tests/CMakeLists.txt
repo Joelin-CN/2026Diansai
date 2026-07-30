@@ -7,6 +7,7 @@ enable_testing()
 add_executable(test_balance
     test_balance.c
     ../App/Src/balance_actuator.c
+    ../App/Src/balance_loop.c
     ../App/Src/balance_controller.c
     ../App/Src/balance_measurement.c
     ../App/Src/balance_observer.c
