@@ -1,0 +1,47 @@
+ 
+实验部分源码  
+SET_Eight_Mode(0,0,1); ：这个函数第一参数是校准模式 (0: 退出校准模式  1: 进入校准模式 ) 第二参数是
+是否接收模拟型数据  第三个参数是是否接收数值型数据。
+此例程只提供解析数值型的数据，需要解析模拟型数据，可以根据协议自行解析，本工程的串口解析文
+件也有解析模拟值的函数，可以自行参考调用  Deal_Usart_AData 函数。
+ int main()
+{
+    
+    SystemInit();
+    delay_init();
+    
+    uart_init(115200);
+    USART2_init(115200);
+    
+    delay_ms(1000);//等待红外正常
+    send_control_data(0,0,1); //根据协议发送对应的命令即可  此为只接收数值型数据
+    
+    while(1)
+    {
+        if(g_new_package_flag == 1)
+        {
+            g_new_package_flag = 0;
+            
+            if(g_Dmode_Data == 1)
+            {
+                Deal_Usart_Data();//数值型数据处理
+                
+printf("x1:%d,x2:%d,x3:%d,x4:%d,x5:%d,x6:%d,x7:%d,x8:%d\r\n",IR_Data_number[0],I
+R_Data_number[1],IR_Data_number[2],IR_Data_number[3],IR_Data_number[4],IR_Data_n
+umber[5],IR_Data_number[6],IR_Data_number[7]);
+            }
+            if(g_Amode_Data == 1)
+            {
+                Deal_Usart_AData();//模拟型数据处理
+                
+printf("x1:%d,x2:%d,x3:%d,x4:%d,x5:%d,x6:%d,x7:%d,x8:%d\r\n",IR_Data_Anglo[0],IR
+_Data_Anglo[1],IR_Data_Anglo[2],IR_Data_Anglo[3],IR_Data_Anglo[4],IR_Data_Anglo[
+5],IR_Data_Anglo[6],IR_Data_Anglo[7]);
+            
+            }
+            
+        }
+        
+        
+    }
+}
