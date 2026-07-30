@@ -13,6 +13,9 @@ static void reset_control_state(BalanceLoop *loop)
     balance_target_reset(&loop->target);
     loop->saturation_frames = 0U;
     loop->camera_ready = false;
+    if (!loop->telemetry.valid) {
+        loop->telemetry = (BalanceTelemetry){0};
+    }
 }
 
 static void raise_fault(BalanceLoop *loop, BalanceFault fault)
@@ -32,7 +35,7 @@ void balance_loop_init(BalanceLoop *loop, const BalanceLoopConfig *config)
     balance_target_init(&loop->target, config->target_rate_cm_s);
     loop->saturation_frames = 0U;
     loop->camera_ready = false;
-    loop->telemetry.valid = false;
+    loop->telemetry = (BalanceTelemetry){0};
 }
 
 void balance_loop_confirm_manual_zero(BalanceLoop *loop)
@@ -113,6 +116,9 @@ bool balance_loop_process_measurement(BalanceLoop *loop,
                                               measurement->rx_timestamp_ms,
                                               measurement->position_cm,
                                               &estimate);
+    if (observer_result == BALANCE_OBSERVER_RESET) {
+        loop->camera_ready = false;
+    }
     if (observer_result != BALANCE_OBSERVER_UPDATED) {
         return false;
     }
@@ -127,15 +133,19 @@ bool balance_loop_process_measurement(BalanceLoop *loop,
                                       dt_s, true);
     *command = balance_actuator_limit(&loop->actuator, control.limited);
 
-    if ((control.saturated || command->position_limited)
-        && absf(control.error_cm) >= loop->config.saturation_error_min_cm) {
-        loop->saturation_frames++;
+    if (loop->config.saturation_frame_limit > 0U) {
+        if ((control.saturated || command->position_limited)
+            && absf(control.error_cm) >= loop->config.saturation_error_min_cm) {
+            loop->saturation_frames++;
+        } else {
+            loop->saturation_frames = 0U;
+        }
+        if (loop->saturation_frames >= loop->config.saturation_frame_limit) {
+            raise_fault(loop, BALANCE_FAULT_OUTPUT_SATURATION);
+            return false;
+        }
     } else {
         loop->saturation_frames = 0U;
-    }
-    if (loop->saturation_frames >= loop->config.saturation_frame_limit) {
-        raise_fault(loop, BALANCE_FAULT_OUTPUT_SATURATION);
-        return false;
     }
 
     loop->telemetry.valid = true;
