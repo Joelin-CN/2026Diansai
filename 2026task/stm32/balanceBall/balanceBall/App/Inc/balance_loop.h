@@ -21,6 +21,7 @@ typedef struct {
 
 typedef struct {
     bool valid;
+    bool active;
     uint32_t timestamp_ms;
     float raw_position_cm;
     float target_cm;
@@ -40,7 +41,10 @@ typedef struct {
     BalanceSupervisor supervisor;
     BalanceTarget target;
     uint16_t saturation_frames;
+    float previous_saturation_abs_error_cm;
+    bool has_saturation_error;
     bool camera_ready;
+    bool config_valid;
     BalanceTelemetry telemetry;
 } BalanceLoop;
 
