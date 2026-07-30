@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include "balance_actuator.h"
 #include "balance_controller.h"
+#include "balance_measurement.h"
 #include "balance_observer.h"
 #include "balance_target.h"
 
@@ -183,6 +184,132 @@ static void test_actuator_reset_returns_command_state_to_zero(void)
     CHECK_NEAR(actuator.previous_position, 0.0f, 0.0001f);
 }
 
+static BalanceMeasurementConfig measurement_config(void)
+{
+    const BalanceMeasurementConfig config = {
+        .min_position_cm = -11.5f,
+        .max_position_cm = 11.5f,
+        .max_jump_cm = 4.0f,
+        .timeout_ms = 100U,
+    };
+    return config;
+}
+
+static void test_measurement_guard_rejects_invalid_duplicate_and_out_of_range(void)
+{
+    BalanceMeasurementGuard guard;
+    const BalanceMeasurementConfig config = measurement_config();
+    BalanceMeasurement sample = {
+        .sequence = 1U,
+        .rx_timestamp_ms = 1000U,
+        .valid = true,
+        .position_cm = 0.0f,
+    };
+
+    balance_measurement_guard_init(&guard, &config);
+    CHECK_TRUE(balance_measurement_accept(&guard, &sample)
+               == BALANCE_MEASUREMENT_ACCEPTED);
+    CHECK_TRUE(balance_measurement_accept(&guard, &sample)
+               == BALANCE_MEASUREMENT_DUPLICATE);
+    sample.sequence = 0U;
+    CHECK_TRUE(balance_measurement_accept(&guard, &sample)
+               == BALANCE_MEASUREMENT_STALE);
+    sample.sequence = 2U;
+    sample.position_cm = 20.0f;
+    CHECK_TRUE(balance_measurement_accept(&guard, &sample)
+               == BALANCE_MEASUREMENT_OUT_OF_RANGE);
+    sample.sequence = 3U;
+    sample.position_cm = 5.0f;
+    CHECK_TRUE(balance_measurement_accept(&guard, &sample)
+               == BALANCE_MEASUREMENT_JUMP);
+    sample.sequence = 4U;
+    sample.valid = false;
+    sample.position_cm = 0.0f;
+    CHECK_TRUE(balance_measurement_accept(&guard, &sample)
+               == BALANCE_MEASUREMENT_INVALID);
+}
+
+static void test_measurement_guard_rejects_non_finite_positions(void)
+{
+    BalanceMeasurementGuard guard;
+    const BalanceMeasurementConfig config = measurement_config();
+    BalanceMeasurement sample = {
+        .sequence = 1U,
+        .rx_timestamp_ms = 1000U,
+        .valid = true,
+        .position_cm = NAN,
+    };
+
+    balance_measurement_guard_init(&guard, &config);
+    CHECK_TRUE(balance_measurement_accept(&guard, &sample)
+               == BALANCE_MEASUREMENT_INVALID);
+    sample.position_cm = INFINITY;
+    CHECK_TRUE(balance_measurement_accept(&guard, &sample)
+               == BALANCE_MEASUREMENT_INVALID);
+}
+
+static void test_measurement_sequence_order_is_wrap_safe(void)
+{
+    BalanceMeasurementGuard guard;
+    const BalanceMeasurementConfig config = measurement_config();
+    BalanceMeasurement sample = {
+        .sequence = UINT32_MAX,
+        .rx_timestamp_ms = 1000U,
+        .valid = true,
+        .position_cm = 0.0f,
+    };
+
+    balance_measurement_guard_init(&guard, &config);
+    CHECK_TRUE(balance_measurement_accept(&guard, &sample)
+               == BALANCE_MEASUREMENT_ACCEPTED);
+    sample.sequence = 0U;
+    sample.position_cm = 1.0f;
+    CHECK_TRUE(balance_measurement_accept(&guard, &sample)
+               == BALANCE_MEASUREMENT_ACCEPTED);
+    sample.sequence = UINT32_MAX;
+    CHECK_TRUE(balance_measurement_accept(&guard, &sample)
+               == BALANCE_MEASUREMENT_STALE);
+}
+
+static void test_measurement_timeout_uses_last_accepted_frame(void)
+{
+    BalanceMeasurementGuard guard;
+    const BalanceMeasurementConfig config = measurement_config();
+    BalanceMeasurement sample = {
+        .sequence = 1U,
+        .rx_timestamp_ms = 1000U,
+        .valid = true,
+        .position_cm = 0.0f,
+    };
+
+    balance_measurement_guard_init(&guard, &config);
+    CHECK_TRUE(!balance_measurement_timed_out(&guard, 5000U));
+    (void)balance_measurement_accept(&guard, &sample);
+    sample.sequence = 2U;
+    sample.rx_timestamp_ms = 1090U;
+    sample.position_cm = 20.0f;
+    (void)balance_measurement_accept(&guard, &sample);
+    CHECK_TRUE(!balance_measurement_timed_out(&guard, 1100U));
+    CHECK_TRUE(balance_measurement_timed_out(&guard, 1101U));
+}
+
+static void test_measurement_timeout_is_timestamp_wrap_safe(void)
+{
+    BalanceMeasurementGuard guard;
+    const BalanceMeasurementConfig config = measurement_config();
+    const BalanceMeasurement sample = {
+        .sequence = 1U,
+        .rx_timestamp_ms = UINT32_MAX - 49U,
+        .valid = true,
+        .position_cm = 0.0f,
+    };
+
+    balance_measurement_guard_init(&guard, &config);
+    (void)balance_measurement_accept(&guard, &sample);
+    CHECK_TRUE(!balance_measurement_timed_out(&guard, 50U));
+    CHECK_TRUE(balance_measurement_timed_out(&guard, 51U));
+}
+
 int main(void)
 {
     test_observer_initializes_from_first_sample();
@@ -195,6 +322,11 @@ int main(void)
     test_controller_does_not_wind_up_into_saturation();
     test_actuator_applies_direction_absolute_and_slew_limits();
     test_actuator_reset_returns_command_state_to_zero();
+    test_measurement_guard_rejects_invalid_duplicate_and_out_of_range();
+    test_measurement_guard_rejects_non_finite_positions();
+    test_measurement_sequence_order_is_wrap_safe();
+    test_measurement_timeout_uses_last_accepted_frame();
+    test_measurement_timeout_is_timestamp_wrap_safe();
     printf("%s\n", failures == 0 ? "PASS" : "FAIL");
     return failures == 0 ? 0 : 1;
 }
