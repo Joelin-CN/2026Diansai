@@ -131,3 +131,70 @@ Results:
 - No HAL dependency or unrelated source change was introduced.
 
 No blocking concern remains. `BALANCE_MOTOR_PROTOCOL_ERROR` is part of the required public result enum but is not returned by the `void` response callback; parser failures are instead recorded in the failure counter as required.
+
+## Blocking Review Fixes
+
+The follow-up review identified two state-machine defects:
+
+- Responses were not correlated with an accepted operation, allowing unsolicited or stale position responses to establish software zero.
+- An immediate transport failure discarded a pending stop/disable command, allowing later normal motion to bypass the failed safety command.
+
+Added focused adversarial coverage for:
+
+- Unsolicited and mismatched responses.
+- A stale valid zero response after lockout and `balance_motor_clear_fault()`.
+- A failed priority command with a normal target queued behind it.
+- No pending target or priority transmission after final lockout or fault clearing.
+- Three matching accepted position commands completed with driver-error ACKs causing protocol lockout.
+
+The initial focused RED run produced 12 assertion failures. These showed stale/unsolicited zero acceptance and failed-priority loss before the implementation changed.
+
+The adapter now tracks one accepted outstanding function internally. Only a matching callback consumes it; transport errors, lockout, and fault clearing invalidate it. Immediate priority-send failures retain the priority frame below the configured lock threshold, while the priority frame continues to block normal motion until accepted and completed. Lockout clears all outstanding and pending state.
+
+### Exact Focused Verification
+
+Command:
+
+```powershell
+cmake --build build/host-tests --target test_balance_motor; if ($?) { ctest --test-dir build/host-tests -R balance_motor --output-on-failure }
+```
+
+Output:
+
+```text
+[100%] Built target test_balance_motor
+Test project E:/B306/2026/diansai/2026task/stm32/balanceBall/balanceBall/build/host-tests
+    Start 3: balance_motor
+1/1 Test #3: balance_motor ....................   Passed    0.01 sec
+
+100% tests passed, 0 tests failed out of 1
+
+Total Test time (real) =   0.01 sec
+```
+
+### Exact Full Host Verification
+
+Command:
+
+```powershell
+cmake --build build/host-tests; if ($?) { ctest --test-dir build/host-tests --output-on-failure }
+```
+
+Output:
+
+```text
+[ 56%] Built target test_balance
+[ 75%] Built target test_emm_v5_protocol
+[100%] Built target test_balance_motor
+Test project E:/B306/2026/diansai/2026task/stm32/balanceBall/balanceBall/build/host-tests
+    Start 1: balance_core
+1/3 Test #1: balance_core .....................   Passed    0.02 sec
+    Start 2: emm_v5_protocol
+2/3 Test #2: emm_v5_protocol ..................   Passed    0.01 sec
+    Start 3: balance_motor
+3/3 Test #3: balance_motor ....................   Passed    0.01 sec
+
+100% tests passed, 0 tests failed out of 3
+
+Total Test time (real) =   0.05 sec
+```

@@ -19,6 +19,7 @@ typedef struct {
     size_t length;
     uint8_t expected_function;
     size_t expected_length;
+    unsigned attempt_count;
     unsigned send_count;
 } FakeTransport;
 
@@ -33,6 +34,7 @@ static BalanceMotorTxResult fake_send(void *context, const uint8_t *frame,
                                       size_t expected_length)
 {
     FakeTransport *fake = context;
+    fake->attempt_count++;
     if (fake->result == BALANCE_MOTOR_TX_ACCEPTED) {
         memcpy(fake->frame, frame, length);
         fake->length = length;
@@ -41,6 +43,12 @@ static BalanceMotorTxResult fake_send(void *context, const uint8_t *frame,
         fake->send_count++;
     }
     return fake->result;
+}
+
+static void complete_ack(BalanceMotor *motor, uint8_t function)
+{
+    const uint8_t response[] = {0x01U, function, EMM_V5_ACK_COMPLETE, 0x6BU};
+    balance_motor_on_response(motor, function, response, sizeof(response));
 }
 
 static void setup(BalanceMotor *motor, FakeTransport *fake)
@@ -91,6 +99,26 @@ static void test_init_and_zero_query(void)
     balance_motor_on_response(&motor, 0x36U, bad_response, sizeof(bad_response));
     CHECK_TRUE(!balance_motor_has_zero(&motor));
     balance_motor_on_response(&motor, 0x36U, zero_response, sizeof(zero_response));
+    CHECK_TRUE(!balance_motor_has_zero(&motor));
+    CHECK_TRUE(balance_motor_request_zero(&motor) == BALANCE_MOTOR_OK);
+    balance_motor_on_response(&motor, 0x36U, zero_response, sizeof(zero_response));
+    CHECK_TRUE(balance_motor_has_zero(&motor));
+}
+
+static void test_unsolicited_and_mismatched_responses_are_ignored(void)
+{
+    BalanceMotor motor;
+    FakeTransport fake;
+    const uint8_t zero_response[] = {0x01U, 0x36U, 0x00U, 0U, 0U, 3U, 0xE8U, 0x6BU};
+    const uint8_t ack_response[] = {0x01U, 0xFDU, EMM_V5_ACK_COMPLETE, 0x6BU};
+
+    setup(&motor, &fake);
+    balance_motor_on_response(&motor, 0x36U, zero_response, sizeof(zero_response));
+    CHECK_TRUE(!balance_motor_has_zero(&motor));
+    CHECK_TRUE(balance_motor_request_zero(&motor) == BALANCE_MOTOR_OK);
+    balance_motor_on_response(&motor, 0xFDU, ack_response, sizeof(ack_response));
+    CHECK_TRUE(!balance_motor_has_zero(&motor));
+    balance_motor_on_response(&motor, 0x36U, zero_response, sizeof(zero_response));
     CHECK_TRUE(balance_motor_has_zero(&motor));
 }
 
@@ -107,6 +135,7 @@ static void test_position_offsets_emit_complete_absolute_frames(void)
     check_frame(&fake, (const uint8_t[]){0x01U, 0xFDU, 0x00U, 0x00U, 0x14U,
                                         0x32U, 0x00U, 0x00U, 0x04U, 0xE2U,
                                         0x01U, 0x00U, 0x6BU}, 13U);
+    complete_ack(&motor, 0xFDU);
     command.position = -2.5f;
     CHECK_TRUE(balance_motor_submit(&motor, &command) == BALANCE_MOTOR_OK);
     check_frame(&fake, (const uint8_t[]){0x01U, 0xFDU, 0x00U, 0x00U, 0x14U,
@@ -223,6 +252,7 @@ static void test_pending_stop_precedes_later_motion(void)
     CHECK_TRUE(fake.send_count == 1U);
     balance_motor_process(&motor);
     check_frame(&fake, (const uint8_t[]){0x01U, 0xFEU, 0x98U, 0x00U, 0x6BU}, 5U);
+    complete_ack(&motor, 0xFEU);
     balance_motor_process(&motor);
     check_frame(&fake, (const uint8_t[]){0x01U, 0xFDU, 0x00U, 0x00U, 0x14U,
                                         0x32U, 0x00U, 0x00U, 0x04U, 0x4CU,
@@ -235,12 +265,15 @@ static void test_failures_lock_and_rezero_is_required(void)
     FakeTransport fake;
     const BalanceActuatorCommand command = {.position = 1.0f, .speed = 20.0f,
                                             .acceleration = 50.0f};
-    const uint8_t bad_ack[] = {0x01U, 0xFDU, 0xEEU, 0x6BU};
+    const uint8_t bad_ack[] = {0x01U, 0xFDU, EMM_V5_ACK_BAD_COMMAND, 0x6BU};
     setup(&motor, &fake);
     establish_zero(&motor, 1000);
-    balance_motor_on_transport_error(&motor);
+    CHECK_TRUE(balance_motor_submit(&motor, &command) == BALANCE_MOTOR_OK);
     balance_motor_on_response(&motor, 0xFDU, bad_ack, sizeof(bad_ack));
-    balance_motor_on_transport_error(&motor);
+    CHECK_TRUE(balance_motor_submit(&motor, &command) == BALANCE_MOTOR_OK);
+    balance_motor_on_response(&motor, 0xFDU, bad_ack, sizeof(bad_ack));
+    CHECK_TRUE(balance_motor_submit(&motor, &command) == BALANCE_MOTOR_OK);
+    balance_motor_on_response(&motor, 0xFDU, bad_ack, sizeof(bad_ack));
     CHECK_TRUE(!balance_motor_has_zero(&motor));
     CHECK_TRUE(balance_motor_submit(&motor, &command) == BALANCE_MOTOR_LOCKED);
     CHECK_TRUE(balance_motor_stop(&motor) == BALANCE_MOTOR_LOCKED);
@@ -251,22 +284,79 @@ static void test_failures_lock_and_rezero_is_required(void)
     CHECK_TRUE(balance_motor_submit(&motor, &command) == BALANCE_MOTOR_OK);
 }
 
-static void test_failed_send_is_not_left_pending(void)
+static void test_failed_priority_retries_before_queued_target(void)
 {
     BalanceMotor motor;
     FakeTransport fake;
+    const BalanceActuatorCommand command = {.position = 1.0f, .speed = 20.0f,
+                                            .acceleration = 50.0f};
     setup(&motor, &fake);
     establish_zero(&motor, 0);
     fake.result = BALANCE_MOTOR_TX_FAILED;
     CHECK_TRUE(balance_motor_stop(&motor) == BALANCE_MOTOR_TRANSPORT_ERROR);
+    CHECK_TRUE(balance_motor_submit(&motor, &command) == BALANCE_MOTOR_QUEUED);
     fake.result = BALANCE_MOTOR_TX_ACCEPTED;
     balance_motor_process(&motor);
-    CHECK_TRUE(fake.send_count == 1U);
+    CHECK_TRUE(fake.send_count == 2U);
+    check_frame(&fake, (const uint8_t[]){0x01U, 0xFEU, 0x98U, 0x00U, 0x6BU}, 5U);
+    balance_motor_process(&motor);
+    CHECK_TRUE(fake.send_count == 2U);
+    complete_ack(&motor, 0xFEU);
+    balance_motor_process(&motor);
+    CHECK_TRUE(fake.send_count == 3U);
+    check_frame(&fake, (const uint8_t[]){0x01U, 0xFDU, 0x00U, 0x00U, 0x14U,
+                                        0x32U, 0x00U, 0x00U, 0x00U, 0x64U,
+                                        0x01U, 0x00U, 0x6BU}, 13U);
+}
+
+static void test_lockout_and_clear_discard_all_pending_work(void)
+{
+    BalanceMotor motor;
+    FakeTransport fake;
+    const BalanceActuatorCommand command = {.position = 1.0f, .speed = 20.0f,
+                                            .acceleration = 50.0f};
+    unsigned attempts_before_process;
+
+    setup(&motor, &fake);
+    establish_zero(&motor, 0);
+    fake.result = BALANCE_MOTOR_TX_BUSY;
+    CHECK_TRUE(balance_motor_stop(&motor) == BALANCE_MOTOR_QUEUED);
+    CHECK_TRUE(balance_motor_submit(&motor, &command) == BALANCE_MOTOR_QUEUED);
+    balance_motor_on_transport_error(&motor);
+    balance_motor_on_transport_error(&motor);
+    balance_motor_on_transport_error(&motor);
+    attempts_before_process = fake.attempt_count;
+    fake.result = BALANCE_MOTOR_TX_ACCEPTED;
+    balance_motor_process(&motor);
+    CHECK_TRUE(fake.attempt_count == attempts_before_process);
+    balance_motor_clear_fault(&motor);
+    balance_motor_process(&motor);
+    CHECK_TRUE(fake.attempt_count == attempts_before_process);
+}
+
+static void test_stale_zero_response_after_fault_clear_is_ignored(void)
+{
+    BalanceMotor motor;
+    FakeTransport fake;
+    const uint8_t stale_zero[] = {0x01U, 0x36U, 0x00U, 0U, 0U, 3U, 0xE8U, 0x6BU};
+
+    setup(&motor, &fake);
+    CHECK_TRUE(balance_motor_request_zero(&motor) == BALANCE_MOTOR_OK);
+    balance_motor_on_transport_error(&motor);
+    balance_motor_on_transport_error(&motor);
+    balance_motor_on_transport_error(&motor);
+    balance_motor_clear_fault(&motor);
+    balance_motor_on_response(&motor, 0x36U, stale_zero, sizeof(stale_zero));
+    CHECK_TRUE(!balance_motor_has_zero(&motor));
+    CHECK_TRUE(balance_motor_request_zero(&motor) == BALANCE_MOTOR_OK);
+    balance_motor_on_response(&motor, 0x36U, stale_zero, sizeof(stale_zero));
+    CHECK_TRUE(balance_motor_has_zero(&motor));
 }
 
 int main(void)
 {
     test_init_and_zero_query();
+    test_unsolicited_and_mismatched_responses_are_ignored();
     test_position_offsets_emit_complete_absolute_frames();
     test_invalid_and_overflow_commands_are_rejected();
     test_float_value_above_int32_max_is_rejected_before_cast();
@@ -274,7 +364,9 @@ int main(void)
     test_priority_commands_clear_motion_and_run_first();
     test_pending_stop_precedes_later_motion();
     test_failures_lock_and_rezero_is_required();
-    test_failed_send_is_not_left_pending();
+    test_failed_priority_retries_before_queued_target();
+    test_lockout_and_clear_discard_all_pending_work();
+    test_stale_zero_response_after_fault_clear_is_ignored();
     printf("%s\n", failures == 0 ? "PASS" : "FAIL");
     return failures == 0 ? 0 : 1;
 }

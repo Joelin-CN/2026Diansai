@@ -14,6 +14,7 @@ static void lock_if_needed(BalanceMotor *motor)
         && motor->consecutive_failures >= motor->config.max_consecutive_failures) {
         motor->locked = true;
         motor->zero_valid = false;
+        motor->outstanding_valid = false;
         motor->priority.pending = false;
         motor->target.pending = false;
     }
@@ -34,9 +35,15 @@ static BalanceMotorResult send_frame(BalanceMotor *motor,
                                      BalanceMotorPendingFrame *pending)
 {
     BalanceMotorTxResult result;
+    const bool priority = pending == &motor->priority;
+
+    if (motor->outstanding_valid) {
+        pending->pending = true;
+        return BALANCE_MOTOR_QUEUED;
+    }
 
     if (motor->transport.send == NULL) {
-        pending->pending = false;
+        pending->pending = priority;
         record_failure(motor);
         return BALANCE_MOTOR_TRANSPORT_ERROR;
     }
@@ -48,11 +55,14 @@ static BalanceMotorResult send_frame(BalanceMotor *motor,
         return BALANCE_MOTOR_QUEUED;
     }
 
-    pending->pending = false;
     if (result == BALANCE_MOTOR_TX_FAILED) {
+        pending->pending = priority;
         record_failure(motor);
         return BALANCE_MOTOR_TRANSPORT_ERROR;
     }
+    pending->pending = false;
+    motor->outstanding_function = pending->expected_function;
+    motor->outstanding_valid = true;
     return BALANCE_MOTOR_OK;
 }
 
@@ -226,9 +236,11 @@ void balance_motor_on_response(BalanceMotor *motor,
 {
     EmmV5Result result;
 
-    if (motor == NULL || motor->locked) {
+    if (motor == NULL || motor->locked || !motor->outstanding_valid
+        || expected_function != motor->outstanding_function) {
         return;
     }
+    motor->outstanding_valid = false;
     if (expected_function == 0x36U) {
         int32_t position;
         result = emm_v5_parse_position(motor->config.address, response,
@@ -251,6 +263,9 @@ void balance_motor_on_response(BalanceMotor *motor,
 
 void balance_motor_on_transport_error(BalanceMotor *motor)
 {
+    if (motor != NULL) {
+        motor->outstanding_valid = false;
+    }
     record_failure(motor);
 }
 
@@ -274,6 +289,7 @@ void balance_motor_clear_fault(BalanceMotor *motor)
     motor->locked = false;
     motor->consecutive_failures = 0U;
     motor->zero_valid = false;
+    motor->outstanding_valid = false;
     motor->priority.pending = false;
     motor->target.pending = false;
 }

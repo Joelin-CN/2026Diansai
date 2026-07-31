@@ -56,8 +56,10 @@ typedef struct {
     BalanceMotorTransport transport;
     int32_t zero_position;
     uint8_t consecutive_failures;
+    uint8_t outstanding_function;
     bool zero_valid;
     bool locked;
+    bool outstanding_valid;
     BalanceMotorPendingFrame priority;
     BalanceMotorPendingFrame target;
 } BalanceMotor;
