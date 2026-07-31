@@ -198,3 +198,64 @@ Test project E:/B306/2026/diansai/2026task/stm32/balanceBall/balanceBall/build/h
 
 Total Test time (real) =   0.05 sec
 ```
+
+## Accepted Priority Asynchronous Failure Fix
+
+Follow-up review found that an accepted priority command lost its priority identity while awaiting completion. If its later completion failed asynchronously below the lock threshold, the queued normal target could be sent instead of retrying stop/disable.
+
+Added focused adversarial tests for both required paths:
+
+- Accepted stop, queued target, then `balance_motor_on_transport_error()`: processing retries the complete stop frame and keeps the target blocked until a successful stop ACK.
+- Accepted disable, queued target, then a matching driver-error ACK: processing retries the complete disable frame and keeps the target blocked until a successful disable ACK.
+
+The RED run failed six assertions. In both sequences the queued `0xFD` target was emitted instead of the expected complete priority frame, and the target did not follow the later priority ACK because that ACK no longer matched the outstanding target.
+
+The adapter now retains an `outstanding_priority` marker alongside the accepted function. A matching asynchronous transport/protocol failure restores the preserved priority frame as pending below the lock threshold. Successful matching ACK completion clears priority identity normally, and lockout/fault clearing clear it with all other work.
+
+### Exact Focused Verification After Accepted-Priority Fix
+
+Command:
+
+```powershell
+cmake --build build/host-tests --target test_balance_motor; if ($?) { ctest --test-dir build/host-tests -R balance_motor --output-on-failure }
+```
+
+Output:
+
+```text
+[100%] Built target test_balance_motor
+Test project E:/B306/2026/diansai/2026task/stm32/balanceBall/balanceBall/build/host-tests
+    Start 3: balance_motor
+1/1 Test #3: balance_motor ....................   Passed    0.01 sec
+
+100% tests passed, 0 tests failed out of 1
+
+Total Test time (real) =   0.01 sec
+```
+
+### Exact Full Host Verification After Accepted-Priority Fix
+
+Command:
+
+```powershell
+cmake --build build/host-tests; if ($?) { ctest --test-dir build/host-tests --output-on-failure }
+```
+
+Output:
+
+```text
+[ 56%] Built target test_balance
+[ 75%] Built target test_emm_v5_protocol
+[100%] Built target test_balance_motor
+Test project E:/B306/2026/diansai/2026task/stm32/balanceBall/balanceBall/build/host-tests
+    Start 1: balance_core
+1/3 Test #1: balance_core .....................   Passed    0.02 sec
+    Start 2: emm_v5_protocol
+2/3 Test #2: emm_v5_protocol ..................   Passed    0.01 sec
+    Start 3: balance_motor
+3/3 Test #3: balance_motor ....................   Passed    0.01 sec
+
+100% tests passed, 0 tests failed out of 3
+
+Total Test time (real) =   0.04 sec
+```

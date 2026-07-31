@@ -60,6 +60,7 @@ typedef struct {
     bool zero_valid;
     bool locked;
     bool outstanding_valid;
+    bool outstanding_priority;
     BalanceMotorPendingFrame priority;
     BalanceMotorPendingFrame target;
 } BalanceMotor;

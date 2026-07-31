@@ -309,6 +309,61 @@ static void test_failed_priority_retries_before_queued_target(void)
                                         0x01U, 0x00U, 0x6BU}, 13U);
 }
 
+static void test_accepted_stop_transport_error_retries_stop_before_target(void)
+{
+    BalanceMotor motor;
+    FakeTransport fake;
+    const BalanceActuatorCommand command = {.position = 1.0f, .speed = 20.0f,
+                                            .acceleration = 50.0f};
+
+    setup(&motor, &fake);
+    establish_zero(&motor, 0);
+    CHECK_TRUE(balance_motor_stop(&motor) == BALANCE_MOTOR_OK);
+    CHECK_TRUE(balance_motor_submit(&motor, &command) == BALANCE_MOTOR_QUEUED);
+    balance_motor_on_transport_error(&motor);
+    balance_motor_process(&motor);
+    CHECK_TRUE(fake.send_count == 3U);
+    check_frame(&fake, (const uint8_t[]){0x01U, 0xFEU, 0x98U, 0x00U, 0x6BU}, 5U);
+    balance_motor_process(&motor);
+    CHECK_TRUE(fake.send_count == 3U);
+    complete_ack(&motor, 0xFEU);
+    balance_motor_process(&motor);
+    CHECK_TRUE(fake.send_count == 4U);
+    check_frame(&fake, (const uint8_t[]){0x01U, 0xFDU, 0x00U, 0x00U, 0x14U,
+                                        0x32U, 0x00U, 0x00U, 0x00U, 0x64U,
+                                        0x01U, 0x00U, 0x6BU}, 13U);
+}
+
+static void test_accepted_disable_driver_error_retries_disable_before_target(void)
+{
+    BalanceMotor motor;
+    FakeTransport fake;
+    const BalanceActuatorCommand command = {.position = 1.0f, .speed = 20.0f,
+                                            .acceleration = 50.0f};
+    const uint8_t driver_error[] = {
+        0x01U, 0xF3U, EMM_V5_ACK_BAD_COMMAND, 0x6BU,
+    };
+
+    setup(&motor, &fake);
+    establish_zero(&motor, 0);
+    CHECK_TRUE(balance_motor_disable(&motor) == BALANCE_MOTOR_OK);
+    CHECK_TRUE(balance_motor_submit(&motor, &command) == BALANCE_MOTOR_QUEUED);
+    balance_motor_on_response(&motor, 0xF3U, driver_error, sizeof(driver_error));
+    balance_motor_process(&motor);
+    CHECK_TRUE(fake.send_count == 3U);
+    check_frame(&fake,
+                (const uint8_t[]){0x01U, 0xF3U, 0xABU, 0x00U, 0x00U, 0x6BU},
+                6U);
+    balance_motor_process(&motor);
+    CHECK_TRUE(fake.send_count == 3U);
+    complete_ack(&motor, 0xF3U);
+    balance_motor_process(&motor);
+    CHECK_TRUE(fake.send_count == 4U);
+    check_frame(&fake, (const uint8_t[]){0x01U, 0xFDU, 0x00U, 0x00U, 0x14U,
+                                        0x32U, 0x00U, 0x00U, 0x00U, 0x64U,
+                                        0x01U, 0x00U, 0x6BU}, 13U);
+}
+
 static void test_lockout_and_clear_discard_all_pending_work(void)
 {
     BalanceMotor motor;
@@ -365,6 +420,8 @@ int main(void)
     test_pending_stop_precedes_later_motion();
     test_failures_lock_and_rezero_is_required();
     test_failed_priority_retries_before_queued_target();
+    test_accepted_stop_transport_error_retries_stop_before_target();
+    test_accepted_disable_driver_error_retries_disable_before_target();
     test_lockout_and_clear_discard_all_pending_work();
     test_stale_zero_response_after_fault_clear_is_ignored();
     printf("%s\n", failures == 0 ? "PASS" : "FAIL");
