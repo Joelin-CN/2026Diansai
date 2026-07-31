@@ -18,3 +18,11 @@ target_include_directories(test_balance PRIVATE ../App/Inc)
 target_compile_options(test_balance PRIVATE -Wall -Wextra -Werror)
 target_link_libraries(test_balance PRIVATE m)
 add_test(NAME balance_core COMMAND test_balance)
+
+add_executable(test_emm_v5_protocol
+    test_emm_v5_protocol.c
+    ../App/Src/emm_v5_protocol.c
+)
+target_include_directories(test_emm_v5_protocol PRIVATE ../App/Inc)
+target_compile_options(test_emm_v5_protocol PRIVATE -Wall -Wextra -Werror)
+add_test(NAME emm_v5_protocol COMMAND test_emm_v5_protocol)
