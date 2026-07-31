@@ -36,3 +36,11 @@ target_include_directories(test_balance_motor PRIVATE ../App/Inc)
 target_compile_options(test_balance_motor PRIVATE -Wall -Wextra -Werror)
 target_link_libraries(test_balance_motor PRIVATE m)
 add_test(NAME balance_motor COMMAND test_balance_motor)
+
+add_executable(test_emm_v5_uart
+    test_emm_v5_uart.c
+    ../App/Src/emm_v5_uart.c
+)
+target_include_directories(test_emm_v5_uart PRIVATE stubs ../App/Inc)
+target_compile_options(test_emm_v5_uart PRIVATE -Wall -Wextra -Werror)
+add_test(NAME emm_v5_uart COMMAND test_emm_v5_uart)
