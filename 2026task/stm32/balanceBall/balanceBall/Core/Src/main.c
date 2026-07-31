@@ -216,6 +216,13 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
   {
     emm_v5_uart_on_error(&g_emm_uart);
   }
+  else if (huart->Instance == USART3)
+  {
+    extern DMA_HandleTypeDef hdma_usart3_rx;
+    /* Restart DMA reception after any UART3 error */
+    HAL_UARTEx_ReceiveToIdle_DMA(&huart3, g_debug_cli.rx_buf, DEBUG_CLI_RX_BUF);
+    __HAL_DMA_DISABLE_IT(&hdma_usart3_rx, DMA_IT_HT);
+  }
 }
 
 /* USER CODE END 4 */

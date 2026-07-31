@@ -27,7 +27,8 @@ void debug_cli_printf(DebugCli *cli, const char *fmt, ...)
     int len = vsnprintf(buf, sizeof(buf), fmt, args);
     va_end(args);
     if (len > 0) {
-        HAL_UART_Transmit(cli->uart, (uint8_t *)buf, (uint16_t)len, 100U);
+        uint16_t tx_len = (len >= (int)sizeof(buf)) ? (uint16_t)(sizeof(buf) - 1U) : (uint16_t)len;
+        HAL_UART_Transmit(cli->uart, (uint8_t *)buf, tx_len, 100U);
     }
 }
 
