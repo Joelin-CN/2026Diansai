@@ -27,6 +27,7 @@ HAL_StatusTypeDef HAL_UART_Transmit_DMA(UART_HandleTypeDef *handle,
 HAL_StatusTypeDef HAL_UARTEx_ReceiveToIdle_DMA(UART_HandleTypeDef *handle,
                                                uint8_t *data, uint16_t size);
 HAL_StatusTypeDef HAL_UART_AbortReceive(UART_HandleTypeDef *handle);
+HAL_StatusTypeDef HAL_UART_AbortTransmit(UART_HandleTypeDef *handle);
 uint32_t HAL_GetTick(void);
 uint32_t __get_PRIMASK(void);
 void __disable_irq(void);

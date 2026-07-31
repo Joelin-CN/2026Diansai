@@ -189,3 +189,78 @@ Output:
 100% tests passed, 0 tests failed out of 4
 Total Test time (real) =   0.05 sec
 ```
+
+## Final TX Error Recovery Fix - 2026-07-31
+
+### Changes
+
+- Added explicit `HAL_UART_AbortTransmit()` recovery when a HAL error is latched while TX DMA still owns `tx_storage`.
+- TX abort is state-aware: normal response and protocol-error paths still require TX completion, while a UART error may release TX ownership only after a successful HAL TX abort.
+- Failed TX abort leaves the transaction `ACTIVE`, keeps new sends `BUSY`, and is retried by later `emm_v5_uart_poll()` calls.
+- Extended only the host HAL stub and fake; firmware continues to use the real STM32 HAL declaration.
+- Public Task 3/Task 5-facing APIs remain unchanged.
+
+### RED: Error-Only TX Ownership
+
+Command:
+
+```powershell
+cmake --build build/host-tests --target test_emm_v5_uart
+& "build/host-tests/test_emm_v5_uart.exe"
+```
+
+Output:
+
+```text
+[100%] Built target test_emm_v5_uart
+FAIL tests/test_emm_v5_uart.c:116: emm_v5_uart_take_result(&uart, &result)
+FAIL tests/test_emm_v5_uart.c:260: result.state == EMM_V5_UART_HAL_ERROR
+FAIL tests/test_emm_v5_uart.c:261: fake.calls[fake.call_count - 1U] == FAKE_CALL_ABORT_TRANSMIT
+FAIL tests/test_emm_v5_uart.c:262: uart.state == EMM_V5_UART_IDLE
+FAIL tests/test_emm_v5_uart.c:116: emm_v5_uart_take_result(&uart, &result)
+FAIL tests/test_emm_v5_uart.c:282: result.state == EMM_V5_UART_HAL_ERROR
+FAIL tests/test_emm_v5_uart.c:283: uart.state == EMM_V5_UART_IDLE
+FAIL
+```
+
+### GREEN: Focused UART Test
+
+Command:
+
+```powershell
+cmake --build build/host-tests --target test_emm_v5_uart
+ctest --test-dir build/host-tests -R "^emm_v5_uart$" --output-on-failure
+```
+
+Output:
+
+```text
+[100%] Built target test_emm_v5_uart
+1/1 Test #4: emm_v5_uart ......................   Passed    0.02 sec
+100% tests passed, 0 tests failed out of 1
+Total Test time (real) =   0.02 sec
+```
+
+### GREEN: Full Host Suite
+
+Command:
+
+```powershell
+cmake --build build/host-tests
+ctest --test-dir build/host-tests --output-on-failure
+```
+
+Output:
+
+```text
+[ 47%] Built target test_balance
+[ 63%] Built target test_emm_v5_protocol
+[ 84%] Built target test_balance_motor
+[100%] Built target test_emm_v5_uart
+1/4 Test #1: balance_core .....................   Passed    0.01 sec
+2/4 Test #2: emm_v5_protocol ..................   Passed    0.01 sec
+3/4 Test #3: balance_motor ....................   Passed    0.01 sec
+4/4 Test #4: emm_v5_uart ......................   Passed    0.01 sec
+100% tests passed, 0 tests failed out of 4
+Total Test time (real) =   0.04 sec
+```

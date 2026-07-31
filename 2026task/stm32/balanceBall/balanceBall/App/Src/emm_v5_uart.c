@@ -53,6 +53,18 @@ static bool abort_receive(EmmV5Uart *uart)
     return true;
 }
 
+static bool abort_transmit(EmmV5Uart *uart)
+{
+    if (!uart->tx_owned) {
+        return true;
+    }
+    if (HAL_UART_AbortTransmit(uart->handle) != HAL_OK) {
+        return false;
+    }
+    uart->tx_owned = false;
+    return true;
+}
+
 void emm_v5_uart_init(EmmV5Uart *uart, UART_HandleTypeDef *handle,
                       uint32_t timeout_ms)
 {
@@ -164,6 +176,11 @@ void emm_v5_uart_poll(EmmV5Uart *uart, uint32_t now_ms)
         latch_terminal(uart, EMM_V5_UART_TIMEOUT, 0U);
     }
     if (uart->terminal_latched && !abort_receive(uart)) {
+        return;
+    }
+    if (uart->terminal_latched &&
+        uart->terminal_state == EMM_V5_UART_HAL_ERROR &&
+        !abort_transmit(uart)) {
         return;
     }
     if (uart->terminal_latched && !uart->tx_owned) {

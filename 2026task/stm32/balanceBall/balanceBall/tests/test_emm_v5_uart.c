@@ -15,7 +15,8 @@ static int failures;
 typedef enum {
     FAKE_CALL_RECEIVE_TO_IDLE_DMA,
     FAKE_CALL_TRANSMIT_DMA,
-    FAKE_CALL_ABORT_RECEIVE
+    FAKE_CALL_ABORT_RECEIVE,
+    FAKE_CALL_ABORT_TRANSMIT
 } FakeCall;
 
 typedef struct {
@@ -24,6 +25,7 @@ typedef struct {
     HAL_StatusTypeDef receive_status;
     HAL_StatusTypeDef transmit_status;
     HAL_StatusTypeDef abort_receive_status;
+    HAL_StatusTypeDef abort_transmit_status;
     uint8_t *rx_data;
     uint16_t rx_size;
     const uint8_t *tx_data;
@@ -63,6 +65,13 @@ HAL_StatusTypeDef HAL_UART_AbortReceive(UART_HandleTypeDef *uart_handle)
     return fake.abort_receive_status;
 }
 
+HAL_StatusTypeDef HAL_UART_AbortTransmit(UART_HandleTypeDef *uart_handle)
+{
+    CHECK_TRUE(uart_handle == &handle);
+    fake.calls[fake.call_count++] = FAKE_CALL_ABORT_TRANSMIT;
+    return fake.abort_transmit_status;
+}
+
 uint32_t HAL_GetTick(void)
 {
     return fake.tick;
@@ -90,6 +99,7 @@ static void setup(uint32_t timeout_ms)
     fake.receive_status = HAL_OK;
     fake.transmit_status = HAL_OK;
     fake.abort_receive_status = HAL_OK;
+    fake.abort_transmit_status = HAL_OK;
     emm_v5_uart_init(&uart, &handle, timeout_ms);
 }
 
@@ -238,6 +248,59 @@ static void test_uart_error_is_published_from_poll(void)
     CHECK_TRUE(uart.state == EMM_V5_UART_IDLE);
 }
 
+static void test_error_only_callback_aborts_tx_and_publishes_hal_error(void)
+{
+    EmmV5UartResult result;
+
+    setup(20U);
+    start_request(8U);
+    emm_v5_uart_on_error(&uart);
+    emm_v5_uart_poll(&uart, 0U);
+    result = take_result();
+    CHECK_TRUE(result.state == EMM_V5_UART_HAL_ERROR);
+    CHECK_TRUE(fake.calls[fake.call_count - 1U] == FAKE_CALL_ABORT_TRANSMIT);
+    CHECK_TRUE(uart.state == EMM_V5_UART_IDLE);
+}
+
+static void test_failed_tx_abort_quarantines_until_retry_succeeds(void)
+{
+    EmmV5UartResult result;
+    const uint8_t frame[] = {0x02U, 0x36U, 0x6BU};
+
+    setup(20U);
+    start_request(8U);
+    fake.abort_transmit_status = HAL_ERROR;
+    emm_v5_uart_on_error(&uart);
+    emm_v5_uart_poll(&uart, 0U);
+    CHECK_TRUE(!emm_v5_uart_take_result(&uart, &result));
+    CHECK_TRUE(emm_v5_uart_send(&uart, frame, sizeof(frame), 0x36U, 8U) ==
+               BALANCE_MOTOR_TX_BUSY);
+
+    fake.abort_transmit_status = HAL_OK;
+    emm_v5_uart_poll(&uart, 1U);
+    result = take_result();
+    CHECK_TRUE(result.state == EMM_V5_UART_HAL_ERROR);
+    CHECK_TRUE(uart.state == EMM_V5_UART_IDLE);
+}
+
+static void test_rx_side_error_does_not_release_unaborted_tx_storage(void)
+{
+    EmmV5UartResult result;
+    const uint8_t next_frame[] = {0x02U, 0x36U, 0x6BU};
+
+    setup(20U);
+    start_request(8U);
+    fake.rx_data[0] = 0x01U;
+    emm_v5_uart_on_rx_event(&uart, 1U);
+    fake.abort_transmit_status = HAL_ERROR;
+    emm_v5_uart_on_error(&uart);
+    emm_v5_uart_poll(&uart, 0U);
+    CHECK_TRUE(!emm_v5_uart_take_result(&uart, &result));
+    CHECK_TRUE(emm_v5_uart_send(&uart, next_frame, sizeof(next_frame), 0x36U,
+                                8U) == BALANCE_MOTOR_TX_BUSY);
+    CHECK_TRUE(fake.tx_data[0] == 0x01U);
+}
+
 static void test_failed_abort_quarantines_until_recovery(void)
 {
     EmmV5UartResult result;
@@ -353,6 +416,9 @@ int main(void)
     test_oversized_rx_event_never_exposes_length_beyond_storage();
     test_timeout_handles_tick_wrap();
     test_uart_error_is_published_from_poll();
+    test_error_only_callback_aborts_tx_and_publishes_hal_error();
+    test_failed_tx_abort_quarantines_until_retry_succeeds();
+    test_rx_side_error_does_not_release_unaborted_tx_storage();
     test_failed_abort_quarantines_until_recovery();
     test_result_bytes_survive_next_receive();
     test_stale_callbacks_after_terminal_do_not_affect_next_request();
