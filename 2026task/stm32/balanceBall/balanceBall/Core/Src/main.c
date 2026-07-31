@@ -26,6 +26,7 @@
 /* USER CODE BEGIN Includes */
 #include "balance_motor.h"
 #include "emm_v5_uart.h"
+#include "debug_cli.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -48,6 +49,7 @@
 /* USER CODE BEGIN PV */
 EmmV5Uart g_emm_uart;
 BalanceMotor g_balance_motor;
+DebugCli g_debug_cli;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -95,6 +97,8 @@ int main(void)
   MX_USART2_UART_Init();
   MX_USART3_UART_Init();
   /* USER CODE BEGIN 2 */
+  extern DMA_HandleTypeDef hdma_usart3_rx;
+  
   const BalanceMotorConfig motor_config = {
     .address = 0x01U,
     .pulses_per_position_unit = 1.0f,
@@ -107,6 +111,10 @@ int main(void)
 
   emm_v5_uart_init(&g_emm_uart, &huart2, EMM_V5_RESPONSE_TIMEOUT_MS);
   balance_motor_init(&g_balance_motor, &motor_config, motor_transport);
+  
+  debug_cli_init(&g_debug_cli, &huart3);
+  HAL_UARTEx_ReceiveToIdle_DMA(&huart3, g_debug_cli.rx_buf, DEBUG_CLI_RX_BUF);
+  __HAL_DMA_DISABLE_IT(&hdma_usart3_rx, DMA_IT_HT); /* disable half-transfer, not needed */
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -191,6 +199,14 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t size)
   if (huart->Instance == USART2)
   {
     emm_v5_uart_on_rx_event(&g_emm_uart, size);
+  }
+  else if (huart->Instance == USART3)
+  {
+    extern DMA_HandleTypeDef hdma_usart3_rx;
+    debug_cli_process_line(&g_debug_cli, (const char *)g_debug_cli.rx_buf, size);
+    /* Restart DMA reception for the next command */
+    HAL_UARTEx_ReceiveToIdle_DMA(&huart3, g_debug_cli.rx_buf, DEBUG_CLI_RX_BUF);
+    __HAL_DMA_DISABLE_IT(&hdma_usart3_rx, DMA_IT_HT);
   }
 }
 
