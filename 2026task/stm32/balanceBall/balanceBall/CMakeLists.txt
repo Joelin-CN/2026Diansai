@@ -51,6 +51,9 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     App/Src/balance_measurement.c
     App/Src/balance_supervisor.c
     App/Src/balance_loop.c
+    App/Src/emm_v5_protocol.c
+    App/Src/balance_motor.c
+    App/Src/emm_v5_uart.c
 )
 
 # Add include paths

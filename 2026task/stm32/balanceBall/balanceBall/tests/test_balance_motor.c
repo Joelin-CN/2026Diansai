@@ -105,6 +105,22 @@ static void test_init_and_zero_query(void)
     CHECK_TRUE(balance_motor_has_zero(&motor));
 }
 
+static void test_startup_processing_emits_no_motor_command(void)
+{
+    BalanceMotor motor;
+    FakeTransport fake = {0};
+
+    balance_motor_init(&motor, &config,
+                       (BalanceMotorTransport){.send = fake_send,
+                                               .context = &fake});
+    for (unsigned i = 0; i < 100U; ++i) {
+        balance_motor_process(&motor);
+    }
+
+    CHECK_TRUE(fake.send_count == 0U);
+    CHECK_TRUE(!balance_motor_has_zero(&motor));
+}
+
 static void test_unsolicited_and_mismatched_responses_are_ignored(void)
 {
     BalanceMotor motor;
@@ -411,6 +427,7 @@ static void test_stale_zero_response_after_fault_clear_is_ignored(void)
 int main(void)
 {
     test_init_and_zero_query();
+    test_startup_processing_emits_no_motor_command();
     test_unsolicited_and_mismatched_responses_are_ignored();
     test_position_offsets_emit_complete_absolute_frames();
     test_invalid_and_overflow_commands_are_rejected();
