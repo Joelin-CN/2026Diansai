@@ -177,6 +177,178 @@ static void test_invalid_direction_and_mode_are_rejected(void)
     CHECK_TRUE(frame.length == 0U);
 }
 
+static void test_ack_response_decodes_progress_and_errors(void)
+{
+    static const struct {
+        uint8_t status;
+        EmmV5Ack ack;
+        EmmV5Result result;
+    } cases[] = {
+        {0x02U, EMM_V5_ACK_COMPLETE, EMM_V5_OK},
+        {0x12U, EMM_V5_ACK_START, EMM_V5_OK},
+        {0x22U, EMM_V5_ACK_END, EMM_V5_OK},
+        {0x9FU, EMM_V5_ACK_HOME_FAILED, EMM_V5_DRIVER_ERROR},
+        {0xE2U, EMM_V5_ACK_CONFLICT, EMM_V5_DRIVER_ERROR},
+        {0xEEU, EMM_V5_ACK_BAD_COMMAND, EMM_V5_DRIVER_ERROR},
+    };
+    size_t index;
+
+    for (index = 0U; index < sizeof(cases) / sizeof(cases[0]); ++index) {
+        const uint8_t response[] = {0x01U, 0xFDU, cases[index].status, 0x6BU};
+        EmmV5Ack ack = EMM_V5_ACK_COMPLETE;
+        CHECK_TRUE(emm_v5_parse_ack(0x01U, 0xFDU, response,
+                                    sizeof(response), &ack) == cases[index].result);
+        CHECK_TRUE(ack == cases[index].ack);
+    }
+}
+
+static void test_position_response_preserves_sign(void)
+{
+    const uint8_t negative[] = {0x01U, 0x36U, 0x01U, 0x00U,
+                                0x00U, 0x12U, 0x34U, 0x6BU};
+    const uint8_t positive[] = {0x01U, 0x36U, 0x00U, 0x00U,
+                                0x00U, 0x12U, 0x34U, 0x6BU};
+    int32_t position = 0;
+
+    CHECK_TRUE(emm_v5_parse_position(0x01U, negative, sizeof(negative), &position)
+               == EMM_V5_OK);
+    CHECK_TRUE(position == -0x1234);
+    CHECK_TRUE(emm_v5_parse_position(0x01U, positive, sizeof(positive), &position)
+               == EMM_V5_OK);
+    CHECK_TRUE(position == 0x1234);
+}
+
+static void test_position_response_rejects_unrepresentable_negative_magnitude(void)
+{
+    const uint8_t response[] = {0x01U, 0x36U, 0x01U, 0x80U,
+                                0x00U, 0x00U, 0x00U, 0x6BU};
+    int32_t position = 123;
+
+    CHECK_TRUE(emm_v5_parse_position(0x01U, response, sizeof(response), &position)
+               == EMM_V5_INVALID_FRAME);
+}
+
+static void test_status_response_decodes_status_byte(void)
+{
+    const uint8_t response[] = {0x02U, 0x3AU, 0xA5U, 0x6BU};
+    uint8_t status = 0U;
+
+    CHECK_TRUE(emm_v5_parse_status(0x02U, response, sizeof(response), &status)
+               == EMM_V5_OK);
+    CHECK_TRUE(status == 0xA5U);
+}
+
+static void test_pid_response_decodes_signed_big_endian_values(void)
+{
+    const uint8_t response[] = {
+        0x03U, 0x21U,
+        0x00U, 0x00U, 0x12U, 0x34U,
+        0xFFU, 0xFFU, 0xFFU, 0xFEU,
+        0x7FU, 0xFFU, 0xFFU, 0xFFU,
+        0x6BU,
+    };
+    EmmV5Pid pid = {0};
+
+    CHECK_TRUE(emm_v5_parse_pid(0x03U, response, sizeof(response), &pid)
+               == EMM_V5_OK);
+    CHECK_TRUE(pid.kp == 0x1234);
+    CHECK_TRUE(pid.ki == -2);
+    CHECK_TRUE(pid.kd == INT32_MAX);
+}
+
+static void test_pid_response_rejects_x_series_length(void)
+{
+    uint8_t response[19] = {0x01U, 0x21U};
+    EmmV5Pid pid = {0};
+    response[18] = 0x6BU;
+    CHECK_TRUE(emm_v5_parse_pid(0x01U, response, sizeof(response), &pid)
+               == EMM_V5_INVALID_FRAME);
+}
+
+static void test_response_parsers_reject_null_pointers(void)
+{
+    const uint8_t ack_response[] = {0x01U, 0xFDU, 0x02U, 0x6BU};
+    const uint8_t position_response[] = {0x01U, 0x36U, 0x00U, 0U, 0U, 0U, 1U, 0x6BU};
+    const uint8_t status_response[] = {0x01U, 0x3AU, 0x01U, 0x6BU};
+    const uint8_t pid_response[15] = {0x01U, 0x21U, [14] = 0x6BU};
+    EmmV5Ack ack;
+    int32_t position;
+    uint8_t status;
+    EmmV5Pid pid;
+
+    CHECK_TRUE(emm_v5_parse_ack(0x01U, 0xFDU, NULL, 4U, &ack)
+               == EMM_V5_INVALID_ARGUMENT);
+    CHECK_TRUE(emm_v5_parse_ack(0x01U, 0xFDU, ack_response,
+                                sizeof(ack_response), NULL) == EMM_V5_INVALID_ARGUMENT);
+    CHECK_TRUE(emm_v5_parse_position(0x01U, NULL, 8U, &position)
+               == EMM_V5_INVALID_ARGUMENT);
+    CHECK_TRUE(emm_v5_parse_position(0x01U, position_response,
+                                     sizeof(position_response), NULL)
+               == EMM_V5_INVALID_ARGUMENT);
+    CHECK_TRUE(emm_v5_parse_status(0x01U, NULL, 4U, &status)
+               == EMM_V5_INVALID_ARGUMENT);
+    CHECK_TRUE(emm_v5_parse_status(0x01U, status_response,
+                                   sizeof(status_response), NULL)
+               == EMM_V5_INVALID_ARGUMENT);
+    CHECK_TRUE(emm_v5_parse_pid(0x01U, NULL, 15U, &pid)
+               == EMM_V5_INVALID_ARGUMENT);
+    CHECK_TRUE(emm_v5_parse_pid(0x01U, pid_response,
+                                sizeof(pid_response), NULL)
+               == EMM_V5_INVALID_ARGUMENT);
+}
+
+static void test_response_parsers_reject_malformed_frames(void)
+{
+    const uint8_t ack_response[] = {0x01U, 0xFDU, 0x02U, 0x6BU};
+    const uint8_t position_response[] = {0x01U, 0x36U, 0x00U, 0U, 0U, 0U, 1U, 0x6BU};
+    const uint8_t status_response[] = {0x01U, 0x3AU, 0x01U, 0x6BU};
+    const uint8_t pid_response[15] = {0x01U, 0x21U, [14] = 0x6BU};
+    uint8_t bad_trailer[15];
+    EmmV5Ack ack;
+    int32_t position;
+    uint8_t status;
+    EmmV5Pid pid;
+
+    CHECK_TRUE(emm_v5_parse_ack(0x01U, 0xFDU, ack_response, 3U, &ack)
+               == EMM_V5_INVALID_FRAME);
+    CHECK_TRUE(emm_v5_parse_position(0x01U, position_response, 7U, &position)
+               == EMM_V5_INVALID_FRAME);
+    CHECK_TRUE(emm_v5_parse_status(0x01U, status_response, 3U, &status)
+               == EMM_V5_INVALID_FRAME);
+    CHECK_TRUE(emm_v5_parse_pid(0x01U, pid_response, 14U, &pid)
+               == EMM_V5_INVALID_FRAME);
+
+    memcpy(bad_trailer, pid_response, sizeof(bad_trailer));
+    bad_trailer[14] = 0U;
+    CHECK_TRUE(emm_v5_parse_pid(0x01U, bad_trailer, sizeof(bad_trailer), &pid)
+               == EMM_V5_INVALID_FRAME);
+}
+
+static void test_response_parsers_reject_unexpected_address_and_function(void)
+{
+    const uint8_t wrong_ack_address[] = {0x02U, 0xFDU, 0x02U, 0x6BU};
+    const uint8_t wrong_position_function[] = {0x01U, 0x3AU, 0x00U, 0U, 0U, 0U, 1U, 0x6BU};
+    const uint8_t wrong_status_address[] = {0x02U, 0x3AU, 0x01U, 0x6BU};
+    const uint8_t wrong_pid_function[15] = {0x01U, 0x22U, [14] = 0x6BU};
+    EmmV5Ack ack;
+    int32_t position;
+    uint8_t status;
+    EmmV5Pid pid;
+
+    CHECK_TRUE(emm_v5_parse_ack(0x01U, 0xFDU, wrong_ack_address,
+                                sizeof(wrong_ack_address), &ack)
+               == EMM_V5_UNEXPECTED_RESPONSE);
+    CHECK_TRUE(emm_v5_parse_position(0x01U, wrong_position_function,
+                                     sizeof(wrong_position_function), &position)
+               == EMM_V5_UNEXPECTED_RESPONSE);
+    CHECK_TRUE(emm_v5_parse_status(0x01U, wrong_status_address,
+                                   sizeof(wrong_status_address), &status)
+               == EMM_V5_UNEXPECTED_RESPONSE);
+    CHECK_TRUE(emm_v5_parse_pid(0x01U, wrong_pid_function,
+                                sizeof(wrong_pid_function), &pid)
+               == EMM_V5_UNEXPECTED_RESPONSE);
+}
+
 int main(void)
 {
     test_enable_command();
@@ -190,6 +362,15 @@ int main(void)
     test_null_pointers_are_rejected();
     test_non_broadcast_commands_reject_zero_address();
     test_invalid_direction_and_mode_are_rejected();
+    test_ack_response_decodes_progress_and_errors();
+    test_position_response_preserves_sign();
+    test_position_response_rejects_unrepresentable_negative_magnitude();
+    test_status_response_decodes_status_byte();
+    test_pid_response_decodes_signed_big_endian_values();
+    test_pid_response_rejects_x_series_length();
+    test_response_parsers_reject_null_pointers();
+    test_response_parsers_reject_malformed_frames();
+    test_response_parsers_reject_unexpected_address_and_function();
     printf("%s\n", failures == 0 ? "PASS" : "FAIL");
     return failures == 0 ? 0 : 1;
 }

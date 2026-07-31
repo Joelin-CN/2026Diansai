@@ -28,6 +28,21 @@ typedef enum {
     EMM_V5_HOME_LIMIT_SWITCH = 2
 } EmmV5HomeMode;
 
+typedef enum {
+    EMM_V5_ACK_COMPLETE = 0x02,
+    EMM_V5_ACK_START = 0x12,
+    EMM_V5_ACK_END = 0x22,
+    EMM_V5_ACK_HOME_FAILED = 0x9F,
+    EMM_V5_ACK_CONFLICT = 0xE2,
+    EMM_V5_ACK_BAD_COMMAND = 0xEE
+} EmmV5Ack;
+
+typedef struct {
+    int32_t kp;
+    int32_t ki;
+    int32_t kd;
+} EmmV5Pid;
+
 typedef struct {
     uint8_t *data;
     size_t capacity;
@@ -72,5 +87,14 @@ EmmV5Result emm_v5_encode_home(uint8_t address, EmmV5HomeMode mode,
                                bool synchronized, EmmV5Frame *frame);
 EmmV5Result emm_v5_encode_abort_home(uint8_t address, EmmV5Frame *frame);
 EmmV5Result emm_v5_encode_pid_query(uint8_t address, EmmV5Frame *frame);
+EmmV5Result emm_v5_parse_ack(uint8_t address, uint8_t function,
+                             const uint8_t *response, size_t length,
+                             EmmV5Ack *ack);
+EmmV5Result emm_v5_parse_position(uint8_t address, const uint8_t *response,
+                                  size_t length, int32_t *position);
+EmmV5Result emm_v5_parse_status(uint8_t address, const uint8_t *response,
+                                size_t length, uint8_t *status);
+EmmV5Result emm_v5_parse_pid(uint8_t address, const uint8_t *response,
+                             size_t length, EmmV5Pid *pid);
 
 #endif

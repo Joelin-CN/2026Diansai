@@ -1,5 +1,7 @@
 #include "emm_v5_protocol.h"
 
+#include <string.h>
+
 typedef struct {
     EmmV5Frame *frame;
     size_t next;
@@ -279,4 +281,130 @@ EmmV5Result emm_v5_encode_abort_home(uint8_t address, EmmV5Frame *frame)
 EmmV5Result emm_v5_encode_pid_query(uint8_t address, EmmV5Frame *frame)
 {
     return encode_query(address, 0x21U, frame);
+}
+
+static EmmV5Result validate_response(uint8_t address, uint8_t function,
+                                     const uint8_t *response, size_t length,
+                                     size_t expected_length)
+{
+    if (response == NULL) {
+        return EMM_V5_INVALID_ARGUMENT;
+    }
+    if (length != expected_length || response[length - 1U] != EMM_V5_FRAME_END) {
+        return EMM_V5_INVALID_FRAME;
+    }
+    if (response[0] != address || response[1] != function) {
+        return EMM_V5_UNEXPECTED_RESPONSE;
+    }
+    return EMM_V5_OK;
+}
+
+static uint32_t read_u32_be(const uint8_t *bytes)
+{
+    return ((uint32_t)bytes[0] << 24U)
+           | ((uint32_t)bytes[1] << 16U)
+           | ((uint32_t)bytes[2] << 8U)
+           | (uint32_t)bytes[3];
+}
+
+EmmV5Result emm_v5_parse_ack(uint8_t address, uint8_t function,
+                             const uint8_t *response, size_t length,
+                             EmmV5Ack *ack)
+{
+    EmmV5Result result;
+    EmmV5Ack decoded;
+
+    if (ack == NULL) {
+        return EMM_V5_INVALID_ARGUMENT;
+    }
+    result = validate_response(address, function, response, length, 4U);
+    if (result != EMM_V5_OK) {
+        return result;
+    }
+
+    switch (response[2]) {
+    case EMM_V5_ACK_COMPLETE:
+    case EMM_V5_ACK_START:
+    case EMM_V5_ACK_END:
+    case EMM_V5_ACK_HOME_FAILED:
+    case EMM_V5_ACK_CONFLICT:
+    case EMM_V5_ACK_BAD_COMMAND:
+        decoded = (EmmV5Ack)response[2];
+        break;
+    default:
+        return EMM_V5_INVALID_FRAME;
+    }
+
+    *ack = decoded;
+    if (decoded == EMM_V5_ACK_HOME_FAILED || decoded == EMM_V5_ACK_CONFLICT
+        || decoded == EMM_V5_ACK_BAD_COMMAND) {
+        return EMM_V5_DRIVER_ERROR;
+    }
+    return EMM_V5_OK;
+}
+
+EmmV5Result emm_v5_parse_position(uint8_t address, const uint8_t *response,
+                                  size_t length, int32_t *position)
+{
+    EmmV5Result result;
+    uint32_t magnitude;
+
+    if (position == NULL) {
+        return EMM_V5_INVALID_ARGUMENT;
+    }
+    result = validate_response(address, 0x36U, response, length, 8U);
+    if (result != EMM_V5_OK) {
+        return result;
+    }
+    if (response[2] > 1U) {
+        return EMM_V5_INVALID_FRAME;
+    }
+    magnitude = read_u32_be(&response[3]);
+    if (magnitude > (uint32_t)INT32_MAX) {
+        return EMM_V5_INVALID_FRAME;
+    }
+
+    *position = response[2] == 0U ? (int32_t)magnitude : -(int32_t)magnitude;
+    return EMM_V5_OK;
+}
+
+EmmV5Result emm_v5_parse_status(uint8_t address, const uint8_t *response,
+                                size_t length, uint8_t *status)
+{
+    EmmV5Result result;
+
+    if (status == NULL) {
+        return EMM_V5_INVALID_ARGUMENT;
+    }
+    result = validate_response(address, 0x3AU, response, length, 4U);
+    if (result != EMM_V5_OK) {
+        return result;
+    }
+    *status = response[2];
+    return EMM_V5_OK;
+}
+
+EmmV5Result emm_v5_parse_pid(uint8_t address, const uint8_t *response,
+                             size_t length, EmmV5Pid *pid)
+{
+    EmmV5Result result;
+    EmmV5Pid decoded;
+    uint32_t value;
+
+    if (pid == NULL) {
+        return EMM_V5_INVALID_ARGUMENT;
+    }
+    result = validate_response(address, 0x21U, response, length, 15U);
+    if (result != EMM_V5_OK) {
+        return result;
+    }
+
+    value = read_u32_be(&response[2]);
+    memcpy(&decoded.kp, &value, sizeof(decoded.kp));
+    value = read_u32_be(&response[6]);
+    memcpy(&decoded.ki, &value, sizeof(decoded.ki));
+    value = read_u32_be(&response[10]);
+    memcpy(&decoded.kd, &value, sizeof(decoded.kd));
+    *pid = decoded;
+    return EMM_V5_OK;
 }
