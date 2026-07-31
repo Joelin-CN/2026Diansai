@@ -1,0 +1,161 @@
+{
+    "version": 3,
+    "configurePresets": [
+        {
+            "name": "default",
+            "hidden": true,
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build/${presetName}",
+		    "toolchainFile": "${sourceDir}/cmake/gcc-arm-none-eabi.cmake",
+            "cacheVariables": {
+            }
+        },
+        {
+            "name": "Debug",
+            "inherits": "default",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        },
+        {
+            "name": "Release",
+            "inherits": "default",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release"
+            }
+        },
+        {
+            "name": "LowSpeedTest",
+            "inherits": "default",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "LOW_SPEED_TEST_PROFILE": "ON"
+            }
+        },
+        {
+            "name": "ImuDiagnostic",
+            "inherits": "default",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "LOW_SPEED_TEST_PROFILE": "OFF",
+                "IMU_DIAGNOSTIC_PROFILE": "ON"
+            }
+        },
+        {
+            "name": "GithubModeSwitchTest",
+            "inherits": "default",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "LOW_SPEED_TEST_PROFILE": "ON",
+                "IMU_DIAGNOSTIC_PROFILE": "OFF",
+                "GITHUB_MODE_SWITCH_PROFILE": "ON"
+            }
+        },
+        {
+            "name": "FastSteeringTest",
+            "inherits": "default",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "LOW_SPEED_TEST_PROFILE": "ON",
+                "IMU_DIAGNOSTIC_PROFILE": "OFF",
+                "GITHUB_MODE_SWITCH_PROFILE": "ON",
+                "FAST_STEERING_TEST_PROFILE": "ON"
+            }
+        },
+        {
+            "name": "FifteenSecondLapTest",
+            "inherits": "default",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "LOW_SPEED_TEST_PROFILE": "OFF",
+                "IMU_DIAGNOSTIC_PROFILE": "OFF",
+                "GITHUB_MODE_SWITCH_PROFILE": "ON",
+                "FAST_STEERING_TEST_PROFILE": "ON",
+                "FIFTEEN_SECOND_LAP_PROFILE": "ON"
+            }
+        },
+        {
+            "name": "HighSpeedYawInnerTest",
+            "inherits": "default",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "LOW_SPEED_TEST_PROFILE": "OFF",
+                "IMU_DIAGNOSTIC_PROFILE": "OFF",
+                "GITHUB_MODE_SWITCH_PROFILE": "ON",
+                "FAST_STEERING_TEST_PROFILE": "ON",
+                "FIFTEEN_SECOND_LAP_PROFILE": "ON",
+                "HIGH_SPEED_YAW_INNER_TEST_PROFILE": "ON"
+            }
+        },
+        {
+            "name": "HighSpeedYawInnerWheelPiTest",
+            "inherits": "default",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "LOW_SPEED_TEST_PROFILE": "OFF",
+                "IMU_DIAGNOSTIC_PROFILE": "OFF",
+                "GITHUB_MODE_SWITCH_PROFILE": "ON",
+                "FAST_STEERING_TEST_PROFILE": "ON",
+                "FIFTEEN_SECOND_LAP_PROFILE": "ON",
+                "HIGH_SPEED_YAW_INNER_TEST_PROFILE": "ON",
+                "INDEPENDENT_WHEEL_PI_TEST_PROFILE": "ON"
+            }
+        },
+        {
+            "name": "CompetitionTasks",
+            "inherits": "default",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "LOW_SPEED_TEST_PROFILE": "OFF",
+                "IMU_DIAGNOSTIC_PROFILE": "OFF",
+                "GITHUB_MODE_SWITCH_PROFILE": "ON",
+                "FAST_STEERING_TEST_PROFILE": "ON",
+                "FIFTEEN_SECOND_LAP_PROFILE": "ON",
+                "HIGH_SPEED_YAW_INNER_TEST_PROFILE": "ON",
+                "INDEPENDENT_WHEEL_PI_TEST_PROFILE": "ON"
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "Debug",
+            "configurePreset": "Debug"
+        },
+        {
+            "name": "Release",
+            "configurePreset": "Release"
+        },
+        {
+            "name": "LowSpeedTest",
+            "configurePreset": "LowSpeedTest"
+        },
+        {
+            "name": "ImuDiagnostic",
+            "configurePreset": "ImuDiagnostic"
+        },
+        {
+            "name": "GithubModeSwitchTest",
+            "configurePreset": "GithubModeSwitchTest"
+        },
+        {
+            "name": "FastSteeringTest",
+            "configurePreset": "FastSteeringTest"
+        },
+        {
+            "name": "FifteenSecondLapTest",
+            "configurePreset": "FifteenSecondLapTest"
+        },
+        {
+            "name": "HighSpeedYawInnerTest",
+            "configurePreset": "HighSpeedYawInnerTest"
+        },
+        {
+            "name": "HighSpeedYawInnerWheelPiTest",
+            "configurePreset": "HighSpeedYawInnerWheelPiTest"
+        },
+        {
+            "name": "CompetitionTasks",
+            "configurePreset": "CompetitionTasks"
+        }
+    ]
+}

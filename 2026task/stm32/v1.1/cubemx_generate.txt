@@ -1,0 +1,4 @@
+config load C:\Users\35336\Desktop\diansai\STM32F407_Skystar_FreeRTOS\STM32F407_Skystar_FreeRTOS.ioc
+project generate
+exit
+

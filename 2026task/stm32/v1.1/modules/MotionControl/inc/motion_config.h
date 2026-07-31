@@ -1,0 +1,801 @@
+/**
+ * @file motion_config.h
+ * @brief 运动控制层参数配置
+ * @date 2026-07-14 (Created)
+ * @date 2026-07-30 (Updated: frequency optimization)
+ *
+ * RECENT CHANGES (2026-07-30):
+ * - Added layered frequency architecture
+ * - MAIN_LOOP_FREQ_HZ = 500 (encoder sampling)
+ * - PID_CONTROL_FREQ_HZ = 100 (PID execution, reduced from 500Hz)
+ * - Rationale: Motor PWM response ~10ms, 100Hz PID sufficient, saves 80% CPU
+ *
+ * 集中管理所有物理参数、控制参数、约束参数
+ * 注意: 本文件只包含编译期常量（#define），运行时参数通过API设置
+ * 调参时只需修改本文件中的数值并重新编译即可
+ */
+
+#ifndef MOTION_CONFIG_H
+#define MOTION_CONFIG_H
+
+#ifndef LOW_SPEED_TEST_PROFILE
+#define LOW_SPEED_TEST_PROFILE 0
+#endif
+
+#ifndef FAST_STEERING_TEST_PROFILE
+#define FAST_STEERING_TEST_PROFILE 0
+#endif
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/* ============================================================================
+ * 物理参数配置
+ * ---------------------------------------------------------------------------
+ * 这些参数与硬件相关，更换底盘/电机/编码器后需要重新标定
+ * ============================================================================ */
+
+/**
+ * @brief 轮距 (m) - 左右轮中心距离
+ *
+ * @category A: 物理测量参数
+ *
+ * @value 0.214f (214 mm)
+ *
+ * @origin 实际测量
+ *   - 测量方法: 卷尺测量左右轮中心距离
+ *   - 测量日期: 2026-07-30
+ *   - 之前配置: 115 mm (已更新)
+ *
+ * @validation 原地旋转验证法
+ *   - 方法: 让小车原地旋转N圈，测量实际转过的角度
+ *   - 理论: 左右轮差速 ΔS = WHEEL_BASE × θ
+ *   - 验证公式: WHEEL_BASE_actual = ΔS / (2π × N)
+ *   - 精度要求: 误差 < 5%
+ *
+ * @tuning_guide
+ *   - 如果小车原地旋转时出现漂移，可能需要重新测量
+ *   - 测量时应测量轮胎中心线之间的距离，不是轮胎外缘
+ *   - 影响: 轮距误差会导致转向角度误差成比例放大
+ *
+ * @history
+ *   - 2026-07-30: 150mm → 115mm (实测修正)
+ *   - 2026-07-30: 115mm → 214mm (实测更新)
+ *
+ * @references
+ *   - docs/GEOMETRY_UPDATE_2026-07-30.md
+ *
+ * @warnings
+ *   - 此参数与config.c中的wheel_track_m必须保持一致
+ */
+#define WHEEL_BASE              0.214f
+
+/**
+ * @brief 轮半径 (m)
+ *
+ * @category A: 物理测量参数（可标定）
+ *
+ * @value 0.033f (33 mm)
+ *
+ * @origin 测量值
+ *   - 测量方法: 游标卡尺测量轮子直径，取半径
+ *   - 测量精度: ±0.5 mm
+ *   - 与config.c中的wheel_radius_m保持一致
+ *
+ * @validation 滚动距离验证法（推荐）
+ *   - 标定方法: 让轮子滚动10圈，测量实际位移
+ *   - 标定公式: R = 实际位移 / (10 × 2π)
+ *   - 标定工具: 可使用encoder_resolution_calibration.c
+ *   - 预期精度: ±2%
+ *   - 验证命令: 让小车以0.3m/s直线行驶10秒，测量实际位移
+ *   - 理论位移: 3.0m，实测应在2.94m ~ 3.06m之间
+ *
+ * @tuning_guide
+ *   - 如何判断需要调整:
+ *     * 小车直线行驶时，编码器显示1m，但实测不是1m
+ *     * 速度估计与实际观察不符
+ *   - 调整方法:
+ *     * 增大轮半径 → 速度估计变大，位移估计变大
+ *     * 减小轮半径 → 速度估计变小，位移估计变小
+ *   - 调整范围: 0.030f ~ 0.036f (30mm ~ 36mm)
+ *   - 影响: 轮半径误差直接导致速度和位移估计误差
+ *
+ * @history
+ *   - 初始值: 0.033f (游标卡尺测量)
+ *   - 待实车验证并微调
+ *
+ * @references
+ *   - logs/PARAMETER_UPDATE_SUMMARY_2026-07-30.md
+ *   - docs/CALIBRATION_QUICK_GUIDE.md
+ *
+ * @warnings
+ *   - 必须与config.c的encoder->wheel_radius_m保持一致
+ *   - 轮胎磨损会改变有效半径，建议定期重新标定
+ */
+#define WHEEL_RADIUS            0.033f
+
+/**
+ * @brief 编码器分辨率 (counts per revolution)
+ *
+ * @category B: 理论计算参数（可推导，已实测验证）
+ *
+ * @value 60000 counts/revolution
+ *
+ * @origin 理论计算 + 实测验证
+ *   计算依据:
+ *   - 电机编码器线数: 500 PPR（厂商规格书，实测确认）
+ *   - 4倍频（AB相正交解码）: 500 × 4 = 2,000 counts/电机转
+ *   - 减速比: 30:1（齿轮箱规格书）
+ *   - 编码器安装位置: 电机轴上（减速前）
+ *   - 轮子转1圈编码器计数: 2,000 × 30 = 60,000 counts
+ *
+ * @validation 实测验证 (2026-07-30)
+ *   测试工具: motor_speed_test.c
+ *   测试条件: 10% PWM, 3秒运行
+ *   测试结果:
+ *   - 左轮计数: 128,950 counts
+ *   - 右轮计数: 121,629 counts
+ *   - 实际转动: 2.2 圈（手动计数）
+ *   - 实测值: 128,950 / 2.2 = 58,614 counts/圈
+ *   - 偏差: (60,000 - 58,614) / 60,000 = 2.3%
+ *   - 结论: ✅ 偏差在合理范围内（< 5%）
+ *
+ *   偏差原因分析:
+ *   - 手动数圈可能有±0.1圈误差
+ *   - 减速比可能不完全是30.0:1（制造公差）
+ *   - 轮胎与地面可能有轻微打滑
+ *
+ * @tuning_guide
+ *   如何判断需要调整:
+ *   - 使用encoder_resolution_calibration.c工具
+ *   - 手动旋转轮子完整1圈，记录编码器计数
+ *   - 如果偏差 > 5%，需要更新此值为实测值
+ *
+ *   调整方法:
+ *   - 使用实测值替换60000
+ *   - 同时更新config.c中的pulses_per_revolution
+ *   - 重新编译并验证
+ *
+ *   影响分析:
+ *   - 此参数错误会导致速度估计错误成比例放大
+ *   - 例如: 配置1560但实际60000 → 速度低估38倍
+ *   - 会导致PID控制器输出过大，小车失控
+ *
+ * @history
+ *   - 初始值: 334 (错误配置)
+ *   - 2026-07-30: 334 → 1560 (误认为13 PPR编码器)
+ *   - 2026-07-30: 1560 → 60000 (确认为500 PPR编码器，实测验证)
+ *
+ * @references
+ *   - logs/2026-07-30_encoder_ppr_correction.md - 详细修正过程
+ *   - logs/PARAMETER_UPDATE_SUMMARY_2026-07-30.md - 参数更新总结
+ *   - Core/Src/app/encoder_resolution_calibration.c - 标定工具
+ *   - docs/CALIBRATION_QUICK_GUIDE.md - 标定指南
+ *
+ * @warnings
+ *   - 必须与config.c的pulses_per_revolution保持一致
+ *   - 更换电机或编码器后必须重新标定
+ *   - 这是最关键的参数之一，错误配置会导致系统完全失效
+ */
+#define ENCODER_PPR             60000
+
+/**
+ * @brief 电机减速比
+ *
+ * @category B: 理论计算参数（固定）
+ *
+ * @value 30.0f (30:1)
+ *
+ * @origin 齿轮箱厂商规格书
+ *   - 齿轮箱型号: [待补充]
+ *   - 标称减速比: 30:1
+ *   - 实际减速比可能有±3%的制造公差
+ *
+ * @validation
+ *   - 通过ENCODER_PPR的实测验证间接确认
+ *   - 实测编码器计数与理论值偏差<5%，说明减速比基本准确
+ *
+ * @usage
+ *   - 当前主要用于文档说明
+ *   - 实际计算中使用ENCODER_PPR（已包含减速比）
+ *
+ * @warnings
+ *   - 保留用于文档，当前代码中未直接使用
+ *   - 更换齿轮箱后需要更新此值
+ */
+#define GEAR_RATIO              30.0f
+
+/**
+ * @brief 轮周长 (m)
+ *
+ * @category B: 理论计算参数（自动计算）
+ *
+ * @value 2π × WHEEL_RADIUS ≈ 0.2073 m
+ *
+ * @origin 自动计算
+ *   - 公式: C = 2πr
+ *   - 依赖参数: WHEEL_RADIUS
+ *
+ * @warnings
+ *   - 不要手动修改此值
+ *   - 修改WHEEL_RADIUS会自动影响此值
+ */
+#define WHEEL_CIRCUMFERENCE     (2.0f * 3.14159265f * WHEEL_RADIUS)
+
+/* ============================================================================
+ * 控制频率配置
+ * ---------------------------------------------------------------------------
+ * 分层频率架构 (2026-07-30优化):
+ * - 主循环频率: 500Hz (编码器采样)
+ * - PID控制频率: 100Hz (匹配执行器响应时间~10ms)
+ * - EKF/感知频率: 50Hz (计算密集型任务)
+ *
+ * 优化理由:
+ * - 编码器保持500Hz高频采样确保速度估计精度
+ * - PID降至100Hz节省CPU (电机PWM响应时间约10ms，100Hz充分)
+ * - 原500Hz PID频率过高造成不必要的计算开销
+ * ============================================================================ */
+
+/**
+ * @brief 主循环频率 (Hz) - 编码器采样频率
+ *
+ * @category D: 硬件约束参数（系统设计）
+ *
+ * @value 500 Hz
+ *
+ * @origin 系统设计
+ *   - FreeRTOS任务周期: 2ms (1000 / 500 = 2ms)
+ *   - 编码器采样需要高频以保证速度估计精度
+ *   - 500Hz足够捕捉电机动态响应
+ *
+ * @validation
+ *   - 确保主任务执行时间 < 2ms
+ *   - 可通过性能监控工具验证
+ *
+ * @tuning_guide
+ *   增大频率:
+ *   - 优点: 速度估计更精确，响应更快
+ *   - 缺点: CPU负载增加
+ *   - 建议范围: 200Hz ~ 1000Hz
+ *
+ *   减小频率:
+ *   - 优点: CPU负载降低
+ *   - 缺点: 速度估计精度下降，延迟增加
+ *
+ * @warnings
+ *   - 修改此值需要同步修改FreeRTOS任务周期
+ *   - 必须确保任务执行时间 < 周期时间
+ */
+#define MAIN_LOOP_FREQ_HZ       500
+
+/**
+ * @brief PID控制器执行频率 (Hz)
+ *
+ * @category D: 硬件约束参数（系统设计，已优化）
+ *
+ * @value 100 Hz
+ *
+ * @origin 系统优化 (2026-07-30)
+ *   - 匹配执行器响应时间: TB6612电机驱动器响应时间约10ms
+ *   - 100Hz = 10ms周期，与执行器响应时间一致
+ *   - 优化理由: 之前的500Hz过高，造成不必要的计算开销
+ *
+ * @validation
+ *   - 确保PID计算时间 < 10ms
+ *   - 通过性能监控验证无超时
+ *
+ * @tuning_guide
+ *   选择原则:
+ *   - PID频率应匹配执行器响应频率
+ *   - 过高: 浪费CPU，PID来不及看到效果就再次调整
+ *   - 过低: 控制延迟增加，响应变慢
+ *
+ *   建议范围: 50Hz ~ 200Hz
+ *   - 50Hz (20ms): 低速应用，节省CPU
+ *   - 100Hz (10ms): 标准配置（当前）
+ *   - 200Hz (5ms): 高速高精度应用
+ *
+ * @history
+ *   - 之前: 500Hz（与主循环相同）
+ *   - 2026-07-30: 优化为100Hz（降低CPU负载）
+ *
+ * @references
+ *   - logs/2026-07-30_optimization_recommendation.md
+ *
+ * @warnings
+ *   - 修改此值需要重新调整PID参数（特别是Ki和Kd）
+ *   - 必须是MAIN_LOOP_FREQ_HZ的整数除数
+ */
+#define PID_CONTROL_FREQ_HZ     100
+
+/** @brief PID控制周期 (秒) - 用于积分/微分计算 */
+#define PID_CONTROL_PERIOD_S    (1.0f / PID_CONTROL_FREQ_HZ)
+
+/** @brief 主循环周期 (秒) - 用于编码器速度估计 */
+#define MAIN_LOOP_PERIOD_S      (1.0f / MAIN_LOOP_FREQ_HZ)
+
+/** @brief 保持兼容性：默认控制周期指PID周期 */
+#define CONTROL_FREQ_HZ         PID_CONTROL_FREQ_HZ
+#define CONTROL_PERIOD_S        PID_CONTROL_PERIOD_S
+
+/** @brief PID控制分频系数 - 主循环每N次执行一次PID */
+#define PID_CONTROL_DIVIDER     (MAIN_LOOP_FREQ_HZ / PID_CONTROL_FREQ_HZ)
+
+/* ============================================================================
+ * 轮速PI反馈参数
+ * ---------------------------------------------------------------------------
+ * 调参要点:
+ *   - 先调 SPEED_KP: 逐渐增大直到速度响应快速无振荡
+ *   - 再调 SPEED_KI: 消除稳态误差，不宜过大否则会低频摆动
+ *   - 反馈输出限幅 SPEED_OUTPUT_MAX 保护电机不过流
+ * ============================================================================ */
+
+/**
+ * @brief 轮速控制比例增益
+ *
+ * @category C: 经验调参（需要实验）
+ *
+ * @value 200.0f
+ *
+ * @origin 经验调参（待实车验证）
+ *   - 调参方法: 试凑法
+ *   - 调参依据: 阶跃响应测试
+ *   - 当前状态: 初始估计值，待实车优化
+ *
+ * @tuning_guide
+ *   物理意义:
+ *   - Kp决定系统响应速度
+ *   - 速度误差1 m/s时，输出PWM增量 = 200
+ *
+ *   调参步骤（Ziegler-Nichols方法）:
+ *   1. 设置Ki=0, Kd=0
+ *   2. 从小值开始逐步增大Kp (50 → 100 → 150 → ...)
+ *   3. 观察速度阶跃响应:
+ *      - Kp太小: 响应慢，稳态误差大
+ *      - Kp合适: 快速响应，轻微超调
+ *      - Kp太大: 振荡，不稳定
+ *   4. 找到临界Kp（开始持续振荡）
+ *   5. 最终Kp = 临界Kp × 0.6
+ *
+ *   试凑法调参记录（待实车测试）:
+ *   - 100.0f: 预计响应慢
+ *   - 150.0f: 预计响应改善
+ *   - 200.0f: 当前值（预估）
+ *   - 250.0f: 可能过冲
+ *
+ *   建议范围: 100.0f ~ 300.0f
+ *
+ *   如何判断需要调整:
+ *   - 响应太慢 → 增大Kp
+ *   - 有振荡 → 减小Kp
+ *   - 稳态误差大 → 检查Ki或增大Kp
+ *
+ * @validation
+ *   阶跃响应测试:
+ *   - 给定速度指令从0跃变到0.5 m/s
+ *   - 观察实际速度响应曲线
+ *   - 理想响应: 上升时间<0.5s, 超调<10%, 无振荡
+ *
+ * @history
+ *   - 初始值: 200.0f (理论估计)
+ *   - 待实车调试后更新
+ *
+ * @warnings
+ *   - 更改控制频率后需要重新调整此参数
+ *   - Kp过大会导致系统不稳定
+ *   - 建议每次调整步长不超过20%
+ */
+#define SPEED_KP                80.0f
+
+/**
+ * @brief 轮速控制积分增益
+ *
+ * @category C: 经验调参（需要实验）
+ *
+ * @value 50.0f
+ *
+ * @origin 经验调参（待实车验证）
+ *   - 调参方法: 试凑法
+ *   - 调参依据: 消除稳态误差
+ *   - 当前状态: 初始估计值，待实车优化
+ *
+ * @tuning_guide
+ *   物理意义:
+ *   - Ki决定消除稳态误差的能力
+ *   - 积分项 = Ki × ∫error dt
+ *   - 速度误差持续1秒时，积分输出增量 = 50 × 1 = 50 PWM
+ *
+ *   调参步骤:
+ *   1. 先调好Kp，确保基本响应正常
+ *   2. Ki从0开始逐步增大 (0 → 10 → 20 → 50 → ...)
+ *   3. 观察稳态误差:
+ *      - Ki=0: 有稳态误差（速度达不到目标）
+ *      - Ki合适: 稳态误差消除，响应平稳
+ *      - Ki太大: 低频振荡，超调增大
+ *   4. 找到消除稳态误差的最小Ki值
+ *
+ *   建议范围: 10.0f ~ 100.0f
+ *
+ *   如何判断需要调整:
+ *   - 有稳态误差（速度始终达不到目标）→ 增大Ki
+ *   - 低频振荡（缓慢的来回摆动）→ 减小Ki
+ *   - 启动时超调过大 → 减小Ki
+ *
+ *   常见问题:
+ *   - 积分饱和: 当输出饱和时，积分项继续累积导致超调
+ *   - 解决方法: 使用抗积分饱和（当前代码已实现）
+ *
+ * @validation
+ *   稳态误差测试:
+ *   - 给定恒定速度指令0.5 m/s
+ *   - 等待系统稳定（5秒后）
+ *   - 测量稳态速度误差
+ *   - 理想结果: 误差 < 0.01 m/s (2%)
+ *
+ * @history
+ *   - 初始值: 50.0f (理论估计)
+ *   - 待实车调试后更新
+ *
+ * @warnings
+ *   - Ki不宜过大，否则会引起积分饱和和超调
+ *   - 更改控制频率后，Ki需要成比例调整
+ *   - 如果频率加倍，Ki应减半
+ */
+#define SPEED_KI                25.0f
+
+/**
+ * @brief 轮速反馈输出上限 (PWM)
+ *
+ * @category C: 经验调参（保护参数）
+ *
+ * @value 500.0f
+ *
+ * @origin 系统设计
+ *   - 基于PWM范围: -100 ~ +100
+ *   - 反馈输出限幅放大5倍以提供足够的控制余量
+ *   - 前馈+反馈总和会被最终限幅到±100
+ *
+ * @tuning_guide
+ *   物理意义:
+ *   - PID控制器输出（反馈部分）的最大值
+ *   - 防止积分饱和和控制量过大
+ *
+ *   调整建议:
+ *   - 如果经常达到限幅 → 可能需要调整PID参数
+ *   - 如果从不达到限幅 → 可以适当减小以提高安全性
+ *
+ *   建议范围: 300.0f ~ 1000.0f
+ *
+ * @warnings
+ *   - 此限幅仅针对反馈部分
+ *   - 最终PWM输出会被限制在PWM_MIN ~ PWM_MAX (-100 ~ +100)
+ */
+#if LOW_SPEED_TEST_PROFILE
+#define SPEED_OUTPUT_MAX        25.0f
+#else
+#define SPEED_OUTPUT_MAX        35.0f
+#endif
+
+/**
+ * @brief 轮速反馈输出下限 (PWM)
+ *
+ * @category C: 经验调参（保护参数）
+ *
+ * @value -500.0f
+ *
+ * @origin 与SPEED_OUTPUT_MAX对称
+ *
+ * @warnings
+ *   - 必须保持与SPEED_OUTPUT_MAX对称
+ */
+#define SPEED_OUTPUT_MIN        (-SPEED_OUTPUT_MAX)
+
+/* ============================================================================
+ * 前馈控制参数
+ * ---------------------------------------------------------------------------
+ * 准电流环效果，补偿电机非线性和机械损耗
+ *
+ * 调参要点:
+ *   - FF_K_ACCEL: 加速时额外增加的PWM，跟加速度成正比
+ *                 测试方法: 测量不同加速度下的PWM需求，线性拟合
+ *   - FF_K_FRICTION: 匀速时需要克服摩擦的PWM，跟速度成正比
+ *                     测试方法: 记录恒速直线行驶时的PWM平均值
+ *   - FF_K_STATIC: 从静止启动时需要瞬间施加的最小PWM
+ *                   测试方法: 从0开始逐次增加PWM直到轮子转动，取临界值
+ *
+ * 调参顺序: K_STATIC → K_FRICTION → K_ACCEL
+ * ============================================================================ */
+
+/**
+ * @brief 加速度前馈系数 (PWM/(m/s²))
+ *
+ * @category C: 经验调参（需要实验标定）
+ *
+ * @value 50.0f PWM/(m/s²)
+ *
+ * @origin 经验估计（待实车标定）
+ *   - 前馈目的: 补偿加速时需要的额外转矩
+ *   - 当前值为初步估计，需要通过标定获得准确值
+ *
+ * @validation 标定方法
+ *   方法1: 加速度阶跃测试
+ *   1. 设置不同加速度指令 (0.5, 1.0, 1.5, 2.0 m/s²)
+ *   2. 记录达到目标加速度所需的PWM值
+ *   3. 绘制散点图: PWM vs 加速度
+ *   4. 线性拟合得到斜率即为FF_K_ACCEL
+ *
+ *   方法2: 试凑法
+ *   1. 从0开始逐步增大FF_K_ACCEL
+ *   2. 观察加速响应:
+ *      - 太小: 加速慢，反馈PID需要补偿
+ *      - 合适: 加速快，PID输出小
+ *      - 太大: 加速过冲
+ *   3. 最优值: PID输出在加速时接近0
+ *
+ * @tuning_guide
+ *   物理意义:
+ *   - 加速度1 m/s²时，前馈贡献50 PWM
+ *   - F = ma，转矩与加速度成正比
+ *
+ *   建议范围: 20.0f ~ 100.0f
+ *
+ *   如何判断需要调整:
+ *   - 加速响应慢 → 增大FF_K_ACCEL
+ *   - 加速过冲 → 减小FF_K_ACCEL
+ *   - 最佳状态: 加速时PID输出接近0（前馈完全补偿）
+ *
+ * @history
+ *   - 初始值: 50.0f (理论估计)
+ *   - 待实车标定后更新
+ *
+ * @references
+ *   - 标定方法详见: docs/PARAMETER_TUNING_GUIDE.md
+ *
+ * @warnings
+ *   - 此参数与车体质量、电机转矩常数相关
+ *   - 更换电机或底盘后需要重新标定
+ */
+#define FF_K_ACCEL              5.0f
+
+/**
+ * @brief 摩擦前馈系数 (PWM/(m/s))
+ *
+ * @category C: 经验调参（需要实验标定）
+ *
+ * @value 300.0f PWM/(m/s)
+ *
+ * @origin 经验估计（待实车标定）
+ *   - 前馈目的: 补偿恒速运动时的摩擦阻力
+ *   - 摩擦力与速度近似成正比（库伦摩擦+粘性摩擦）
+ *
+ * @validation 标定方法
+ *   方法1: 恒速测试（推荐）
+ *   1. 让小车以不同恒定速度行驶 (0.2, 0.4, 0.6, 0.8, 1.0 m/s)
+ *   2. 等待速度稳定后，记录PID输出的平均PWM值
+ *   3. 绘制散点图: PWM vs 速度
+ *   4. 线性拟合得到斜率即为FF_K_FRICTION
+ *
+ *   方法2: 试凑法
+ *   1. 从0开始逐步增大FF_K_FRICTION
+ *   2. 观察恒速行驶时的PID输出:
+ *      - 太小: PID输出为正（需要持续补偿）
+ *      - 合适: PID输出接近0
+ *      - 太大: PID输出为负（前馈过度）
+ *   3. 最优值: 恒速时PID积分项接近0
+ *
+ * @tuning_guide
+ *   物理意义:
+ *   - 速度1 m/s时，摩擦前馈贡献300 PWM
+ *   - 补偿轮胎-地面摩擦、轴承摩擦、齿轮箱摩擦
+ *
+ *   建议范围: 200.0f ~ 500.0f
+ *
+ *   如何判断需要调整:
+ *   - 恒速时PID输出持续为正 → 增大FF_K_FRICTION
+ *   - 恒速时PID输出持续为负 → 减小FF_K_FRICTION
+ *   - 最佳状态: 恒速时PID输出接近0
+ *
+ * @history
+ *   - 初始值: 300.0f (理论估计)
+ *   - 待实车标定后更新
+ *
+ * @references
+ *   - 标定方法详见: docs/PARAMETER_TUNING_GUIDE.md
+ *
+ * @warnings
+ *   - 此参数与地面材质、轮胎材料相关
+ *   - 不同地面（瓷砖、木板、地毯）可能需要不同的值
+ *   - 轮胎磨损会改变摩擦系数
+ */
+#define FF_K_FRICTION           40.0f
+
+/**
+ * @brief 静摩擦补偿 (PWM)
+ *
+ * @category C: 经验调参（需要实验标定）
+ *
+ * @value 80.0f PWM
+ *
+ * @origin 经验估计（待实车标定）
+ *   - 前馈目的: 克服静止到启动时的最大静摩擦力
+ *   - 静摩擦力通常大于动摩擦力
+ *
+ * @validation 标定方法
+ *   方法: 最小启动PWM测试
+ *   1. 小车静止，编码器清零
+ *   2. 从PWM=0开始，每次增加5，观察轮子是否转动
+ *   3. 记录轮子刚开始转动时的PWM值
+ *   4. 重复测试5次取平均值
+ *   5. FF_K_STATIC = 平均启动PWM × 1.2 (留20%余量)
+ *
+ *   示例:
+ *   - 测试结果: 65, 68, 70, 67, 65 PWM
+ *   - 平均值: 67 PWM
+ *   - FF_K_STATIC = 67 × 1.2 ≈ 80 PWM
+ *
+ * @tuning_guide
+ *   物理意义:
+ *   - 从静止启动时，瞬间施加的PWM值
+ *   - 只在速度接近0时施加（见FF_STATIC_DEADZONE）
+ *
+ *   建议范围: 50.0f ~ 150.0f
+ *
+ *   如何判断需要调整:
+ *   - 启动困难，轮子不转 → 增大FF_K_STATIC
+ *   - 启动时有明显冲击 → 减小FF_K_STATIC
+ *   - 最佳状态: 平滑启动，无延迟
+ *
+ *   注意事项:
+ *   - 左右轮的静摩擦可能不同（制造差异）
+ *   - 当前实现对左右轮使用相同值
+ *   - 如果启动时偏向严重，可能需要分别标定
+ *
+ * @history
+ *   - 初始值: 80.0f (理论估计)
+ *   - 待实车标定后更新
+ *
+ * @references
+ *   - 标定方法详见: docs/PARAMETER_TUNING_GUIDE.md
+ *
+ * @warnings
+ *   - 此参数对低速性能影响很大
+ *   - 更换电机、轮胎或地面后需要重新标定
+ */
+#if LOW_SPEED_TEST_PROFILE
+#define FF_K_STATIC             12.0f
+#else
+#define FF_K_STATIC             20.0f
+#endif
+
+/** @brief 静摩擦死区速度 (m/s) - 低于此速度不施加静摩擦补偿 */
+#define FF_STATIC_DEADZONE      0.01f
+
+/* ============================================================================
+ * 速度与加速度约束
+ * ---------------------------------------------------------------------------
+ * 根据赛道长度、弯道半径和电机能力设定
+ * 加速度限制用于防止指令跳变导致车轮打滑
+ * ============================================================================ */
+
+/** @brief 最大线速度 (m/s) */
+#if LOW_SPEED_TEST_PROFILE
+#define MAX_SPEED               0.25f
+#else
+#define MAX_SPEED               0.60f
+#endif
+
+/** @brief 最小线速度 (m/s) */
+#define MIN_SPEED               0.10f
+
+/** @brief 最大加速度限制 (m/s²) - 超过此值的指令会被削减 */
+#if LOW_SPEED_TEST_PROFILE
+#define MAX_ACCELERATION        0.30f
+#else
+#define MAX_ACCELERATION        0.50f
+#endif
+
+/** @brief 最大减速度限制 (m/s²) - 制动时的最大减速 */
+#if LOW_SPEED_TEST_PROFILE
+#define MAX_DECELERATION        0.50f
+#else
+#define MAX_DECELERATION        0.80f
+#endif
+
+/** @brief 最大角速度限制 (rad/s) - 保护差速机构 */
+#define MAX_OMEGA               6.0f
+
+/* ============================================================================
+ * 指令平滑配置
+ * ---------------------------------------------------------------------------
+ * 对上层速度指令施加一阶低通滤波，避免指令跳变引起冲击
+ * 平滑强度 = 1.0 / (SMOOTH_TAU * CONTROL_FREQ + 1.0)
+ * TAU 越大越平滑但响应越慢，越小越跟指但冲击越大
+ * ============================================================================ */
+
+/** @brief 速度指令平滑时间常数 (s) */
+#define CMD_SMOOTH_TAU          0.05f
+
+/** @brief 速度指令平滑系数 (自动计算) - 基于PID控制周期 */
+#define CMD_SMOOTH_ALPHA        (PID_CONTROL_PERIOD_S / (CMD_SMOOTH_TAU + PID_CONTROL_PERIOD_S))
+
+/* ============================================================================
+ * PWM输出约束
+ * ============================================================================ */
+
+/** @brief PWM最大值 */
+#if LOW_SPEED_TEST_PROFILE
+#define PWM_MAX                 25
+#else
+#define PWM_MAX                 55
+#endif
+
+/** @brief PWM最小值 */
+#define PWM_MIN                 (-PWM_MAX)
+
+/*
+ * Differential steering mixer
+ * ----------------------------
+ * The line controller requests a yaw rate.  Wheel-speed PI produces the
+ * common forward effort, while these terms turn the yaw request into a
+ * differential PWM that is preserved even when the common effort saturates.
+ *
+ * Positive yaw is counter-clockwise (left turn):
+ *   left_pwm = common_pwm - turn_pwm
+ *   right_pwm = common_pwm + turn_pwm
+ */
+#define STEERING_FF_PWM_PER_RADPS   20.0f
+#if LOW_SPEED_TEST_PROFILE
+#define YAW_RATE_KP_PWM_PER_RADPS    3.0f
+#else
+#define YAW_RATE_KP_PWM_PER_RADPS    8.0f
+#endif
+#define STEERING_PWM_LIMIT_RATIO    0.80f
+
+/*
+ * Independent wheel-PI steering trim
+ * ----------------------------------
+ * The nominal yaw feed-forward remains the primary curve command.  Only the
+ * difference between the left/right PI feedback terms is retained, so motor
+ * mismatch is corrected without counting the nominal wheel-speed feed-forward
+ * a second time.  Filtering prevents encoder noise from becoming PWM zigzag.
+ */
+#define WHEEL_PI_STEERING_FILTER_ALPHA   0.25f
+#define WHEEL_PI_STEERING_LIMIT_PWM      12.0f
+
+/*
+ * ICM42688 is mounted with +Z upward.  Keep this as a named polarity switch
+ * so a reversed physical installation can be corrected without touching the
+ * controller equations.
+ */
+#define IMU_GYRO_Z_DIRECTION        1.0f
+
+/* ============================================================================
+ * 状态估计器配置
+ * ============================================================================ */
+
+/** @brief 速度低通滤波器截止频率 (Hz) */
+#define SPEED_FILTER_CUTOFF     50.0f
+
+/** @brief 速度低通滤波器系数 (alpha) - 基于主循环频率计算 */
+#define SPEED_FILTER_ALPHA      (2.0f * 3.14159265f * SPEED_FILTER_CUTOFF * PID_CONTROL_PERIOD_S / \
+                                 (1.0f + 2.0f * 3.14159265f * SPEED_FILTER_CUTOFF * PID_CONTROL_PERIOD_S))
+
+/* ============================================================================
+ * 调试与监控配置
+ * ============================================================================ */
+
+/** @brief 使能性能监控 */
+#define ENABLE_PERFORMANCE_MONITOR  1
+
+/** @brief 使能调试输出 */
+#define ENABLE_DEBUG_OUTPUT         0
+
+/** @brief 最大执行时间告警阈值 (us) */
+#define MAX_EXEC_TIME_WARNING       500
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* MOTION_CONFIG_H */
