@@ -26,3 +26,13 @@ add_executable(test_emm_v5_protocol
 target_include_directories(test_emm_v5_protocol PRIVATE ../App/Inc)
 target_compile_options(test_emm_v5_protocol PRIVATE -Wall -Wextra -Werror)
 add_test(NAME emm_v5_protocol COMMAND test_emm_v5_protocol)
+
+add_executable(test_balance_motor
+    test_balance_motor.c
+    ../App/Src/balance_motor.c
+    ../App/Src/emm_v5_protocol.c
+)
+target_include_directories(test_balance_motor PRIVATE ../App/Inc)
+target_compile_options(test_balance_motor PRIVATE -Wall -Wextra -Werror)
+target_link_libraries(test_balance_motor PRIVATE m)
+add_test(NAME balance_motor COMMAND test_balance_motor)
