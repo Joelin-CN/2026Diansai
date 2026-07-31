@@ -9,6 +9,7 @@
 #include "gpio.h"
 #include "main.h"
 #include <stdlib.h>
+#include <stdio.h>
 
 /**
  * @brief TIM1 ARR值 - PWM周期配置
@@ -111,10 +112,32 @@ void Motor_Init(void) {
 
 void Motor_SetSpeed(int16_t left, int16_t right) {
     // Note: MOTOR_B -> Left wheel, MOTOR_C -> Right wheel
-    // IMPORTANT: Left motor (MOTOR_B) is physically reversed, so negate the speed
+
+    /* ------------------------------------------------------------
+     * FIX: 纯差速模式防御性检查
+     *
+     * 在纯差速循迹模式下，PWM应该始终非负（只能正转或停止）
+     * 如果检测到负PWM，说明上层逻辑有问题，输出警告
+     * ---------------------------------------------------------- */
+    static uint32_t negative_pwm_count = 0;
+    if (left < 0 || right < 0) {
+        if ((negative_pwm_count % 50) == 0) {  // 限制日志频率
+            printf("[Motor] WARNING: Negative PWM detected! left=%d, right=%d\n", left, right);
+        }
+        negative_pwm_count++;
+
+        // 强制限制为非负（防御性编程）
+        if (left < 0) left = 0;
+        if (right < 0) right = 0;
+    }
+
+    // IMPORTANT: Left motor (MOTOR_B) is physically reversed
+    // Solution: Reverse direction control (IN1/IN2), NOT PWM sign
+    // Left wheel: swap IN1 and IN2 compared to right wheel
     _set_wheel(TIM_CHANNEL_1,
-               MOTOR_B_IN1_GPIO_Port, MOTOR_B_IN1_Pin,
-               MOTOR_B_IN2_GPIO_Port, MOTOR_B_IN2_Pin, -left);
+               MOTOR_B_IN2_GPIO_Port, MOTOR_B_IN2_Pin,  // Swapped: IN2 as IN1
+               MOTOR_B_IN1_GPIO_Port, MOTOR_B_IN1_Pin,  // Swapped: IN1 as IN2
+               left);  // Use positive PWM directly
     _set_wheel(TIM_CHANNEL_2,
                MOTOR_C_IN1_GPIO_Port, MOTOR_C_IN1_Pin,
                MOTOR_C_IN2_GPIO_Port, MOTOR_C_IN2_Pin, right);

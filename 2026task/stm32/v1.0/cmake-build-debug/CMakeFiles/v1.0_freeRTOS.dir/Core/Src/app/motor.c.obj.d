@@ -56,4 +56,7 @@ CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor.c.obj: \
  E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/../lib/gcc/arm-none-eabi/14.3.1/../../../../arm-none-eabi/include/machine/_types.h \
  E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/../lib/gcc/arm-none-eabi/14.3.1/../../../../arm-none-eabi/include/sys/lock.h \
  E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/../lib/gcc/arm-none-eabi/14.3.1/../../../../arm-none-eabi/include/machine/stdlib.h \
- E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/../lib/gcc/arm-none-eabi/14.3.1/../../../../arm-none-eabi/include/alloca.h
+ E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/../lib/gcc/arm-none-eabi/14.3.1/../../../../arm-none-eabi/include/alloca.h \
+ E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/../lib/gcc/arm-none-eabi/14.3.1/../../../../arm-none-eabi/include/stdio.h \
+ E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/../lib/gcc/arm-none-eabi/14.3.1/include/stdarg.h \
+ E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/../lib/gcc/arm-none-eabi/14.3.1/../../../../arm-none-eabi/include/sys/stdio.h

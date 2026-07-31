@@ -28,4 +28,7 @@ CMakeFiles/v1.0_freeRTOS.dir/modules/MotionControl/src/motion_control.c.obj: \
  E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/../lib/gcc/arm-none-eabi/14.3.1/../../../../arm-none-eabi/include/sys/_locale.h \
  E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/../lib/gcc/arm-none-eabi/14.3.1/../../../../arm-none-eabi/include/strings.h \
  E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/../lib/gcc/arm-none-eabi/14.3.1/../../../../arm-none-eabi/include/sys/string.h \
- E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/../lib/gcc/arm-none-eabi/14.3.1/../../../../arm-none-eabi/include/math.h
+ E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/../lib/gcc/arm-none-eabi/14.3.1/../../../../arm-none-eabi/include/math.h \
+ E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/../lib/gcc/arm-none-eabi/14.3.1/../../../../arm-none-eabi/include/stdio.h \
+ E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/../lib/gcc/arm-none-eabi/14.3.1/include/stdarg.h \
+ E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/../lib/gcc/arm-none-eabi/14.3.1/../../../../arm-none-eabi/include/sys/stdio.h

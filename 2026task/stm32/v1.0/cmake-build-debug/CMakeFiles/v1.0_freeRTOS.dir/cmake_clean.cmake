@@ -41,6 +41,8 @@ file(REMOVE_RECURSE
   "CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_interactive_test.c.obj.d"
   "CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_speed_test.c.obj"
   "CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_speed_test.c.obj.d"
+  "CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_static_friction_test.c.obj"
+  "CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_static_friction_test.c.obj.d"
   "CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/platform_time.c.obj"
   "CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/platform_time.c.obj.d"
   "CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/playground_track.c.obj"

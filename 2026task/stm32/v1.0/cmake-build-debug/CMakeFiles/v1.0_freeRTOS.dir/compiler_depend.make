@@ -707,6 +707,7 @@ CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor.c.obj: E:/B306/2026/diansai/2026
   E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/arm-none-eabi/include/machine/stdlib.h \
   E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/arm-none-eabi/include/newlib.h \
   E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/arm-none-eabi/include/stdint.h \
+  E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/arm-none-eabi/include/stdio.h \
   E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/arm-none-eabi/include/stdlib.h \
   E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/arm-none-eabi/include/sys/_intsup.h \
   E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/arm-none-eabi/include/sys/_stdint.h \
@@ -716,6 +717,8 @@ CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor.c.obj: E:/B306/2026/diansai/2026
   E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/arm-none-eabi/include/sys/features.h \
   E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/arm-none-eabi/include/sys/lock.h \
   E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/arm-none-eabi/include/sys/reent.h \
+  E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/arm-none-eabi/include/sys/stdio.h \
+  E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/lib/gcc/arm-none-eabi/14.3.1/include/stdarg.h \
   E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/lib/gcc/arm-none-eabi/14.3.1/include/stddef.h \
   E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/lib/gcc/arm-none-eabi/14.3.1/include/stdint.h
 
@@ -933,6 +936,72 @@ CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_speed_test.c.obj: E:/B306/2026/d
   E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/arm-none-eabi/include/sys/lock.h \
   E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/arm-none-eabi/include/sys/reent.h \
   E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/arm-none-eabi/include/sys/stdio.h \
+  E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/lib/gcc/arm-none-eabi/14.3.1/include/stdarg.h \
+  E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/lib/gcc/arm-none-eabi/14.3.1/include/stddef.h \
+  E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/lib/gcc/arm-none-eabi/14.3.1/include/stdint.h
+
+CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_static_friction_test.c.obj: E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/motor_static_friction_test.c \
+  E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Inc/app/encoder.h \
+  E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Inc/app/motor.h \
+  E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Inc/app/motor_static_friction_test.h \
+  E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Inc/main.h \
+  E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Inc/stm32f4xx_hal_conf.h \
+  E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Inc/usart.h \
+  E:/B306/2026/diansai/2026task/stm32/v1.0/Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f407xx.h \
+  E:/B306/2026/diansai/2026task/stm32/v1.0/Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h \
+  E:/B306/2026/diansai/2026task/stm32/v1.0/Drivers/CMSIS/Device/ST/STM32F4xx/Include/system_stm32f4xx.h \
+  E:/B306/2026/diansai/2026task/stm32/v1.0/Drivers/CMSIS/Include/cmsis_compiler.h \
+  E:/B306/2026/diansai/2026task/stm32/v1.0/Drivers/CMSIS/Include/cmsis_gcc.h \
+  E:/B306/2026/diansai/2026task/stm32/v1.0/Drivers/CMSIS/Include/cmsis_version.h \
+  E:/B306/2026/diansai/2026task/stm32/v1.0/Drivers/CMSIS/Include/core_cm4.h \
+  E:/B306/2026/diansai/2026task/stm32/v1.0/Drivers/CMSIS/Include/mpu_armv7.h \
+  E:/B306/2026/diansai/2026task/stm32/v1.0/Drivers/STM32F4xx_HAL_Driver/Inc/Legacy/stm32_hal_legacy.h \
+  E:/B306/2026/diansai/2026task/stm32/v1.0/Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h \
+  E:/B306/2026/diansai/2026task/stm32/v1.0/Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_cortex.h \
+  E:/B306/2026/diansai/2026task/stm32/v1.0/Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.h \
+  E:/B306/2026/diansai/2026task/stm32/v1.0/Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma.h \
+  E:/B306/2026/diansai/2026task/stm32/v1.0/Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma_ex.h \
+  E:/B306/2026/diansai/2026task/stm32/v1.0/Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_exti.h \
+  E:/B306/2026/diansai/2026task/stm32/v1.0/Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash.h \
+  E:/B306/2026/diansai/2026task/stm32/v1.0/Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ex.h \
+  E:/B306/2026/diansai/2026task/stm32/v1.0/Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ramfunc.h \
+  E:/B306/2026/diansai/2026task/stm32/v1.0/Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio.h \
+  E:/B306/2026/diansai/2026task/stm32/v1.0/Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio_ex.h \
+  E:/B306/2026/diansai/2026task/stm32/v1.0/Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_i2c.h \
+  E:/B306/2026/diansai/2026task/stm32/v1.0/Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_i2c_ex.h \
+  E:/B306/2026/diansai/2026task/stm32/v1.0/Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr.h \
+  E:/B306/2026/diansai/2026task/stm32/v1.0/Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr_ex.h \
+  E:/B306/2026/diansai/2026task/stm32/v1.0/Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h \
+  E:/B306/2026/diansai/2026task/stm32/v1.0/Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc_ex.h \
+  E:/B306/2026/diansai/2026task/stm32/v1.0/Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_spi.h \
+  E:/B306/2026/diansai/2026task/stm32/v1.0/Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_tim.h \
+  E:/B306/2026/diansai/2026task/stm32/v1.0/Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_tim_ex.h \
+  E:/B306/2026/diansai/2026task/stm32/v1.0/Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h \
+  E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/arm-none-eabi/include/_ansi.h \
+  E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/arm-none-eabi/include/_newlib_version.h \
+  E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/arm-none-eabi/include/alloca.h \
+  E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/arm-none-eabi/include/ctype.h \
+  E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/arm-none-eabi/include/machine/_default_types.h \
+  E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/arm-none-eabi/include/machine/_types.h \
+  E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/arm-none-eabi/include/machine/ieeefp.h \
+  E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/arm-none-eabi/include/machine/stdlib.h \
+  E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/arm-none-eabi/include/newlib.h \
+  E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/arm-none-eabi/include/stdint.h \
+  E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/arm-none-eabi/include/stdio.h \
+  E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/arm-none-eabi/include/stdlib.h \
+  E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/arm-none-eabi/include/string.h \
+  E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/arm-none-eabi/include/strings.h \
+  E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/arm-none-eabi/include/sys/_intsup.h \
+  E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/arm-none-eabi/include/sys/_locale.h \
+  E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/arm-none-eabi/include/sys/_stdint.h \
+  E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/arm-none-eabi/include/sys/_types.h \
+  E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/arm-none-eabi/include/sys/cdefs.h \
+  E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/arm-none-eabi/include/sys/config.h \
+  E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/arm-none-eabi/include/sys/features.h \
+  E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/arm-none-eabi/include/sys/lock.h \
+  E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/arm-none-eabi/include/sys/reent.h \
+  E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/arm-none-eabi/include/sys/stdio.h \
+  E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/arm-none-eabi/include/sys/string.h \
   E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/lib/gcc/arm-none-eabi/14.3.1/include/stdarg.h \
   E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/lib/gcc/arm-none-eabi/14.3.1/include/stddef.h \
   E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/lib/gcc/arm-none-eabi/14.3.1/include/stdint.h
@@ -1437,8 +1506,8 @@ CMakeFiles/v1.0_freeRTOS.dir/Core/Src/freertos.c.obj: E:/B306/2026/diansai/2026t
   E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Inc/app/encoder.h \
   E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Inc/app/ir_calibration.h \
   E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Inc/app/motor.h \
+  E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Inc/app/motor_static_friction_test.h \
   E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Inc/app/platform_time.h \
-  E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Inc/app/playground_track.h \
   E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Inc/app/track_control_app.h \
   E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Inc/FreeRTOSConfig.h \
   E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Inc/main.h \
@@ -2171,6 +2240,7 @@ CMakeFiles/v1.0_freeRTOS.dir/modules/MotionControl/src/motion_control.c.obj: E:/
   E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/arm-none-eabi/include/math.h \
   E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/arm-none-eabi/include/newlib.h \
   E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/arm-none-eabi/include/stdint.h \
+  E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/arm-none-eabi/include/stdio.h \
   E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/arm-none-eabi/include/string.h \
   E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/arm-none-eabi/include/strings.h \
   E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/arm-none-eabi/include/sys/_intsup.h \
@@ -2182,7 +2252,9 @@ CMakeFiles/v1.0_freeRTOS.dir/modules/MotionControl/src/motion_control.c.obj: E:/
   E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/arm-none-eabi/include/sys/features.h \
   E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/arm-none-eabi/include/sys/lock.h \
   E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/arm-none-eabi/include/sys/reent.h \
+  E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/arm-none-eabi/include/sys/stdio.h \
   E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/arm-none-eabi/include/sys/string.h \
+  E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/lib/gcc/arm-none-eabi/14.3.1/include/stdarg.h \
   E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/lib/gcc/arm-none-eabi/14.3.1/include/stdbool.h \
   E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/lib/gcc/arm-none-eabi/14.3.1/include/stddef.h \
   E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/lib/gcc/arm-none-eabi/14.3.1/include/stdint.h
@@ -2794,6 +2866,12 @@ E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/arm-none-eabi/includ
 E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Inc/app/motor_interactive_test.h:
 
 E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/motor_speed_test.c:
+
+E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/motor_static_friction_test.c:
+
+E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Inc/app/motor_static_friction_test.h:
+
+E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/arm-none-eabi/include/ctype.h:
 
 E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/platform_time.c:
 

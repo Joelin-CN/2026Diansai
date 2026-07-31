@@ -9,6 +9,7 @@
 #include "motion_kinematics.h"
 #include <string.h>
 #include <math.h>
+#include <stdio.h>
 
 /* ============================================================================
  * 内部辅助函数
@@ -239,6 +240,33 @@ void MotionControl_Update(MotionControl_t *ctrl) {
                                                v_right_target,
                                                v_right_actual,
                                                dt);
+
+    /* ------------------------------------------------------------
+     * FIX: 纯差速模式 - 禁止反转
+     *
+     * 问题：PID控制器在制动时会输出负PWM（实际速度>目标速度）
+     * 但负PWM会导致电机反转，与"只能正转或停止"的设计冲突
+     *
+     * 解决：强制PWM非负，用0代替负值（停止而非反转）
+     * ---------------------------------------------------------- */
+    static uint32_t negative_pwm_debug_count = 0;
+    bool pwm_was_negative = false;
+
+    if (pwm_left < 0) {
+        pwm_was_negative = true;
+        pwm_left = 0;
+    }
+    if (pwm_right < 0) {
+        pwm_was_negative = true;
+        pwm_right = 0;
+    }
+
+    // DEBUG: Print when negative PWM is clamped (every 100 occurrences)
+    if (pwm_was_negative && (negative_pwm_debug_count % 100) == 0) {
+        printf("[MotionControl] Negative PWM clamped: vL_tgt=%.2f vL_act=%.2f vR_tgt=%.2f vR_act=%.2f\n",
+               v_left_target, v_left_actual, v_right_target, v_right_actual);
+    }
+    if (pwm_was_negative) negative_pwm_debug_count++;
 
     /* ------------------------------------------------------------
      * 步骤6: 输出到电机

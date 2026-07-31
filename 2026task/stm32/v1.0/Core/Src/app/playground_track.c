@@ -112,6 +112,7 @@ static float g_v_cmd;
 static unsigned g_cyc;
 static uint16_t g_line_valid_count;
 static uint16_t g_line_lost_count;
+static uint32_t g_debug_counter = 0;  /* Debug print throttle counter */
 
 static const float STANDARD_GRAVITY_MPS2 = 9.80665f;
 static const float DEGREES_TO_RADIANS = 0.017453292519943295f;
@@ -296,26 +297,26 @@ static void pg_init_config(playground_task_t task) {
     g_cfg.v_curve = 0.30f;     /* 0.60 → 0.30 m/s */
     g_cfg.v_approach = 0.125f; /* 0.25 → 0.125 m/s */
 
-    /* Task 2 PD gains - straights (REDUCED FOR TESTING - prevent oscillation) */
-    g_cfg.kp_straight = 0.5f;   /* 1.5 → 0.5 (reduced to 1/3) */
-    g_cfg.kd_straight = 0.3f;   /* 1.0 → 0.3 (reduced to 1/3) */
+    /* Task 2 PD gains - straights (FIX: reduce kd to prevent oscillation) */
+    g_cfg.kp_straight = 0.5f;   /* Lateral error gain (cm → rad/s) */
+    g_cfg.kd_straight = 0.02f;  /* Heading error gain (cm/s → rad/s) - REDUCED from 0.3 */
     g_cfg.omega_max_straight = 2.0f;  /* 3.0 → 2.0 */
 
-    /* Task 2 PD gains - curves (REDUCED FOR TESTING) */
-    g_cfg.kp_curve = 1.0f;      /* 2.5 → 1.0 (reduced to ~40%) */
-    g_cfg.kd_curve = 0.6f;      /* 1.5 → 0.6 (reduced to 40%) */
+    /* Task 2 PD gains - curves (FIX: reduce kd to prevent oscillation) */
+    g_cfg.kp_curve = 1.0f;      /* Higher gain needed for curves */
+    g_cfg.kd_curve = 0.04f;     /* REDUCED from 0.6 to prevent overshoot */
     g_cfg.omega_max_curve = 2.0f;  /* 3.0 → 2.0 */
 
-    /* Task 2 PD gains - approach (REDUCED FOR TESTING) */
+    /* Task 2 PD gains - approach (FIX: reduce kd to prevent oscillation) */
     g_cfg.kp_approach = 0.8f;   /* 2.0 → 0.8 (reduced to 40%) */
-    g_cfg.kd_approach = 0.5f;   /* 1.2 → 0.5 (reduced to ~40%) */
+    g_cfg.kd_approach = 0.03f;  /* REDUCED from 0.5 to prevent overshoot */
     g_cfg.omega_max_approach = 1.5f;  /* 2.0 → 1.5 */
 
     /* Task 4 parameters (HALF SPEED FOR TESTING) */
     g_cfg.v_task4_max = 0.25f;  /* 0.50 → 0.25 m/s */
     g_cfg.a_task4 = 0.15f;      /* 0.30 → 0.15 m/s² */
     g_cfg.kp_task4 = 0.3f;      /* 0.8 → 0.3 (reduced to ~40%) */
-    g_cfg.kd_task4 = 0.2f;      /* 0.5 → 0.2 (reduced to 40%) */
+    g_cfg.kd_task4 = 0.01f;     /* REDUCED from 0.2 to prevent overshoot */
     g_cfg.omega_max_task4 = 0.8f;  /* 1.0 → 0.8 */
 
     /* Segment boundaries (meters) */
@@ -325,28 +326,47 @@ static void pg_init_config(playground_task_t task) {
     g_cfg.dist_da_early = 5.000f;
     g_cfg.approach_start_dist = 5.000f;
 
-    /* A-line detection */
-    g_cfg.transverse_min_ch = 6;
-    g_cfg.a_detect_min_dist = 5.5f;
+    /* A-line detection (FIX: stricter conditions to prevent false detection) */
+    g_cfg.transverse_min_ch = 7;    /* INCREASED from 6 to 7 - require more channels */
+    g_cfg.a_detect_min_dist = 5.8f; /* INCREASED from 5.5 to 5.8 - later detection */
 
     /* Task 4 deceleration start */
     float d_ramp = (g_cfg.v_task4_max * g_cfg.v_task4_max) / (2.0f * g_cfg.a_task4);
     g_cfg.d_decel_start = g_cfg.dist_ab_end - d_ramp;
 
-    /* Fault detection thresholds */
-    g_cfg.line_lost_fault_lap = 10;  /* 200ms at 50Hz */
-    g_cfg.line_lost_fault_ab = 5;    /* 100ms at 50Hz */
+    /* Fault detection thresholds (FIX: increase tolerance for oscillation) */
+    g_cfg.line_lost_fault_lap = 25;  /* INCREASED from 10 to 25 (500ms at 50Hz) */
+    g_cfg.line_lost_fault_ab = 15;   /* INCREASED from 5 to 15 (300ms at 50Hz) */
 
-    printf("[PlaygroundTrack] Config loaded:\n");
+    printf("[PlaygroundTrack] ========== Configuration Summary ==========\n");
     if (task == PLAYGROUND_TASK_LAP) {
-        printf("  v_straight=%.2f, v_curve=%.2f, v_approach=%.2f\n",
+        printf("[PlaygroundTrack] Task 2 - Full Lap Mode:\n");
+        printf("  Speeds: straight=%.2f m/s, curve=%.2f m/s, approach=%.2f m/s\n",
                g_cfg.v_straight, g_cfg.v_curve, g_cfg.v_approach);
-        printf("  kp_straight=%.2f, kp_curve=%.2f\n",
-               g_cfg.kp_straight, g_cfg.kp_curve);
+        printf("  PD Gains (straight): kp=%.2f, kd=%.3f, omega_max=%.2f rad/s\n",
+               g_cfg.kp_straight, g_cfg.kd_straight, g_cfg.omega_max_straight);
+        printf("  PD Gains (curve):    kp=%.2f, kd=%.3f, omega_max=%.2f rad/s\n",
+               g_cfg.kp_curve, g_cfg.kd_curve, g_cfg.omega_max_curve);
+        printf("  PD Gains (approach): kp=%.2f, kd=%.3f, omega_max=%.2f rad/s\n",
+               g_cfg.kp_approach, g_cfg.kd_approach, g_cfg.omega_max_approach);
+        printf("  Segment boundaries: AB=%.2fm, BC=%.2fm, CD=%.2fm, DA=%.2fm\n",
+               g_cfg.dist_ab_end, g_cfg.dist_bc_end, g_cfg.dist_cd_end, g_cfg.dist_da_early);
+        printf("  A-line detection: min_channels=%d, min_distance=%.2fm\n",
+               g_cfg.transverse_min_ch, g_cfg.a_detect_min_dist);
+        printf("  Fault threshold: line_lost_max=%d frames (%.0fms at 50Hz)\n",
+               g_cfg.line_lost_fault_lap, g_cfg.line_lost_fault_lap * 20.0f);
     } else {
-        printf("  v_max=%.2f, a=%.2f, d_decel_start=%.2f\n",
-               g_cfg.v_task4_max, g_cfg.a_task4, g_cfg.d_decel_start);
+        printf("[PlaygroundTrack] Task 4 - A→B Straight Mode:\n");
+        printf("  Trapezoid profile: v_max=%.2f m/s, accel=%.2f m/s²\n",
+               g_cfg.v_task4_max, g_cfg.a_task4);
+        printf("  Deceleration start: %.2fm (ramp distance=%.2fm)\n",
+               g_cfg.d_decel_start, g_cfg.dist_ab_end - g_cfg.d_decel_start);
+        printf("  PD Gains: kp=%.2f, kd=%.3f, omega_max=%.2f rad/s\n",
+               g_cfg.kp_task4, g_cfg.kd_task4, g_cfg.omega_max_task4);
+        printf("  Fault threshold: line_lost_max=%d frames (%.0fms at 50Hz)\n",
+               g_cfg.line_lost_fault_ab, g_cfg.line_lost_fault_ab * 20.0f);
     }
+    printf("[PlaygroundTrack] ===========================================\n");
 }
 
 /**
@@ -363,6 +383,20 @@ static void pg_decide_50hz(void) {
     if (status == SD_OK) {
         status = perception_update(&g_perc, &g_sf.ir, g_sf.timestamp_us, &g_res);
         line_valid = (status == SD_OK);
+    } else {
+        /* Preprocess failed - print every 10 frames (200ms) */
+        static uint32_t preprocess_fail_count = 0;
+        if ((preprocess_fail_count++ % 10) == 0) {
+            printf("[PG] preprocess_update failed: status=%d\n", status);
+        }
+    }
+
+    /* DEBUG: Print perception failures */
+    if (!line_valid) {
+        static uint32_t perception_fail_count = 0;
+        if ((perception_fail_count++ % 10) == 0) {
+            printf("[PG] perception_update failed (line not detected)\n");
+        }
     }
 
     /* Track line validity for state transitions */
@@ -381,6 +415,13 @@ static void pg_decide_50hz(void) {
         g_dist_m += (vl + vr) * 0.5f * dt;
     }
 
+    /* DEBUG: Periodic state print (every 500ms = 25 frames at 50Hz) */
+    if ((g_debug_counter % 25) == 0) {
+        printf("[PG] State=%d, Dist=%.2f, LineValid=%d, LineLost=%d\n",
+               g_state, g_dist_m, g_line_valid_count, g_line_lost_count);
+    }
+    g_debug_counter++;
+
     /* State machine */
     pg_state_machine();
 }
@@ -398,11 +439,11 @@ static void pg_state_machine(void) {
             /* Wait for stable line detection */
             if (g_line_valid_count >= 3) {
                 if (g_task == PLAYGROUND_TASK_LAP) {
-                    printf("[PlaygroundTrack] Line detected, starting Task 2 lap...\n");
+                    printf("[PG] IDLE->TASK2_RUN (line detected)\n");
                     g_state = PT_TASK2_RUN;
                     g_dist_m = 0.0f;
                 } else {
-                    printf("[PlaygroundTrack] Line detected, starting Task 4 accel...\n");
+                    printf("[PG] IDLE->TASK4_ACCEL (line detected)\n");
                     g_state = PT_TASK4_ACCEL;
                     g_dist_m = 0.0f;
                     g_v_cmd = 0.0f;
@@ -414,7 +455,8 @@ static void pg_state_machine(void) {
         case PT_TASK2_RUN:
             /* Check for line loss fault */
             if (g_line_lost_count > g_cfg.line_lost_fault_lap) {
-                printf("[ERROR] Line lost for >200ms, entering fault state\n");
+                printf("[PG] TASK2_RUN->FAULT (line_lost=%d > %d)\n",
+                       g_line_lost_count, g_cfg.line_lost_fault_lap);
                 g_state = PT_FAULT;
                 MotionControl_Stop(&g_mc);
                 Motor_Stop();
@@ -422,44 +464,62 @@ static void pg_state_machine(void) {
             }
 
             /* Select speed and gains based on distance (segment-aware) */
+            static uint8_t last_segment = 0xFF;  /* Track segment changes */
+            uint8_t current_segment = 0;
+
             if (g_dist_m < g_cfg.dist_ab_end) {
                 /* Straight A→B */
+                current_segment = 1;
                 g_v_cmd = g_cfg.v_straight;
                 kp = g_cfg.kp_straight;
                 kd = g_cfg.kd_straight;
                 omega_max = g_cfg.omega_max_straight;
             } else if (g_dist_m < g_cfg.dist_bc_end) {
                 /* Curve B→C */
+                current_segment = 2;
                 g_v_cmd = g_cfg.v_curve;
                 kp = g_cfg.kp_curve;
                 kd = g_cfg.kd_curve;
                 omega_max = g_cfg.omega_max_curve;
             } else if (g_dist_m < g_cfg.dist_cd_end) {
                 /* Straight C→D */
+                current_segment = 3;
                 g_v_cmd = g_cfg.v_straight;
                 kp = g_cfg.kp_straight;
                 kd = g_cfg.kd_straight;
                 omega_max = g_cfg.omega_max_straight;
             } else if (g_dist_m < g_cfg.approach_start_dist) {
                 /* Curve D→A (early) */
+                current_segment = 4;
                 g_v_cmd = g_cfg.v_curve;
                 kp = g_cfg.kp_curve;
                 kd = g_cfg.kd_curve;
                 omega_max = g_cfg.omega_max_curve;
             } else {
                 /* Curve D→A (approach) */
+                current_segment = 5;
                 g_v_cmd = g_cfg.v_approach;
                 kp = g_cfg.kp_approach;
                 kd = g_cfg.kd_approach;
                 omega_max = g_cfg.omega_max_approach;
             }
 
+            /* Print segment transition */
+            if (current_segment != last_segment) {
+                const char* seg_names[] = {"?", "A→B straight", "B→C curve",
+                                          "C→D straight", "D→A curve", "D→A approach"};
+                printf("[PG] Segment change: %s (dist=%.3fm, v=%.2f)\n",
+                       seg_names[current_segment], g_dist_m, g_v_cmd);
+                last_segment = current_segment;
+            }
+
             /* Check for A-line detection (transverse line) */
             if (g_dist_m > g_cfg.a_detect_min_dist) {
                 uint8_t active_count = pg_count_active_channels(g_res.active_mask);
                 if (active_count >= g_cfg.transverse_min_ch) {
-                    printf("[PlaygroundTrack] A-line detected! dist=%.3fm, switching to approach...\n",
-                           g_dist_m);
+                    printf("[PG] A-line detected! active=%d, dist=%.3f\n",
+                           active_count, g_dist_m);
+                    printf("[PG] TASK2_RUN->APPROACH_A\n");
                     g_state = PT_TASK2_APPROACH_A;
                     break;
                 }
@@ -468,6 +528,12 @@ static void pg_state_machine(void) {
             /* Calculate omega using PD control */
             omega = -(kp * g_res.lateral_error + kd * g_res.heading_error);
             omega = pg_clamp(omega, -omega_max, omega_max);
+
+            /* DEBUG: Print control values (every 500ms) */
+            if ((g_debug_counter % 25) == 0) {
+                printf("[PG] lat_err=%.2f, head_err=%.2f, omega=%.2f, v_cmd=%.2f\n",
+                       g_res.lateral_error, g_res.heading_error, omega, g_v_cmd);
+            }
 
             MotionControl_SetVelocityCommand(&g_mc, g_v_cmd, omega);
             break;
@@ -482,8 +548,7 @@ static void pg_state_machine(void) {
             float v_actual = (vl + vr) * 0.5f;
 
             if (fabsf(v_actual) < 0.05f) {
-                printf("[PlaygroundTrack] *** Task 2 Complete! Final dist=%.3fm ***\n",
-                       g_dist_m);
+                printf("[PG] *** Task 2 Complete! Final dist=%.3fm ***\n", g_dist_m);
                 g_state = PT_STOPPED;
                 MotionControl_Stop(&g_mc);
                 Motor_Stop();
@@ -493,7 +558,8 @@ static void pg_state_machine(void) {
         case PT_TASK4_ACCEL:
             /* Check for line loss fault */
             if (g_line_lost_count > g_cfg.line_lost_fault_ab) {
-                printf("[ERROR] Line lost during Task 4 accel\n");
+                printf("[PG] TASK4_ACCEL->FAULT (line_lost=%d > %d)\n",
+                       g_line_lost_count, g_cfg.line_lost_fault_ab);
                 g_state = PT_FAULT;
                 MotionControl_Stop(&g_mc);
                 Motor_Stop();
@@ -504,7 +570,8 @@ static void pg_state_machine(void) {
             g_v_cmd += g_cfg.a_task4 * dt;
             if (g_v_cmd >= g_cfg.v_task4_max) {
                 g_v_cmd = g_cfg.v_task4_max;
-                printf("[PlaygroundTrack] Task 4: Reached cruise speed\n");
+                printf("[PG] TASK4_ACCEL->CRUISE (reached v_max=%.2f at dist=%.3fm)\n",
+                       g_v_cmd, g_dist_m);
                 g_state = PT_TASK4_CRUISE;
             }
 
@@ -513,13 +580,19 @@ static void pg_state_machine(void) {
                      g_cfg.kd_task4 * g_res.heading_error);
             omega = pg_clamp(omega, -g_cfg.omega_max_task4, g_cfg.omega_max_task4);
 
+            /* DEBUG: Print accel progress (every 500ms) */
+            if ((g_debug_counter % 25) == 0) {
+                printf("[PG] ACCEL: v_cmd=%.2f, dist=%.3fm\n", g_v_cmd, g_dist_m);
+            }
+
             MotionControl_SetVelocityCommand(&g_mc, g_v_cmd, omega);
             break;
 
         case PT_TASK4_CRUISE:
             /* Check for line loss fault */
             if (g_line_lost_count > g_cfg.line_lost_fault_ab) {
-                printf("[ERROR] Line lost during Task 4 cruise\n");
+                printf("[PG] TASK4_CRUISE->FAULT (line_lost=%d > %d)\n",
+                       g_line_lost_count, g_cfg.line_lost_fault_ab);
                 g_state = PT_FAULT;
                 MotionControl_Stop(&g_mc);
                 Motor_Stop();
@@ -528,8 +601,8 @@ static void pg_state_machine(void) {
 
             /* Check if deceleration point reached */
             if (g_dist_m >= g_cfg.d_decel_start) {
-                printf("[PlaygroundTrack] Task 4: Starting deceleration at %.3fm\n",
-                       g_dist_m);
+                printf("[PG] TASK4_CRUISE->DECEL at dist=%.3fm (target=%.3fm)\n",
+                       g_dist_m, g_cfg.d_decel_start);
                 g_state = PT_TASK4_DECEL;
             }
 
@@ -546,12 +619,16 @@ static void pg_state_machine(void) {
             g_v_cmd -= g_cfg.a_task4 * dt;
             if (g_v_cmd <= 0.0f) {
                 g_v_cmd = 0.0f;
-                printf("[PlaygroundTrack] *** Task 4 Complete! Final dist=%.3fm ***\n",
-                       g_dist_m);
+                printf("[PG] *** Task 4 Complete! Final dist=%.3fm ***\n", g_dist_m);
                 g_state = PT_STOPPED;
                 MotionControl_Stop(&g_mc);
                 Motor_Stop();
                 break;
+            }
+
+            /* DEBUG: Print decel progress (every 500ms) */
+            if ((g_debug_counter % 25) == 0) {
+                printf("[PG] DECEL: v_cmd=%.2f, dist=%.3fm\n", g_v_cmd, g_dist_m);
             }
 
             /* Continue lateral correction during decel */
@@ -565,6 +642,10 @@ static void pg_state_machine(void) {
         case PT_STOPPED:
         case PT_FAULT:
             /* Do nothing, motors already stopped */
+            if (g_state == PT_FAULT && (g_debug_counter % 50) == 0) {
+                printf("[PG] FAULT state: line_lost_count=%d (waiting for reset)\n",
+                       g_line_lost_count);
+            }
             break;
     }
 }

@@ -8,7 +8,7 @@ CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_interactive_test.c.obj: \
  E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/../lib/gcc/arm-none-eabi/14.3.1/../../../../arm-none-eabi/include/_newlib_version.h \
  E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/../lib/gcc/arm-none-eabi/14.3.1/../../../../arm-none-eabi/include/sys/_intsup.h \
  E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/../lib/gcc/arm-none-eabi/14.3.1/../../../../arm-none-eabi/include/sys/_stdint.h \
- E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Inc/app/motor.h \
+ E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Inc/app/motor_static_friction_test.h \
  E:/B306/2026/diansai/2026task/stm32/v1.0/cmake/stm32cubemx/../../Core/Inc/usart.h \
  E:/B306/2026/diansai/2026task/stm32/v1.0/cmake/stm32cubemx/../../Core/Inc/main.h \
  E:/B306/2026/diansai/2026task/stm32/v1.0/cmake/stm32cubemx/../../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h \
@@ -43,6 +43,7 @@ CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_interactive_test.c.obj: \
  E:/B306/2026/diansai/2026task/stm32/v1.0/cmake/stm32cubemx/../../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_tim.h \
  E:/B306/2026/diansai/2026task/stm32/v1.0/cmake/stm32cubemx/../../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_tim_ex.h \
  E:/B306/2026/diansai/2026task/stm32/v1.0/cmake/stm32cubemx/../../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h \
+ E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Inc/app/motor.h \
  E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/../lib/gcc/arm-none-eabi/14.3.1/../../../../arm-none-eabi/include/stdio.h \
  E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/../lib/gcc/arm-none-eabi/14.3.1/../../../../arm-none-eabi/include/_ansi.h \
  E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/../lib/gcc/arm-none-eabi/14.3.1/../../../../arm-none-eabi/include/newlib.h \

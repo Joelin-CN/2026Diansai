@@ -324,6 +324,40 @@ static void test_response_parsers_reject_malformed_frames(void)
                == EMM_V5_INVALID_FRAME);
 }
 
+static void test_cross_parser_rejects_position_response_in_ack_parser(void)
+{
+    /* Feed an 8-byte position response to the 4-byte ACK parser.
+     * Length mismatch must be caught before any content check. */
+    const uint8_t position_response_bytes[] = {0x01U, 0x36U, 0x00U,
+                                                0x00U, 0x00U, 0x00U,
+                                                0x01U, 0x6BU};
+    EmmV5Ack ack = EMM_V5_ACK_COMPLETE;
+    CHECK_TRUE(emm_v5_parse_ack(0x01U, 0xFDU,
+                                position_response_bytes,
+                                sizeof(position_response_bytes),
+                                &ack) == EMM_V5_INVALID_FRAME);
+}
+
+static void test_ack_parser_rejects_unknown_status(void)
+{
+    /* Status 0x03 is not a recognised ACK code; parser must reject it. */
+    const uint8_t response[] = {0x01U, 0xFDU, 0x03U, 0x6BU};
+    EmmV5Ack ack = EMM_V5_ACK_COMPLETE;
+    CHECK_TRUE(emm_v5_parse_ack(0x01U, 0xFDU,
+                                response, sizeof(response),
+                                &ack) == EMM_V5_INVALID_FRAME);
+}
+
+static void test_ack_parser_rejects_bad_trailer(void)
+{
+    /* Replace the trailing 0x6B with 0x00 – frame is corrupt. */
+    const uint8_t response[] = {0x01U, 0xFDU, 0x02U, 0x00U};
+    EmmV5Ack ack = EMM_V5_ACK_COMPLETE;
+    CHECK_TRUE(emm_v5_parse_ack(0x01U, 0xFDU,
+                                response, sizeof(response),
+                                &ack) == EMM_V5_INVALID_FRAME);
+}
+
 static void test_response_parsers_reject_unexpected_address_and_function(void)
 {
     const uint8_t wrong_ack_address[] = {0x02U, 0xFDU, 0x02U, 0x6BU};
@@ -371,6 +405,9 @@ int main(void)
     test_response_parsers_reject_null_pointers();
     test_response_parsers_reject_malformed_frames();
     test_response_parsers_reject_unexpected_address_and_function();
+    test_cross_parser_rejects_position_response_in_ack_parser();
+    test_ack_parser_rejects_unknown_status();
+    test_ack_parser_rejects_bad_trailer();
     printf("%s\n", failures == 0 ? "PASS" : "FAIL");
     return failures == 0 ? 0 : 1;
 }

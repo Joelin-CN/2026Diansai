@@ -1,0 +1,236 @@
+========================================
+    ICM42688 IMU Debug Tool v1.0
+========================================
+
+[1/5] Initializing platform timer...
+[2/5] Binding ICM42688 STM32 adapter...
+[3/5] Initializing ICM42688 sensor...
+
+========================================
+  SPI2 Communication Diagnostic Tool
+========================================
+
+[Test 1] Reading WHO_AM_I register (0x75)...
+  HAL Status: 0 (0=OK)
+  TX address: 0xF5; RX value: 0x00
+  WHO_AM_I value: 0x00 (expected 0x47)
+  [ERROR] Read 0x00 - MISO stuck low or no response
+    Possible causes:
+    - SPI clock not running
+    - CS not connected to sensor
+    - Wrong CS pin
+
+[Test 2] Reading DEVICE_CONFIG register (0x11)...
+  HAL Status: 0 (0=OK)
+  DEVICE_CONFIG: 0x00
+
+[Test 3] Reading PWR_MGMT0 register (0x4E)...
+  HAL Status: 0 (0=OK)
+  PWR_MGMT0: 0x00 (0x00=sleep, 0x0F=accel+gyro on)
+
+========================================
+  Hardware Configuration Summary
+========================================
+SPI2 Pins:
+  SCK  (PB13) - SPI2_SCK
+  MISO (PB14) - SPI2_MISO
+  MOSI (PB15) - SPI2_MOSI
+  CS   (PE7)  - IMU_CS (GPIO output)
+
+SPI2 Configuration:
+  Mode: 1 (CPOL=0, CPHA=1 / 2EDGE)
+  Speed: PCLK/4 (10.5MHz @ 42MHz APB1)
+  Data size: 8-bit
+  First bit: MSB
+
+
+[3/5] Continuing with ICM42688 initialization...
+[ERROR] ICM42688 init failed! Status: 2
+  WHO_AM_I mismatch detected.
+  Possible causes:
+    1. Wrong sensor model (not ICM42688)
+    2. SPI communication error
+    3. Sensor not powered
+  - Check SPI2 connection (SCK/MISO/MOSI)
+  - Check CS pin connection (PE7)
+  - Check power supply (3.3V)
+
+[IMU-DIAG] Init failed; retrying the exact path in 3 seconds...
+
+========================================
+    ICM42688 IMU Debug Tool v1.0
+========================================
+
+[1/5] Initializing platform timer...
+[2/5] Binding ICM42688 STM32 adapter...
+[3/5] Initializing ICM42688 sensor...
+
+========================================
+  SPI2 Communication Diagnostic Tool
+========================================
+
+[Test 1] Reading WHO_AM_I register (0x75)...
+  HAL Status: 0 (0=OK)
+  TX address: 0xF5; RX value: 0x00
+  WHO_AM_I value: 0x00 (expected 0x47)
+  [ERROR] Read 0x00 - MISO stuck low or no response
+    Possible causes:
+    - SPI clock not running
+    - CS not connected to sensor
+    - Wrong CS pin
+
+[Test 2] Reading DEVICE_CONFIG register (0x11)...
+  HAL Status: 0 (0=OK)
+  DEVICE_CONFIG: 0x00
+
+[Test 3] Reading PWR_MGMT0 register (0x4E)...
+  HAL Status: 0 (0=OK)
+  PWR_MGMT0: 0x00 (0x00=sleep, 0x0F=accel+gyro on)
+
+========================================
+  Hardware Configuration Summary
+========================================
+SPI2 Pins:
+  SCK  (PB13) - SPI2_SCK
+  MISO (PB14) - SPI2_MISO
+  MOSI (PB15) - SPI2_MOSI
+  CS   (PE7)  - IMU_CS (GPIO output)
+
+SPI2 Configuration:
+  Mode: 1 (CPOL=0, CPHA=1 / 2EDGE)
+  Speed: PCLK/4 (10.5MHz @ 42MHz APB1)
+  Data size: 8-bit
+  First bit: MSB
+
+
+[3/5] Continuing with ICM42688 initialization...
+[ERROR] ICM42688 init failed! Status: 2
+  WHO_AM_I mismatch detected.
+  Possible causes:
+    1. Wrong sensor model (not ICM42688)
+    2. SPI communication error
+    3. Sensor not powered
+  - Check SPI2 connection (SCK/MISO/MOSI)
+  - Check CS pin connection (PE7)
+  - Check power supply (3.3V)
+
+[IMU-DIAG] Init failed; retrying the exact path in 3 seconds...
+
+========================================
+    ICM42688 IMU Debug Tool v1.0
+========================================
+
+[1/5] Initializing platform timer...
+[2/5] Binding ICM42688 STM32 adapter...
+[3/5] Initializing ICM42688 sensor...
+
+========================================
+  SPI2 Communication Diagnostic Tool
+========================================
+
+[Test 1] Reading WHO_AM_I register (0x75)...
+  HAL Status: 0 (0=OK)
+  TX address: 0xF5; RX value: 0x00
+  WHO_AM_I value: 0x00 (expected 0x47)
+  [ERROR] Read 0x00 - MISO stuck low or no response
+    Possible causes:
+    - SPI clock not running
+    - CS not connected to sensor
+    - Wrong CS pin
+
+[Test 2] Reading DEVICE_CONFIG register (0x11)...
+  HAL Status: 0 (0=OK)
+  DEVICE_CONFIG: 0x00
+
+[Test 3] Reading PWR_MGMT0 register (0x4E)...
+  HAL Status: 0 (0=OK)
+  PWR_MGMT0: 0x00 (0x00=sleep, 0x0F=accel+gyro on)
+
+========================================
+  Hardware Configuration Summary
+========================================
+SPI2 Pins:
+  SCK  (PB13) - SPI2_SCK
+  MISO (PB14) - SPI2_MISO
+  MOSI (PB15) - SPI2_MOSI
+  CS   (PE7)  - IMU_CS (GPIO output)
+
+SPI2 Configuration:
+  Mode: 1 (CPOL=0, CPHA=1 / 2EDGE)
+  Speed: PCLK/4 (10.5MHz @ 42MHz APB1)
+  Data size: 8-bit
+  First bit: MSB
+
+
+[3/5] Continuing with ICM42688 initialization...
+[ERROR] ICM42688 init failed! Status: 2
+  WHO_AM_I mismatch detected.
+  Possible causes:
+    1. Wrong sensor model (not ICM42688)
+    2. SPI communication error
+    3. Sensor not powered
+  - Check SPI2 connection (SCK/MISO/MOSI)
+  - Check CS pin connection (PE7)
+  - Check power supply (3.3V)
+
+[IMU-DIAG] Init failed; retrying the exact path in 3 seconds...
+
+========================================
+    ICM42688 IMU Debug Tool v1.0
+========================================
+
+[1/5] Initializing platform timer...
+[2/5] Binding ICM42688 STM32 adapter...
+[3/5] Initializing ICM42688 sensor...
+
+========================================
+  SPI2 Communication Diagnostic Tool
+========================================
+
+[Test 1] Reading WHO_AM_I register (0x75)...
+  HAL Status: 0 (0=OK)
+  TX address: 0xF5; RX value: 0x00
+  WHO_AM_I value: 0x00 (expected 0x47)
+  [ERROR] Read 0x00 - MISO stuck low or no response
+    Possible causes:
+    - SPI clock not running
+    - CS not connected to sensor
+    - Wrong CS pin
+
+[Test 2] Reading DEVICE_CONFIG register (0x11)...
+  HAL Status: 0 (0=OK)
+  DEVICE_CONFIG: 0x00
+
+[Test 3] Reading PWR_MGMT0 register (0x4E)...
+  HAL Status: 0 (0=OK)
+  PWR_MGMT0: 0x00 (0x00=sleep, 0x0F=accel+gyro on)
+
+========================================
+  Hardware Configuration Summary
+========================================
+SPI2 Pins:
+  SCK  (PB13) - SPI2_SCK
+  MISO (PB14) - SPI2_MISO
+  MOSI (PB15) - SPI2_MOSI
+  CS   (PE7)  - IMU_CS (GPIO output)
+
+SPI2 Configuration:
+  Mode: 1 (CPOL=0, CPHA=1 / 2EDGE)
+  Speed: PCLK/4 (10.5MHz @ 42MHz APB1)
+  Data size: 8-bit
+  First bit: MSB
+
+
+[3/5] Continuing with ICM42688 initialization...
+[ERROR] ICM42688 init failed! Status: 2
+  WHO_AM_I mismatch detected.
+  Possible causes:
+    1. Wrong sensor model (not ICM42688)
+    2. SPI communication error
+    3. Sensor not powered
+  - Check SPI2 connection (SCK/MISO/MOSI)
+  - Check CS pin connection (PE7)
+  - Check power supply (3.3V)
+
+[IMU-DIAG] Init failed; retrying the exact path in 3 seconds...
+---- 关闭串行端口 COM11 ----

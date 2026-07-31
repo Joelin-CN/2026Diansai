@@ -1,80 +1,95 @@
-### Task 8: Integrate the Application Pipeline and FreeRTOS Scheduling
+### Task 8: STM32 Cross-Compilation Integration
 
 **Files:**
-- Create: `inc/control_app.h`
-- Create: `src/control_app.c`
-- Create: `tests/test_control_app.c`
-- Modify: `src/main.c`
-- Modify: `inc/FreeRTOSConfig.h`
-- Modify: `tests/run_tests.ps1`
+- Modify: `CMakeLists.txt`
+- Verify: all `App/Inc/*.h`, `App/Src/*.c`
 
 **Interfaces:**
-- Consumes: platform time, all three adapters, square path, Motion Control, and Sens-Decision APIs.
-- Produces: `bool ControlApp_Init(uint8_t target_laps)`, `void ControlApp_RunFastCycle(void)`, and `void ControlApp_EmergencyStop(void)`.
+- Consumes: all protocol-independent core modules from Tasks 1-7.
+- Produces: an ARM firmware ELF containing the control core but not invoking it from `main.c`.
 
-- [ ] **Step 1: Write failing scheduler-divider tests**
+- [ ] **Step 1: Establish the failing firmware link check**
 
-Fake all module update calls and assert:
+Run:
 
-```c
-for (unsigned i = 0; i < 100U; ++i) {
-    ControlApp_RunFastCycle();
-}
-assert(motion_update_calls == 100U);
-assert(decision_update_calls == 10U);
-assert(last_decision_dt == 0.020f);
+```powershell
+cmake --preset Debug
+cmake --build --preset Debug
+Test-Path -LiteralPath "build/Debug/CMakeFiles/balanceBall.dir/App/Src/balance_loop.c.obj"
 ```
 
-Also assert the decision update precedes Motion Control on every tenth cycle.
+Expected: firmware may build, then `Test-Path` prints `False` because the App sources are not compiled.
 
-- [ ] **Step 2: Write failing startup/fault tests**
+- [ ] **Step 2: Add the protocol-independent sources and includes to the target**
 
-Inject failures from MCP initialization, ICM identity, sensor HAL initialization, trajectory path setup, and Motion Control initialization. Every case must call the motor stop path and return `false`.
+Replace the empty user sections in root `CMakeLists.txt` with:
 
-- [ ] **Step 3: Implement application-owned static state**
+```cmake
+target_sources(${CMAKE_PROJECT_NAME} PRIVATE
+    App/Src/balance_observer.c
+    App/Src/balance_target.c
+    App/Src/balance_controller.c
+    App/Src/balance_actuator.c
+    App/Src/balance_measurement.c
+    App/Src/balance_supervisor.c
+    App/Src/balance_loop.c
+)
 
-`control_app.c` owns static-lifetime configuration, path pointers, module instances, sensor frames, and outputs. This satisfies APIs that retain configuration/path pointers.
-
-Initialization order is:
-
-```text
-Motor_Init -> Motor_Stop -> Encoder_Init -> MCP23017_Init and read
--> PlatformTime_Init -> ICM bind/init -> configure raw scales/bias
--> Sensor HAL configure/init -> Sens-Decision objects/path
--> Motion Control init/start
+target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
+    App/Inc
+)
 ```
 
-Do not call `icm42688_calibrate_gyro()` and then forward uncorrected raw gyro as if calibrated. Instead, collect stationary raw gyro samples during startup and write their converted mean into `g_sens_decision_config.imu.gyro_bias_radps[]`.
+- [ ] **Step 3: Run host tests and a clean ARM build**
 
-- [ ] **Step 4: Implement the 50 Hz pipeline**
+Run:
 
-On every tenth cycle:
-
-```c
-status = preprocess_update(PlatformTime_GetUs64(), &frame);
-status = state_evaluator_update(&state_evaluator, &frame);
-status = perception_update(&perception, &frame.ir, frame.timestamp_us,
-                           &perception_result);
-status = behavior_planner_update(&planner, &behavior_input, &behavior_output);
-status = trajectory_generate(&trajectory_generator, &state_evaluator.state,
-                             &behavior_output, 0.020f, &trajectory);
-corrected_omega = SquarePath_CorrectOmega(trajectory.omega,
-                                          perception_result.lateral_error,
-                                          perception_result.heading_error,
-                                          &square_config);
-MotionControl_SetVelocityCommand(&motion, trajectory.v, corrected_omega);
+```powershell
+cmake --build build/host-tests
+ctest --test-dir build/host-tests --output-on-failure
+cmake --preset Debug
+cmake --build --preset Debug --clean-first
+arm-none-eabi-nm build/Debug/CMakeFiles/balanceBall.dir/App/Src/balance_loop.c.obj | rg "balance_loop_init"
 ```
 
-Use actual field names from `sensor_frame_t` and `state_evaluator_t`; compile the host integration test to catch signature drift. Maintain `BEHAVIOR_CMD_START` until localization and line validity allow the planner to enter running state; do not send it only once at boot.
+Expected:
 
-- [ ] **Step 5: Handle invalid data and lap completion**
+- Host CTest: `100% tests passed, 0 tests failed`.
+- ARM build exits `0` and produces `build/Debug/balanceBall.elf`.
+- `nm` prints one `balance_loop_init` symbol from the ARM object file, proving the core was cross-compiled. The function may be absent from the final ELF because it is intentionally not called yet and linker garbage collection may remove it.
 
-Invalid IR data enters line-lost/degraded behavior, not zero-error behavior. Mandatory IMU/encoder failures increment a critical-failure count. Reaching target laps commands stop and transitions Motion Control to idle. Repeated critical failures call `MotionControl_EmergencyStop()`.
+- [ ] **Step 4: Check final diff scope and generated-file safety**
 
-- [ ] **Step 6: Rewrite `main.c` as the RTOS shell**
+Run:
 
-Keep only safe startup, task creation, ISR notification, and fatal hooks. Set `CONTROL_TASK_STACK_WORDS` initially to `512U`. The control task starts TIMG0, blocks on notifications, calls `ControlApp_RunFastCycle()`, and periodically records `uxTaskGetStackHighWaterMark(NULL)` without synchronous logging inside the 2 ms path.
+```powershell
+git diff --check
+git status --short
+git diff -- CMakeLists.txt App tests
+```
 
-- [ ] **Step 7: Run host integration tests**
+Expected: no whitespace errors; intended changes are limited to `CMakeLists.txt`, `App/`, and `tests/`. Do not stage `build/`, `.superpowers/`, the photo, deleted PDFs, or unrelated `v1.0` work.
 
-Expected: exact 500/50 Hz call counts, initialization ordering, persistent start command, IR correction, lap stop, and every injected failure's motor-stop assertion pass.
+- [ ] **Step 5: Commit cross-compilation integration**
+
+```powershell
+git add CMakeLists.txt App tests
+git commit -m "build: link balance control core"
+```
+
+## Completion Gate
+
+Before claiming this plan implemented, run fresh:
+
+```powershell
+cmake --build build/host-tests
+ctest --test-dir build/host-tests --output-on-failure
+cmake --build --preset Debug --clean-first
+git status --short
+```
+
+Report the exact CTest pass count, ARM build exit status, resulting ELF path, and any remaining unrelated worktree changes. Do not claim physical closed-loop operation: that requires the camera protocol, stepper protocol, hardware adapter plan, bench tests, and user acceptance.
+
+## Required Follow-Up Inputs
+
+The hardware-integration plan starts only after receiving both wire protocols. It must define exact frame bytes, checksum behavior, parser recovery, DMA framing method, driver units, safe stop command, status response, command refresh limit, and UART assignment. It will then cover `main.c` integration, UART callbacks, telemetry, manual-zero input, open-loop check commands, and hardware verification.

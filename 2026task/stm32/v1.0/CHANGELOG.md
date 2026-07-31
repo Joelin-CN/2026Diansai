@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.1] - 2026-07-30
+
+### Fixed
+
+- **电机方向控制层修复（关键）**
+  - 问题：左轮通过PWM符号取反（`-left`）补偿物理方向，与纯差速模式（PWM必须非负）冲突
+  - 症状：左轮不转动，小车原地打转，距离读数错误（16.37m vs 预期6.14m）
+  - 修复：改为在TB6612方向控制层反转（交换IN1/IN2引脚），而非PWM符号层
+  - 文件：`Core/Src/app/motor.c` - Motor_SetSpeed()函数
+  - 影响：所有使用电机的模块（playground_track, track_control_app）
+
+- **轮子反转问题修复**
+  - 问题：PID控制器输出负PWM（制动时）导致轮子反转
+  - 症状：小车前进时某个轮子突然向后转，剧烈抖动
+  - 修复：在MotionControl层强制PWM非负（用停止代替反转制动）
+  - 文件：`modules/MotionControl/src/motion_control.c`
+  - 三层防御：运动学层（速度目标非负）→ 控制层（PWM输出非负）→ 电机层（防御性检查）
+
+### Added
+
+- **调试输出增强**
+  - 47个printf调试点覆盖所有关键路径
+  - 传感器失败诊断（区分preprocess和perception）
+  - 段落切换提示（A→B, B→C, C→D, D→A）
+  - 配置总结输出（速度、增益、故障阈值）
+  - 状态转换日志（IDLE→TASK2_RUN等）
+  - 控制参数实时监控（lateral_error, heading_error, omega）
+  - Negative PWM警告（调试PID问题）
+
+### Documentation
+
+- `docs/MOTOR_DIRECTION_FIX_2026-07-30.md` - 完整修复报告（根因分析、数据流追踪）
+- `docs/SESSION_FIX_LOG_2026-07-30_PART5.md` - 本次会话日志（待创建）
+
 ## [1.4.0] - 2026-07-30
 
 ### Added

@@ -1,83 +1,176 @@
-### Task 5: Add Encoder, Motor, and Sensor Adapters
+### Task 5: Generic Camera Measurement Guard
 
 **Files:**
-- Modify: `inc/encoder.h`
-- Modify: `src/encoder.c`
-- Create: `inc/encoder_hw_bridge.h`
-- Create: `src/encoder_hw_bridge.c`
-- Create: `inc/encoder_adapter.h`
-- Create: `src/encoder_adapter.c`
-- Create: `inc/motor_adapter.h`
-- Create: `src/motor_adapter.c`
-- Create: `inc/sensor_adapter.h`
-- Create: `src/sensor_adapter.c`
-- Create: `tests/test_target_adapters.c`
-- Modify: `tests/run_tests.ps1`
+- Create: `App/Inc/balance_measurement.h`
+- Create: `App/Src/balance_measurement.c`
+- Modify: `tests/CMakeLists.txt`
+- Modify: `tests/test_balance.c`
 
 **Interfaces:**
-- Consumes: `Encoder_GetCount`, `Encoder_ResetCount`, `Motor_SetSpeed`, `Motor_Stop`, `Motor_Init`, `icm42688_read`, and `MCP23017_ReadInputs`.
-- Produces: `EncoderInterface_t *EncoderAdapter_GetInterface(void)`, `MotorInterface_t *MotorAdapter_GetInterface(void)`, and `const sensor_hal_t *SensorAdapter_GetHal(void)`.
+- Consumes: protocol-decoded `BalanceMeasurement` with sequence, validity, position, and STM32 receive timestamp.
+- Produces: accepted/rejected classification and timeout status. It does not decode bytes.
 
-- [ ] **Step 1: Write failing mapping and failure-propagation tests**
+- [ ] **Step 1: Add failing validity, sequencing, range, jump, and timeout tests**
 
-Assert explicit mappings:
-
-```c
-assert(read_motion_encoder(ENCODER_LEFT_FRONT)  == fake_count[0]);
-assert(read_motion_encoder(ENCODER_LEFT_REAR)   == fake_count[1]);
-assert(read_motion_encoder(ENCODER_RIGHT_FRONT) == fake_count[2]);
-assert(read_motion_encoder(ENCODER_RIGHT_REAR)  == fake_count[3]);
-
-motor->setDifferentialPWM(321, -456);
-assert(last_m1 == 321 && last_m2 == 321);
-assert(last_m3 == -456 && last_m4 == -456);
-
-assert(sensor_hal->read_ir_mask(&mask) == SD_ERR_READ);
-assert(sensor_hal->read_imu_raw(&imu) == SD_OK);
-assert(imu.temperature == fake_icm.temperature_raw);
-```
-
-- [ ] **Step 2: Resolve the encoder enum collision**
-
-Rename only the low-level terminal enumerator from `ENCODER_COUNT` to `ENCODER_ID_COUNT` in `inc/encoder.h` and `src/encoder.c`. Keep `ENCODER_M1` through `ENCODER_M4` stable.
-
-- [ ] **Step 3: Isolate low-level encoder headers**
-
-`encoder_hw_bridge.h` includes only `<stdint.h>` and exports:
+Add the source to host CMake and add:
 
 ```c
-int32_t EncoderHwBridge_GetCount(uint8_t physical_id);
-void EncoderHwBridge_ResetCount(uint8_t physical_id);
+#include "balance_measurement.h"
+
+static void test_measurement_guard_rejects_invalid_duplicate_and_out_of_range(void)
+{
+    BalanceMeasurementGuard guard;
+    const BalanceMeasurementConfig config = {
+        .min_position_cm = -11.5f,
+        .max_position_cm = 11.5f,
+        .max_jump_cm = 4.0f,
+        .timeout_ms = 100U,
+    };
+    balance_measurement_guard_init(&guard, &config);
+    BalanceMeasurement sample = { .sequence = 1U, .rx_timestamp_ms = 1000U,
+                                  .valid = true, .position_cm = 0.0f };
+    CHECK_TRUE(balance_measurement_accept(&guard, &sample) == BALANCE_MEASUREMENT_ACCEPTED);
+    CHECK_TRUE(balance_measurement_accept(&guard, &sample) == BALANCE_MEASUREMENT_DUPLICATE);
+    sample.sequence = 0U;
+    CHECK_TRUE(balance_measurement_accept(&guard, &sample) == BALANCE_MEASUREMENT_STALE);
+    sample.sequence = 2U; sample.position_cm = 20.0f;
+    CHECK_TRUE(balance_measurement_accept(&guard, &sample) == BALANCE_MEASUREMENT_OUT_OF_RANGE);
+    sample.sequence = 3U; sample.position_cm = 5.0f;
+    CHECK_TRUE(balance_measurement_accept(&guard, &sample) == BALANCE_MEASUREMENT_JUMP);
+    sample.sequence = 4U; sample.valid = false; sample.position_cm = 0.0f;
+    CHECK_TRUE(balance_measurement_accept(&guard, &sample) == BALANCE_MEASUREMENT_INVALID);
+}
+
+static void test_measurement_timeout_uses_last_accepted_frame(void)
+{
+    BalanceMeasurementGuard guard;
+    const BalanceMeasurementConfig config = {
+        .min_position_cm = -11.5f, .max_position_cm = 11.5f,
+        .max_jump_cm = 4.0f, .timeout_ms = 100U,
+    };
+    const BalanceMeasurement sample = { .sequence = 1U, .rx_timestamp_ms = 1000U,
+                                        .valid = true, .position_cm = 0.0f };
+    balance_measurement_guard_init(&guard, &config);
+    CHECK_TRUE(!balance_measurement_timed_out(&guard, 5000U));
+    (void)balance_measurement_accept(&guard, &sample);
+    CHECK_TRUE(!balance_measurement_timed_out(&guard, 1100U));
+    CHECK_TRUE(balance_measurement_timed_out(&guard, 1101U));
+}
 ```
 
-`encoder_hw_bridge.c` includes `encoder.h`, checks `physical_id < ENCODER_ID_COUNT`, and protects reset operations from GPIO ISR races with a minimal interrupt critical section.
+- [ ] **Step 2: Run tests and confirm the measurement API is missing**
 
-- [ ] **Step 4: Implement explicit Motion Control adapters**
+Run `cmake --build build/host-tests`.
 
-`encoder_adapter.c` includes `motion_feedback.h` and the bridge header, uses a `switch` for all four IDs, and returns a module-owned non-const `EncoderInterface_t` because current Motion Control stores mutable pointers.
+Expected: compile fails because `balance_measurement.h` does not exist.
 
-`motor_adapter.c` returns:
+- [ ] **Step 3: Implement protocol-independent sample validation**
+
+Create `App/Inc/balance_measurement.h`:
 
 ```c
-static MotorInterface_t g_motor_interface = {
-    .setDifferentialPWM = Motor_SetSpeed,
-    .stop = Motor_Stop,
-    .init = Motor_Init,
-};
+#ifndef BALANCE_MEASUREMENT_H
+#define BALANCE_MEASUREMENT_H
+
+#include <stdbool.h>
+#include <stdint.h>
+
+typedef struct {
+    uint32_t sequence;
+    uint32_t rx_timestamp_ms;
+    bool valid;
+    float position_cm;
+} BalanceMeasurement;
+
+typedef struct {
+    float min_position_cm;
+    float max_position_cm;
+    float max_jump_cm;
+    uint32_t timeout_ms;
+} BalanceMeasurementConfig;
+
+typedef enum {
+    BALANCE_MEASUREMENT_ACCEPTED = 0,
+    BALANCE_MEASUREMENT_INVALID,
+    BALANCE_MEASUREMENT_DUPLICATE,
+    BALANCE_MEASUREMENT_STALE,
+    BALANCE_MEASUREMENT_OUT_OF_RANGE,
+    BALANCE_MEASUREMENT_JUMP,
+} BalanceMeasurementResult;
+
+typedef struct {
+    BalanceMeasurementConfig config;
+    BalanceMeasurement last;
+    bool has_sample;
+} BalanceMeasurementGuard;
+
+void balance_measurement_guard_init(BalanceMeasurementGuard *guard,
+                                    const BalanceMeasurementConfig *config);
+BalanceMeasurementResult balance_measurement_accept(BalanceMeasurementGuard *guard,
+                                                    const BalanceMeasurement *sample);
+bool balance_measurement_timed_out(const BalanceMeasurementGuard *guard,
+                                   uint32_t now_ms);
+
+#endif
 ```
 
-- [ ] **Step 5: Implement the status-preserving Sensor HAL**
-
-Use exact callback signatures:
+Implement `App/Src/balance_measurement.c`:
 
 ```c
-static sd_status_t ReadEncoder(uint8_t index, int32_t *count);
-static sd_status_t ReadImu(imu_raw_data_t *data);
-static sd_status_t ReadIr(uint16_t *active_mask);
+#include "balance_measurement.h"
+#include <math.h>
+
+void balance_measurement_guard_init(BalanceMeasurementGuard *guard,
+                                    const BalanceMeasurementConfig *config)
+{
+    guard->config = *config;
+    guard->has_sample = false;
+}
+
+BalanceMeasurementResult balance_measurement_accept(BalanceMeasurementGuard *guard,
+                                                    const BalanceMeasurement *sample)
+{
+    if (!sample->valid || !isfinite(sample->position_cm)) {
+        return BALANCE_MEASUREMENT_INVALID;
+    }
+    if (guard->has_sample && sample->sequence == guard->last.sequence) {
+        return BALANCE_MEASUREMENT_DUPLICATE;
+    }
+    if (guard->has_sample
+        && (int32_t)(sample->sequence - guard->last.sequence) < 0) {
+        return BALANCE_MEASUREMENT_STALE;
+    }
+    if (sample->position_cm < guard->config.min_position_cm
+        || sample->position_cm > guard->config.max_position_cm) {
+        return BALANCE_MEASUREMENT_OUT_OF_RANGE;
+    }
+    if (guard->has_sample
+        && fabsf(sample->position_cm - guard->last.position_cm) > guard->config.max_jump_cm) {
+        return BALANCE_MEASUREMENT_JUMP;
+    }
+    guard->last = *sample;
+    guard->has_sample = true;
+    return BALANCE_MEASUREMENT_ACCEPTED;
+}
+
+bool balance_measurement_timed_out(const BalanceMeasurementGuard *guard,
+                                   uint32_t now_ms)
+{
+    return guard->has_sample
+        && (uint32_t)(now_ms - guard->last.rx_timestamp_ms) > guard->config.timeout_ms;
+}
 ```
 
-`ReadImu` copies raw accel, raw gyro, and raw temperature. It does not copy `acc_g` or `gyro_dps`. `ReadIr` converts MCP timeout to `SD_ERR_TIMEOUT`, other driver failures to `SD_ERR_READ`, masks to `0x0FFF`, and applies active polarity exactly once.
+- [ ] **Step 4: Run all host tests**
 
-- [ ] **Step 6: Run adapter tests**
+Run `cmake --build build/host-tests; ctest --test-dir build/host-tests --output-on-failure`.
 
-Expected: enum collision is gone; four encoder mappings, left/right motor fan-out, IMU raw units, IR polarity, null arguments, and failure propagation all pass.
+Expected: `100% tests passed, 0 tests failed`.
+
+- [ ] **Step 5: Commit the measurement guard**
+
+```powershell
+git add App/Inc/balance_measurement.h App/Src/balance_measurement.c tests/CMakeLists.txt tests/test_balance.c
+git commit -m "feat: validate balance camera measurements"
+```
+

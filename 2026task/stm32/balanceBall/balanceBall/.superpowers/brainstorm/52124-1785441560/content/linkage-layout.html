@@ -1,0 +1,55 @@
+<h2>请确认摆杆驱动机构的布局</h2>
+<p class="subtitle">重点不是尺寸，而是电机、连杆、摆杆转轴三者的连接方式。点击最接近实物的一项。</p>
+
+<div class="cards">
+  <div class="card" data-choice="crank" onclick="toggleSelect(this)">
+    <div class="card-image" style="height:230px;position:relative;background:#f7f3e8;overflow:hidden">
+      <svg viewBox="0 0 420 230" width="100%" height="100%" aria-label="曲柄连杆结构示意">
+        <line x1="65" y1="160" x2="360" y2="95" stroke="#234" stroke-width="10" stroke-linecap="round"/>
+        <circle cx="205" cy="129" r="12" fill="#db5a42"/>
+        <line x1="205" y1="129" x2="205" y2="205" stroke="#777" stroke-width="8"/>
+        <circle cx="85" cy="188" r="31" fill="none" stroke="#245b78" stroke-width="8"/>
+        <line x1="85" y1="188" x2="108" y2="169" stroke="#245b78" stroke-width="8"/>
+        <line x1="108" y1="169" x2="88" y2="155" stroke="#d09b2c" stroke-width="8" stroke-linecap="round"/>
+        <circle cx="88" cy="155" r="7" fill="#d09b2c"/>
+        <text x="35" y="222" font-size="16" fill="#245b78">电机曲柄</text>
+        <text x="220" y="218" font-size="16" fill="#555">固定摆杆转轴</text>
+      </svg>
+    </div>
+    <div class="card-body">
+      <h3>A. 旋转曲柄 + 连杆</h3>
+      <p>电机轴上的短曲柄转动，通过刚性连杆推拉摆杆；映射明显非线性。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="linear" onclick="toggleSelect(this)">
+    <div class="card-image" style="height:230px;position:relative;background:#eef5f3;overflow:hidden">
+      <svg viewBox="0 0 420 230" width="100%" height="100%" aria-label="直线推杆结构示意">
+        <line x1="55" y1="105" x2="362" y2="145" stroke="#234" stroke-width="10" stroke-linecap="round"/>
+        <circle cx="205" cy="125" r="12" fill="#db5a42"/>
+        <line x1="205" y1="125" x2="205" y2="205" stroke="#777" stroke-width="8"/>
+        <rect x="45" y="170" width="125" height="34" rx="5" fill="#245b78"/>
+        <line x1="170" y1="187" x2="303" y2="139" stroke="#d09b2c" stroke-width="9" stroke-linecap="round"/>
+        <circle cx="303" cy="139" r="8" fill="#d09b2c"/>
+        <text x="55" y="193" font-size="15" fill="white">丝杆 / 滑块</text>
+        <text x="220" y="218" font-size="16" fill="#555">固定摆杆转轴</text>
+      </svg>
+    </div>
+    <div class="card-body">
+      <h3>B. 丝杆滑块 + 连杆</h3>
+      <p>电机先产生直线位移，再由连杆推拉摆杆；通常可由三角几何解算。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="other" onclick="toggleSelect(this)">
+    <div class="card-image" style="height:230px;display:flex;align-items:center;justify-content:center;background:#f3eff7">
+      <div style="font-size:72px;color:#694a79">?</div>
+    </div>
+    <div class="card-body">
+      <h3>C. 其他或尚未定型</h3>
+      <p>机构与上述两种不同，或当前还不能确定连接点和运动方式。</p>
+    </div>
+  </div>
+</div>
+
+<p class="subtitle" style="margin-top:22px">如果选择 C，请在终端用一句话描述机构，或之后提供手绘图/照片。</p>

@@ -47,6 +47,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user sources here
     # ── 用户应用层 ──────────────────────────────────────────────────────────────
     Core/Src/app/motor.c
+    Core/Src/app/motor_static_friction_test.c
     Core/Src/app/encoder.c
     Core/Src/app/encoder_hw_bridge.c
     Core/Src/app/encoder_adapter.c

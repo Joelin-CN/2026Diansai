@@ -35,7 +35,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+#define EMM_V5_RESPONSE_TIMEOUT_MS 100U  /* Emm V5 typical response < 50ms at 115200 baud */
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -105,7 +105,7 @@ int main(void)
     .context = &g_emm_uart,
   };
 
-  emm_v5_uart_init(&g_emm_uart, &huart2, 100U);
+  emm_v5_uart_init(&g_emm_uart, &huart2, EMM_V5_RESPONSE_TIMEOUT_MS);
   balance_motor_init(&g_balance_motor, &motor_config, motor_transport);
   /* USER CODE END 2 */
 

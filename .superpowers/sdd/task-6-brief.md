@@ -1,98 +1,159 @@
-### Task 6: Implement 50 Hz Hybrid Square Tracking and Lap Counting
+### Task 6: Safety Supervisor
 
 **Files:**
-- Create: `inc/square_path.h`
-- Create: `src/square_path.c`
-- Create: `tests/test_square_path.c`
-- Modify: `modules/Sens-Decision/src/trajectory_generate.c`
-- Modify: `tests/run_tests.ps1`
+- Create: `App/Inc/balance_supervisor.h`
+- Create: `App/Src/balance_supervisor.c`
+- Modify: `tests/CMakeLists.txt`
+- Modify: `tests/test_balance.c`
 
 **Interfaces:**
-- Consumes: `trajectory_point_t`, `perception_result_t`, current path index/progress, and target lap count.
-- Produces: a static CCW 1 m square path, corrected `(v, omega)`, and a guarded `lap_complete`/`target_reached` state.
+- Consumes: explicit operator and subsystem events.
+- Produces: `BalanceState`, `BalanceFault`, and transition acceptance. No GPIO or HAL dependency.
 
-- [ ] **Step 1: Write failing square geometry tests**
+- [ ] **Step 1: Add failing startup, approval, and fault-latching tests**
 
-Define the coordinate frame as A=`(0,0)`, B=`(1,0)`, D=`(1,1)`, C=`(0,1)`, with CCW traversal `A -> C -> D -> B -> A`. Generate points at no more than 20 mm spacing and assert:
-
-```c
-assert(SquarePath_GetPointCount() >= 200U);
-assert_point_near(point_at_a, 0.0f, 0.0f);
-assert_all_points_inside_bounds(0.0f, 1.0f);
-assert_path_is_closed());
-assert_path_direction_is_counter_clockwise());
-```
-
-The exact A/B/C/D assignment follows the contest figure: AB and CD are opposite sides, AC and BD are opposite sides.
-
-- [ ] **Step 2: Write failing Pure Pursuit geometry tests**
-
-The existing trajectory module does not yet calculate Pure Pursuit curvature from the vehicle pose. Add tests that place the vehicle on a straight segment and before a corner:
+Add the source to host CMake and add:
 
 ```c
-assert_near(generate_at(0.0f, 0.50f, -M_PI_2).omega, 0.0f, 1e-3f);
-assert(generate_before_corner().omega > 0.0f);
-assert(fabsf(generate_with_target_on_left().curvature) > 0.0f);
+#include "balance_supervisor.h"
+
+static void test_supervisor_requires_zero_and_open_loop_approval(void)
+{
+    BalanceSupervisor supervisor;
+    balance_supervisor_init(&supervisor);
+    CHECK_TRUE(supervisor.state == BALANCE_STATE_WAIT_MANUAL_ZERO);
+    CHECK_TRUE(!balance_supervisor_start_closed_loop(&supervisor));
+    balance_supervisor_confirm_manual_zero(&supervisor);
+    CHECK_TRUE(supervisor.state == BALANCE_STATE_OPEN_LOOP_CHECK);
+    CHECK_TRUE(!balance_supervisor_complete_open_loop(&supervisor, false));
+    CHECK_TRUE(balance_supervisor_complete_open_loop(&supervisor, true));
+    CHECK_TRUE(supervisor.state == BALANCE_STATE_READY);
+    CHECK_TRUE(balance_supervisor_start_closed_loop(&supervisor));
+    CHECK_TRUE(supervisor.state == BALANCE_STATE_CLOSED_LOOP);
+}
+
+static void test_supervisor_fault_requires_new_manual_zero(void)
+{
+    BalanceSupervisor supervisor;
+    balance_supervisor_init(&supervisor);
+    balance_supervisor_raise_fault(&supervisor, BALANCE_FAULT_CAMERA_TIMEOUT);
+    CHECK_TRUE(supervisor.state == BALANCE_STATE_FAULT);
+    CHECK_TRUE(supervisor.fault == BALANCE_FAULT_CAMERA_TIMEOUT);
+    balance_supervisor_acknowledge_fault(&supervisor);
+    CHECK_TRUE(supervisor.state == BALANCE_STATE_WAIT_MANUAL_ZERO);
+    CHECK_TRUE(supervisor.fault == BALANCE_FAULT_NONE);
+}
 ```
 
-For lookahead target `(x_t, y_t)`, vehicle pose `(x, y, theta)`, and lookahead distance `L`, transform the target into vehicle coordinates and expect:
+- [ ] **Step 2: Run tests and confirm the supervisor API is missing**
 
-```text
-y_local   = -sin(theta) * (x_t - x) + cos(theta) * (y_t - y)
-curvature = 2 * y_local / (L * L)
-omega     = v * curvature
-```
+Run `cmake --build build/host-tests`.
 
-This calculation replaces the current behavior of copying `target_point->curvature` into the command.
+Expected: compile fails because `balance_supervisor.h` does not exist.
 
-- [ ] **Step 3: Write failing hybrid correction tests**
+- [ ] **Step 3: Implement explicit state transitions**
 
-Use:
+Create `App/Inc/balance_supervisor.h`:
 
 ```c
-omega = SquarePath_CorrectOmega(nominal_omega, lateral_error,
-                                heading_error, &config);
-```
+#ifndef BALANCE_SUPERVISOR_H
+#define BALANCE_SUPERVISOR_H
 
-Assert zero error preserves nominal omega, opposite lateral errors produce opposite corrections, heading correction has configured sign, and output is clamped to `max_omega_radps`.
+#include <stdbool.h>
 
-- [ ] **Step 4: Write failing guarded lap tests**
+typedef enum {
+    BALANCE_STATE_WAIT_MANUAL_ZERO = 0,
+    BALANCE_STATE_OPEN_LOOP_CHECK,
+    BALANCE_STATE_READY,
+    BALANCE_STATE_CLOSED_LOOP,
+    BALANCE_STATE_FAULT,
+} BalanceState;
 
-Simulate path progress crossing the start reference. Assert no lap is counted before leaving the start guard, no repeated count occurs while remaining near the line, one full monotonic wrap counts exactly one lap, and target laps outside `1..5` are rejected.
+typedef enum {
+    BALANCE_FAULT_NONE = 0,
+    BALANCE_FAULT_CAMERA_TIMEOUT,
+    BALANCE_FAULT_CAMERA_DATA,
+    BALANCE_FAULT_MOTOR_COMMUNICATION,
+    BALANCE_FAULT_OUTPUT_SATURATION,
+    BALANCE_FAULT_BALL_END_ZONE,
+    BALANCE_FAULT_EMERGENCY_STOP,
+} BalanceFault;
 
-- [ ] **Step 5: Implement square path and hybrid configuration**
-
-Expose:
-
-```c
 typedef struct {
-    float lateral_gain;
-    float heading_gain;
-    float max_omega_radps;
-    uint8_t target_laps;
-} square_path_config_t;
+    BalanceState state;
+    BalanceFault fault;
+} BalanceSupervisor;
 
-typedef struct {
-    uint8_t completed_laps;
-    bool left_start_guard;
-    bool target_reached;
-} lap_counter_t;
+void balance_supervisor_init(BalanceSupervisor *supervisor);
+void balance_supervisor_confirm_manual_zero(BalanceSupervisor *supervisor);
+bool balance_supervisor_complete_open_loop(BalanceSupervisor *supervisor, bool approved);
+bool balance_supervisor_start_closed_loop(BalanceSupervisor *supervisor);
+void balance_supervisor_stop(BalanceSupervisor *supervisor);
+void balance_supervisor_raise_fault(BalanceSupervisor *supervisor, BalanceFault fault);
+void balance_supervisor_acknowledge_fault(BalanceSupervisor *supervisor);
 
-const path_point_t *SquarePath_GetPoints(void);
-size_t SquarePath_GetPointCount(void);
-float SquarePath_CorrectOmega(float nominal_omega, float lateral_error,
-                              float heading_error,
-                              const square_path_config_t *config);
-bool SquarePath_UpdateLap(lap_counter_t *counter, size_t nearest_index,
-                          size_t path_count);
+#endif
 ```
 
-Keep gains in one application configuration object; do not hide tuneable constants in `main.c`.
+Implement `App/Src/balance_supervisor.c`:
 
-- [ ] **Step 6: Implement real Pure Pursuit and harden preconditions**
+```c
+#include "balance_supervisor.h"
 
-Compute curvature from the selected lookahead point and current vehicle pose using the formula in Step 2. Keep path-point curvature only as metadata for speed limiting and behavior input. Add tests and checks for uninitialized generator, missing path, path count below 2, non-finite vehicle state, and `dt <= 0`. Return `SD_ERR_NOT_INITIALIZED`, `SD_ERR_INVALID_ARGUMENT`, or `SD_ERR_NUMERIC` rather than dividing by invalid `dt`.
+void balance_supervisor_init(BalanceSupervisor *supervisor)
+{
+    supervisor->state = BALANCE_STATE_WAIT_MANUAL_ZERO;
+    supervisor->fault = BALANCE_FAULT_NONE;
+}
 
-- [ ] **Step 7: Run square-path and original Sens-Decision tests**
+void balance_supervisor_confirm_manual_zero(BalanceSupervisor *supervisor)
+{
+    if (supervisor->state == BALANCE_STATE_WAIT_MANUAL_ZERO) {
+        supervisor->state = BALANCE_STATE_OPEN_LOOP_CHECK;
+    }
+}
 
-Expected: geometry, correction, lap guard, target-lap, and trajectory-precondition tests pass; the original 65 Sens-Decision tests remain green.
+bool balance_supervisor_complete_open_loop(BalanceSupervisor *supervisor, bool approved)
+{
+    if (supervisor->state != BALANCE_STATE_OPEN_LOOP_CHECK || !approved) return false;
+    supervisor->state = BALANCE_STATE_READY;
+    return true;
+}
+
+bool balance_supervisor_start_closed_loop(BalanceSupervisor *supervisor)
+{
+    if (supervisor->state != BALANCE_STATE_READY) return false;
+    supervisor->state = BALANCE_STATE_CLOSED_LOOP;
+    return true;
+}
+
+void balance_supervisor_stop(BalanceSupervisor *supervisor)
+{
+    if (supervisor->state == BALANCE_STATE_CLOSED_LOOP) supervisor->state = BALANCE_STATE_READY;
+}
+
+void balance_supervisor_raise_fault(BalanceSupervisor *supervisor, BalanceFault fault)
+{
+    supervisor->fault = fault;
+    supervisor->state = BALANCE_STATE_FAULT;
+}
+
+void balance_supervisor_acknowledge_fault(BalanceSupervisor *supervisor)
+{
+    if (supervisor->state == BALANCE_STATE_FAULT) balance_supervisor_init(supervisor);
+}
+```
+
+- [ ] **Step 4: Run all host tests**
+
+Run `cmake --build build/host-tests; ctest --test-dir build/host-tests --output-on-failure`.
+
+Expected: `100% tests passed, 0 tests failed`.
+
+- [ ] **Step 5: Commit the supervisor**
+
+```powershell
+git add App/Inc/balance_supervisor.h App/Src/balance_supervisor.c tests/CMakeLists.txt tests/test_balance.c
+git commit -m "feat: add balance safety supervisor"
+```
+

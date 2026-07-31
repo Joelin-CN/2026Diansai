@@ -611,5 +611,8 @@ void HAL_UART_MspDeInit(UART_HandleTypeDef* uartHandle)
 
 /* USER CODE BEGIN 1 */
 
+/* 注意：HAL_UART_RxCpltCallback 已在 motor_interactive_test.c 中定义 */
+/* 静摩擦测试模块使用相同的回调机制 */
+
 /* USER CODE END 1 */
 

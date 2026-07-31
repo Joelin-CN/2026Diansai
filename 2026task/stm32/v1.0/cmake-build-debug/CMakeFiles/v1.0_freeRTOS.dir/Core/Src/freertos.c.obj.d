@@ -61,6 +61,7 @@ CMakeFiles/v1.0_freeRTOS.dir/Core/Src/freertos.c.obj: \
  E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Inc/app/encoder.h \
  E:/B306/2026/diansai/2026task/stm32/v1.0/modules/Sens-Decision/inc/config.h \
  E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Inc/app/platform_time.h \
+ E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Inc/app/motor_static_friction_test.h \
  E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/../lib/gcc/arm-none-eabi/14.3.1/../../../../arm-none-eabi/include/stdio.h \
  E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/../lib/gcc/arm-none-eabi/14.3.1/../../../../arm-none-eabi/include/_ansi.h \
  E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/../lib/gcc/arm-none-eabi/14.3.1/../../../../arm-none-eabi/include/newlib.h \
@@ -73,5 +74,4 @@ CMakeFiles/v1.0_freeRTOS.dir/Core/Src/freertos.c.obj: \
  E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/../lib/gcc/arm-none-eabi/14.3.1/../../../../arm-none-eabi/include/sys/_types.h \
  E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/../lib/gcc/arm-none-eabi/14.3.1/../../../../arm-none-eabi/include/machine/_types.h \
  E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/../lib/gcc/arm-none-eabi/14.3.1/../../../../arm-none-eabi/include/sys/lock.h \
- E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/../lib/gcc/arm-none-eabi/14.3.1/../../../../arm-none-eabi/include/sys/stdio.h \
- E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Inc/app/playground_track.h
+ E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/../lib/gcc/arm-none-eabi/14.3.1/../../../../arm-none-eabi/include/sys/stdio.h

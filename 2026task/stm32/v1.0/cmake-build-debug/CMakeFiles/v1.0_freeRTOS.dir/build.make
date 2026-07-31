@@ -295,10 +295,24 @@ CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor.c.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling C source to assembly CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor.c.s"
 	E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/arm-none-eabi-gcc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -S E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/motor.c -o CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor.c.s
 
+CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_static_friction_test.c.obj: CMakeFiles/v1.0_freeRTOS.dir/flags.make
+CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_static_friction_test.c.obj: E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/motor_static_friction_test.c
+CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_static_friction_test.c.obj: CMakeFiles/v1.0_freeRTOS.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_17) "Building C object CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_static_friction_test.c.obj"
+	E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/arm-none-eabi-gcc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_static_friction_test.c.obj -MF CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_static_friction_test.c.obj.d -o CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_static_friction_test.c.obj -c E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/motor_static_friction_test.c
+
+CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_static_friction_test.c.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing C source to CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_static_friction_test.c.i"
+	E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/arm-none-eabi-gcc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -E E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/motor_static_friction_test.c > CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_static_friction_test.c.i
+
+CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_static_friction_test.c.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling C source to assembly CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_static_friction_test.c.s"
+	E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/arm-none-eabi-gcc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -S E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/motor_static_friction_test.c -o CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_static_friction_test.c.s
+
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/encoder.c.obj: CMakeFiles/v1.0_freeRTOS.dir/flags.make
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/encoder.c.obj: E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/encoder.c
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/encoder.c.obj: CMakeFiles/v1.0_freeRTOS.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_17) "Building C object CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/encoder.c.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_18) "Building C object CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/encoder.c.obj"
 	E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/arm-none-eabi-gcc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/encoder.c.obj -MF CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/encoder.c.obj.d -o CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/encoder.c.obj -c E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/encoder.c
 
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/encoder.c.i: cmake_force
@@ -312,7 +326,7 @@ CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/encoder.c.s: cmake_force
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/encoder_hw_bridge.c.obj: CMakeFiles/v1.0_freeRTOS.dir/flags.make
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/encoder_hw_bridge.c.obj: E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/encoder_hw_bridge.c
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/encoder_hw_bridge.c.obj: CMakeFiles/v1.0_freeRTOS.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_18) "Building C object CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/encoder_hw_bridge.c.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_19) "Building C object CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/encoder_hw_bridge.c.obj"
 	E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/arm-none-eabi-gcc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/encoder_hw_bridge.c.obj -MF CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/encoder_hw_bridge.c.obj.d -o CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/encoder_hw_bridge.c.obj -c E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/encoder_hw_bridge.c
 
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/encoder_hw_bridge.c.i: cmake_force
@@ -326,7 +340,7 @@ CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/encoder_hw_bridge.c.s: cmake_force
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/encoder_adapter.c.obj: CMakeFiles/v1.0_freeRTOS.dir/flags.make
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/encoder_adapter.c.obj: E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/encoder_adapter.c
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/encoder_adapter.c.obj: CMakeFiles/v1.0_freeRTOS.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_19) "Building C object CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/encoder_adapter.c.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_20) "Building C object CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/encoder_adapter.c.obj"
 	E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/arm-none-eabi-gcc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/encoder_adapter.c.obj -MF CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/encoder_adapter.c.obj.d -o CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/encoder_adapter.c.obj -c E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/encoder_adapter.c
 
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/encoder_adapter.c.i: cmake_force
@@ -340,7 +354,7 @@ CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/encoder_adapter.c.s: cmake_force
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_adapter.c.obj: CMakeFiles/v1.0_freeRTOS.dir/flags.make
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_adapter.c.obj: E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/motor_adapter.c
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_adapter.c.obj: CMakeFiles/v1.0_freeRTOS.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_20) "Building C object CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_adapter.c.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_21) "Building C object CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_adapter.c.obj"
 	E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/arm-none-eabi-gcc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_adapter.c.obj -MF CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_adapter.c.obj.d -o CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_adapter.c.obj -c E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/motor_adapter.c
 
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_adapter.c.i: cmake_force
@@ -354,7 +368,7 @@ CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_adapter.c.s: cmake_force
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/sensor_adapter.c.obj: CMakeFiles/v1.0_freeRTOS.dir/flags.make
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/sensor_adapter.c.obj: E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/sensor_adapter.c
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/sensor_adapter.c.obj: CMakeFiles/v1.0_freeRTOS.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_21) "Building C object CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/sensor_adapter.c.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_22) "Building C object CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/sensor_adapter.c.obj"
 	E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/arm-none-eabi-gcc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/sensor_adapter.c.obj -MF CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/sensor_adapter.c.obj.d -o CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/sensor_adapter.c.obj -c E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/sensor_adapter.c
 
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/sensor_adapter.c.i: cmake_force
@@ -368,7 +382,7 @@ CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/sensor_adapter.c.s: cmake_force
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/uart_debug.c.obj: CMakeFiles/v1.0_freeRTOS.dir/flags.make
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/uart_debug.c.obj: E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/uart_debug.c
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/uart_debug.c.obj: CMakeFiles/v1.0_freeRTOS.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_22) "Building C object CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/uart_debug.c.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_23) "Building C object CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/uart_debug.c.obj"
 	E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/arm-none-eabi-gcc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/uart_debug.c.obj -MF CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/uart_debug.c.obj.d -o CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/uart_debug.c.obj -c E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/uart_debug.c
 
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/uart_debug.c.i: cmake_force
@@ -382,7 +396,7 @@ CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/uart_debug.c.s: cmake_force
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/platform_time.c.obj: CMakeFiles/v1.0_freeRTOS.dir/flags.make
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/platform_time.c.obj: E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/platform_time.c
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/platform_time.c.obj: CMakeFiles/v1.0_freeRTOS.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_23) "Building C object CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/platform_time.c.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_24) "Building C object CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/platform_time.c.obj"
 	E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/arm-none-eabi-gcc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/platform_time.c.obj -MF CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/platform_time.c.obj.d -o CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/platform_time.c.obj -c E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/platform_time.c
 
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/platform_time.c.i: cmake_force
@@ -396,7 +410,7 @@ CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/platform_time.c.s: cmake_force
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/control_app.c.obj: CMakeFiles/v1.0_freeRTOS.dir/flags.make
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/control_app.c.obj: E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/control_app.c
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/control_app.c.obj: CMakeFiles/v1.0_freeRTOS.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_24) "Building C object CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/control_app.c.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_25) "Building C object CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/control_app.c.obj"
 	E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/arm-none-eabi-gcc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/control_app.c.obj -MF CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/control_app.c.obj.d -o CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/control_app.c.obj -c E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/control_app.c
 
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/control_app.c.i: cmake_force
@@ -410,7 +424,7 @@ CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/control_app.c.s: cmake_force
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/square_path.c.obj: CMakeFiles/v1.0_freeRTOS.dir/flags.make
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/square_path.c.obj: E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/square_path.c
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/square_path.c.obj: CMakeFiles/v1.0_freeRTOS.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_25) "Building C object CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/square_path.c.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_26) "Building C object CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/square_path.c.obj"
 	E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/arm-none-eabi-gcc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/square_path.c.obj -MF CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/square_path.c.obj.d -o CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/square_path.c.obj -c E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/square_path.c
 
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/square_path.c.i: cmake_force
@@ -424,7 +438,7 @@ CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/square_path.c.s: cmake_force
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/track_path.c.obj: CMakeFiles/v1.0_freeRTOS.dir/flags.make
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/track_path.c.obj: E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/track_path.c
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/track_path.c.obj: CMakeFiles/v1.0_freeRTOS.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_26) "Building C object CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/track_path.c.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_27) "Building C object CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/track_path.c.obj"
 	E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/arm-none-eabi-gcc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/track_path.c.obj -MF CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/track_path.c.obj.d -o CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/track_path.c.obj -c E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/track_path.c
 
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/track_path.c.i: cmake_force
@@ -438,7 +452,7 @@ CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/track_path.c.s: cmake_force
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/track_control_app.c.obj: CMakeFiles/v1.0_freeRTOS.dir/flags.make
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/track_control_app.c.obj: E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/track_control_app.c
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/track_control_app.c.obj: CMakeFiles/v1.0_freeRTOS.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_27) "Building C object CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/track_control_app.c.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_28) "Building C object CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/track_control_app.c.obj"
 	E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/arm-none-eabi-gcc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/track_control_app.c.obj -MF CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/track_control_app.c.obj.d -o CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/track_control_app.c.obj -c E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/track_control_app.c
 
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/track_control_app.c.i: cmake_force
@@ -452,7 +466,7 @@ CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/track_control_app.c.s: cmake_force
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/playground_track.c.obj: CMakeFiles/v1.0_freeRTOS.dir/flags.make
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/playground_track.c.obj: E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/playground_track.c
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/playground_track.c.obj: CMakeFiles/v1.0_freeRTOS.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_28) "Building C object CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/playground_track.c.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_29) "Building C object CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/playground_track.c.obj"
 	E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/arm-none-eabi-gcc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/playground_track.c.obj -MF CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/playground_track.c.obj.d -o CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/playground_track.c.obj -c E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/playground_track.c
 
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/playground_track.c.i: cmake_force
@@ -466,7 +480,7 @@ CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/playground_track.c.s: cmake_force
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/speed_mode.c.obj: CMakeFiles/v1.0_freeRTOS.dir/flags.make
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/speed_mode.c.obj: E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/speed_mode.c
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/speed_mode.c.obj: CMakeFiles/v1.0_freeRTOS.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_29) "Building C object CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/speed_mode.c.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_30) "Building C object CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/speed_mode.c.obj"
 	E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/arm-none-eabi-gcc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/speed_mode.c.obj -MF CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/speed_mode.c.obj.d -o CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/speed_mode.c.obj -c E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/speed_mode.c
 
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/speed_mode.c.i: cmake_force
@@ -480,7 +494,7 @@ CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/speed_mode.c.s: cmake_force
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/imu_debug.c.obj: CMakeFiles/v1.0_freeRTOS.dir/flags.make
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/imu_debug.c.obj: E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/imu_debug.c
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/imu_debug.c.obj: CMakeFiles/v1.0_freeRTOS.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_30) "Building C object CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/imu_debug.c.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_31) "Building C object CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/imu_debug.c.obj"
 	E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/arm-none-eabi-gcc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/imu_debug.c.obj -MF CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/imu_debug.c.obj.d -o CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/imu_debug.c.obj -c E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/imu_debug.c
 
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/imu_debug.c.i: cmake_force
@@ -494,7 +508,7 @@ CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/imu_debug.c.s: cmake_force
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/spi_diagnostic.c.obj: CMakeFiles/v1.0_freeRTOS.dir/flags.make
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/spi_diagnostic.c.obj: E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/spi_diagnostic.c
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/spi_diagnostic.c.obj: CMakeFiles/v1.0_freeRTOS.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_31) "Building C object CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/spi_diagnostic.c.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_32) "Building C object CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/spi_diagnostic.c.obj"
 	E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/arm-none-eabi-gcc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/spi_diagnostic.c.obj -MF CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/spi_diagnostic.c.obj.d -o CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/spi_diagnostic.c.obj -c E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/spi_diagnostic.c
 
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/spi_diagnostic.c.i: cmake_force
@@ -508,7 +522,7 @@ CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/spi_diagnostic.c.s: cmake_force
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_debug.c.obj: CMakeFiles/v1.0_freeRTOS.dir/flags.make
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_debug.c.obj: E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/motor_debug.c
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_debug.c.obj: CMakeFiles/v1.0_freeRTOS.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_32) "Building C object CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_debug.c.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_33) "Building C object CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_debug.c.obj"
 	E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/arm-none-eabi-gcc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_debug.c.obj -MF CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_debug.c.obj.d -o CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_debug.c.obj -c E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/motor_debug.c
 
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_debug.c.i: cmake_force
@@ -522,7 +536,7 @@ CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_debug.c.s: cmake_force
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_hw_diagnostic.c.obj: CMakeFiles/v1.0_freeRTOS.dir/flags.make
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_hw_diagnostic.c.obj: E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/motor_hw_diagnostic.c
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_hw_diagnostic.c.obj: CMakeFiles/v1.0_freeRTOS.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_33) "Building C object CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_hw_diagnostic.c.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_34) "Building C object CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_hw_diagnostic.c.obj"
 	E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/arm-none-eabi-gcc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_hw_diagnostic.c.obj -MF CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_hw_diagnostic.c.obj.d -o CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_hw_diagnostic.c.obj -c E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/motor_hw_diagnostic.c
 
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_hw_diagnostic.c.i: cmake_force
@@ -536,7 +550,7 @@ CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_hw_diagnostic.c.s: cmake_force
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/tim1_register_dump.c.obj: CMakeFiles/v1.0_freeRTOS.dir/flags.make
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/tim1_register_dump.c.obj: E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/tim1_register_dump.c
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/tim1_register_dump.c.obj: CMakeFiles/v1.0_freeRTOS.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_34) "Building C object CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/tim1_register_dump.c.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_35) "Building C object CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/tim1_register_dump.c.obj"
 	E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/arm-none-eabi-gcc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/tim1_register_dump.c.obj -MF CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/tim1_register_dump.c.obj.d -o CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/tim1_register_dump.c.obj -c E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/tim1_register_dump.c
 
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/tim1_register_dump.c.i: cmake_force
@@ -550,7 +564,7 @@ CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/tim1_register_dump.c.s: cmake_force
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_speed_test.c.obj: CMakeFiles/v1.0_freeRTOS.dir/flags.make
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_speed_test.c.obj: E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/motor_speed_test.c
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_speed_test.c.obj: CMakeFiles/v1.0_freeRTOS.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_35) "Building C object CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_speed_test.c.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_36) "Building C object CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_speed_test.c.obj"
 	E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/arm-none-eabi-gcc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_speed_test.c.obj -MF CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_speed_test.c.obj.d -o CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_speed_test.c.obj -c E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/motor_speed_test.c
 
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_speed_test.c.i: cmake_force
@@ -564,7 +578,7 @@ CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_speed_test.c.s: cmake_force
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_direction_calibration.c.obj: CMakeFiles/v1.0_freeRTOS.dir/flags.make
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_direction_calibration.c.obj: E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/motor_direction_calibration.c
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_direction_calibration.c.obj: CMakeFiles/v1.0_freeRTOS.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_36) "Building C object CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_direction_calibration.c.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_37) "Building C object CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_direction_calibration.c.obj"
 	E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/arm-none-eabi-gcc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_direction_calibration.c.obj -MF CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_direction_calibration.c.obj.d -o CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_direction_calibration.c.obj -c E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/motor_direction_calibration.c
 
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_direction_calibration.c.i: cmake_force
@@ -578,7 +592,7 @@ CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_direction_calibration.c.s: cmake
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_interactive_test.c.obj: CMakeFiles/v1.0_freeRTOS.dir/flags.make
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_interactive_test.c.obj: E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/motor_interactive_test.c
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_interactive_test.c.obj: CMakeFiles/v1.0_freeRTOS.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_37) "Building C object CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_interactive_test.c.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_38) "Building C object CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_interactive_test.c.obj"
 	E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/arm-none-eabi-gcc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_interactive_test.c.obj -MF CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_interactive_test.c.obj.d -o CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_interactive_test.c.obj -c E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/motor_interactive_test.c
 
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_interactive_test.c.i: cmake_force
@@ -592,7 +606,7 @@ CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_interactive_test.c.s: cmake_forc
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/ir_sensor_test.c.obj: CMakeFiles/v1.0_freeRTOS.dir/flags.make
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/ir_sensor_test.c.obj: E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/ir_sensor_test.c
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/ir_sensor_test.c.obj: CMakeFiles/v1.0_freeRTOS.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_38) "Building C object CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/ir_sensor_test.c.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_39) "Building C object CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/ir_sensor_test.c.obj"
 	E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/arm-none-eabi-gcc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/ir_sensor_test.c.obj -MF CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/ir_sensor_test.c.obj.d -o CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/ir_sensor_test.c.obj -c E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/ir_sensor_test.c
 
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/ir_sensor_test.c.i: cmake_force
@@ -606,7 +620,7 @@ CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/ir_sensor_test.c.s: cmake_force
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/ir_uart_diagnostic.c.obj: CMakeFiles/v1.0_freeRTOS.dir/flags.make
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/ir_uart_diagnostic.c.obj: E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/ir_uart_diagnostic.c
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/ir_uart_diagnostic.c.obj: CMakeFiles/v1.0_freeRTOS.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_39) "Building C object CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/ir_uart_diagnostic.c.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_40) "Building C object CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/ir_uart_diagnostic.c.obj"
 	E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/arm-none-eabi-gcc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/ir_uart_diagnostic.c.obj -MF CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/ir_uart_diagnostic.c.obj.d -o CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/ir_uart_diagnostic.c.obj -c E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/ir_uart_diagnostic.c
 
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/ir_uart_diagnostic.c.i: cmake_force
@@ -620,7 +634,7 @@ CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/ir_uart_diagnostic.c.s: cmake_force
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/ir_raw_capture.c.obj: CMakeFiles/v1.0_freeRTOS.dir/flags.make
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/ir_raw_capture.c.obj: E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/ir_raw_capture.c
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/ir_raw_capture.c.obj: CMakeFiles/v1.0_freeRTOS.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_40) "Building C object CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/ir_raw_capture.c.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_41) "Building C object CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/ir_raw_capture.c.obj"
 	E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/arm-none-eabi-gcc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/ir_raw_capture.c.obj -MF CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/ir_raw_capture.c.obj.d -o CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/ir_raw_capture.c.obj -c E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/ir_raw_capture.c
 
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/ir_raw_capture.c.i: cmake_force
@@ -634,7 +648,7 @@ CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/ir_raw_capture.c.s: cmake_force
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/calibration_tool.c.obj: CMakeFiles/v1.0_freeRTOS.dir/flags.make
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/calibration_tool.c.obj: E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/calibration_tool.c
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/calibration_tool.c.obj: CMakeFiles/v1.0_freeRTOS.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_41) "Building C object CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/calibration_tool.c.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_42) "Building C object CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/calibration_tool.c.obj"
 	E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/arm-none-eabi-gcc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/calibration_tool.c.obj -MF CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/calibration_tool.c.obj.d -o CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/calibration_tool.c.obj -c E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/calibration_tool.c
 
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/calibration_tool.c.i: cmake_force
@@ -648,7 +662,7 @@ CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/calibration_tool.c.s: cmake_force
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/encoder_resolution_calibration.c.obj: CMakeFiles/v1.0_freeRTOS.dir/flags.make
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/encoder_resolution_calibration.c.obj: E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/encoder_resolution_calibration.c
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/encoder_resolution_calibration.c.obj: CMakeFiles/v1.0_freeRTOS.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_42) "Building C object CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/encoder_resolution_calibration.c.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_43) "Building C object CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/encoder_resolution_calibration.c.obj"
 	E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/arm-none-eabi-gcc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/encoder_resolution_calibration.c.obj -MF CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/encoder_resolution_calibration.c.obj.d -o CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/encoder_resolution_calibration.c.obj -c E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/encoder_resolution_calibration.c
 
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/encoder_resolution_calibration.c.i: cmake_force
@@ -662,7 +676,7 @@ CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/encoder_resolution_calibration.c.s: cm
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/ir_sensor_calibration.c.obj: CMakeFiles/v1.0_freeRTOS.dir/flags.make
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/ir_sensor_calibration.c.obj: E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/ir_sensor_calibration.c
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/ir_sensor_calibration.c.obj: CMakeFiles/v1.0_freeRTOS.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_43) "Building C object CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/ir_sensor_calibration.c.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_44) "Building C object CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/ir_sensor_calibration.c.obj"
 	E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/arm-none-eabi-gcc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/ir_sensor_calibration.c.obj -MF CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/ir_sensor_calibration.c.obj.d -o CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/ir_sensor_calibration.c.obj -c E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/ir_sensor_calibration.c
 
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/ir_sensor_calibration.c.i: cmake_force
@@ -676,7 +690,7 @@ CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/ir_sensor_calibration.c.s: cmake_force
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/ir_calibration.c.obj: CMakeFiles/v1.0_freeRTOS.dir/flags.make
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/ir_calibration.c.obj: E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/ir_calibration.c
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/ir_calibration.c.obj: CMakeFiles/v1.0_freeRTOS.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_44) "Building C object CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/ir_calibration.c.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_45) "Building C object CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/ir_calibration.c.obj"
 	E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/arm-none-eabi-gcc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/ir_calibration.c.obj -MF CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/ir_calibration.c.obj.d -o CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/ir_calibration.c.obj -c E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/ir_calibration.c
 
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/ir_calibration.c.i: cmake_force
@@ -690,7 +704,7 @@ CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/ir_calibration.c.s: cmake_force
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/encoder_motor_test.c.obj: CMakeFiles/v1.0_freeRTOS.dir/flags.make
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/encoder_motor_test.c.obj: E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/encoder_motor_test.c
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/encoder_motor_test.c.obj: CMakeFiles/v1.0_freeRTOS.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_45) "Building C object CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/encoder_motor_test.c.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_46) "Building C object CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/encoder_motor_test.c.obj"
 	E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/arm-none-eabi-gcc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/encoder_motor_test.c.obj -MF CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/encoder_motor_test.c.obj.d -o CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/encoder_motor_test.c.obj -c E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/encoder_motor_test.c
 
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/encoder_motor_test.c.i: cmake_force
@@ -704,7 +718,7 @@ CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/encoder_motor_test.c.s: cmake_force
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/encoder_diagnostic.c.obj: CMakeFiles/v1.0_freeRTOS.dir/flags.make
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/encoder_diagnostic.c.obj: E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/encoder_diagnostic.c
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/encoder_diagnostic.c.obj: CMakeFiles/v1.0_freeRTOS.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_46) "Building C object CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/encoder_diagnostic.c.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_47) "Building C object CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/encoder_diagnostic.c.obj"
 	E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/arm-none-eabi-gcc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/encoder_diagnostic.c.obj -MF CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/encoder_diagnostic.c.obj.d -o CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/encoder_diagnostic.c.obj -c E:/B306/2026/diansai/2026task/stm32/v1.0/Core/Src/app/encoder_diagnostic.c
 
 CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/encoder_diagnostic.c.i: cmake_force
@@ -718,7 +732,7 @@ CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/encoder_diagnostic.c.s: cmake_force
 CMakeFiles/v1.0_freeRTOS.dir/modules/MotionControl/src/motion_control.c.obj: CMakeFiles/v1.0_freeRTOS.dir/flags.make
 CMakeFiles/v1.0_freeRTOS.dir/modules/MotionControl/src/motion_control.c.obj: E:/B306/2026/diansai/2026task/stm32/v1.0/modules/MotionControl/src/motion_control.c
 CMakeFiles/v1.0_freeRTOS.dir/modules/MotionControl/src/motion_control.c.obj: CMakeFiles/v1.0_freeRTOS.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_47) "Building C object CMakeFiles/v1.0_freeRTOS.dir/modules/MotionControl/src/motion_control.c.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_48) "Building C object CMakeFiles/v1.0_freeRTOS.dir/modules/MotionControl/src/motion_control.c.obj"
 	E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/arm-none-eabi-gcc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/v1.0_freeRTOS.dir/modules/MotionControl/src/motion_control.c.obj -MF CMakeFiles/v1.0_freeRTOS.dir/modules/MotionControl/src/motion_control.c.obj.d -o CMakeFiles/v1.0_freeRTOS.dir/modules/MotionControl/src/motion_control.c.obj -c E:/B306/2026/diansai/2026task/stm32/v1.0/modules/MotionControl/src/motion_control.c
 
 CMakeFiles/v1.0_freeRTOS.dir/modules/MotionControl/src/motion_control.c.i: cmake_force
@@ -732,7 +746,7 @@ CMakeFiles/v1.0_freeRTOS.dir/modules/MotionControl/src/motion_control.c.s: cmake
 CMakeFiles/v1.0_freeRTOS.dir/modules/MotionControl/src/motion_feedback.c.obj: CMakeFiles/v1.0_freeRTOS.dir/flags.make
 CMakeFiles/v1.0_freeRTOS.dir/modules/MotionControl/src/motion_feedback.c.obj: E:/B306/2026/diansai/2026task/stm32/v1.0/modules/MotionControl/src/motion_feedback.c
 CMakeFiles/v1.0_freeRTOS.dir/modules/MotionControl/src/motion_feedback.c.obj: CMakeFiles/v1.0_freeRTOS.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_48) "Building C object CMakeFiles/v1.0_freeRTOS.dir/modules/MotionControl/src/motion_feedback.c.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_49) "Building C object CMakeFiles/v1.0_freeRTOS.dir/modules/MotionControl/src/motion_feedback.c.obj"
 	E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/arm-none-eabi-gcc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/v1.0_freeRTOS.dir/modules/MotionControl/src/motion_feedback.c.obj -MF CMakeFiles/v1.0_freeRTOS.dir/modules/MotionControl/src/motion_feedback.c.obj.d -o CMakeFiles/v1.0_freeRTOS.dir/modules/MotionControl/src/motion_feedback.c.obj -c E:/B306/2026/diansai/2026task/stm32/v1.0/modules/MotionControl/src/motion_feedback.c
 
 CMakeFiles/v1.0_freeRTOS.dir/modules/MotionControl/src/motion_feedback.c.i: cmake_force
@@ -746,7 +760,7 @@ CMakeFiles/v1.0_freeRTOS.dir/modules/MotionControl/src/motion_feedback.c.s: cmak
 CMakeFiles/v1.0_freeRTOS.dir/modules/MotionControl/src/motion_feedforward.c.obj: CMakeFiles/v1.0_freeRTOS.dir/flags.make
 CMakeFiles/v1.0_freeRTOS.dir/modules/MotionControl/src/motion_feedforward.c.obj: E:/B306/2026/diansai/2026task/stm32/v1.0/modules/MotionControl/src/motion_feedforward.c
 CMakeFiles/v1.0_freeRTOS.dir/modules/MotionControl/src/motion_feedforward.c.obj: CMakeFiles/v1.0_freeRTOS.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_49) "Building C object CMakeFiles/v1.0_freeRTOS.dir/modules/MotionControl/src/motion_feedforward.c.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_50) "Building C object CMakeFiles/v1.0_freeRTOS.dir/modules/MotionControl/src/motion_feedforward.c.obj"
 	E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/arm-none-eabi-gcc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/v1.0_freeRTOS.dir/modules/MotionControl/src/motion_feedforward.c.obj -MF CMakeFiles/v1.0_freeRTOS.dir/modules/MotionControl/src/motion_feedforward.c.obj.d -o CMakeFiles/v1.0_freeRTOS.dir/modules/MotionControl/src/motion_feedforward.c.obj -c E:/B306/2026/diansai/2026task/stm32/v1.0/modules/MotionControl/src/motion_feedforward.c
 
 CMakeFiles/v1.0_freeRTOS.dir/modules/MotionControl/src/motion_feedforward.c.i: cmake_force
@@ -760,7 +774,7 @@ CMakeFiles/v1.0_freeRTOS.dir/modules/MotionControl/src/motion_feedforward.c.s: c
 CMakeFiles/v1.0_freeRTOS.dir/modules/MotionControl/src/motion_kinematics.c.obj: CMakeFiles/v1.0_freeRTOS.dir/flags.make
 CMakeFiles/v1.0_freeRTOS.dir/modules/MotionControl/src/motion_kinematics.c.obj: E:/B306/2026/diansai/2026task/stm32/v1.0/modules/MotionControl/src/motion_kinematics.c
 CMakeFiles/v1.0_freeRTOS.dir/modules/MotionControl/src/motion_kinematics.c.obj: CMakeFiles/v1.0_freeRTOS.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_50) "Building C object CMakeFiles/v1.0_freeRTOS.dir/modules/MotionControl/src/motion_kinematics.c.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_51) "Building C object CMakeFiles/v1.0_freeRTOS.dir/modules/MotionControl/src/motion_kinematics.c.obj"
 	E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/arm-none-eabi-gcc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/v1.0_freeRTOS.dir/modules/MotionControl/src/motion_kinematics.c.obj -MF CMakeFiles/v1.0_freeRTOS.dir/modules/MotionControl/src/motion_kinematics.c.obj.d -o CMakeFiles/v1.0_freeRTOS.dir/modules/MotionControl/src/motion_kinematics.c.obj -c E:/B306/2026/diansai/2026task/stm32/v1.0/modules/MotionControl/src/motion_kinematics.c
 
 CMakeFiles/v1.0_freeRTOS.dir/modules/MotionControl/src/motion_kinematics.c.i: cmake_force
@@ -774,7 +788,7 @@ CMakeFiles/v1.0_freeRTOS.dir/modules/MotionControl/src/motion_kinematics.c.s: cm
 CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/config.c.obj: CMakeFiles/v1.0_freeRTOS.dir/flags.make
 CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/config.c.obj: E:/B306/2026/diansai/2026task/stm32/v1.0/modules/Sens-Decision/src/config.c
 CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/config.c.obj: CMakeFiles/v1.0_freeRTOS.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_51) "Building C object CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/config.c.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_52) "Building C object CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/config.c.obj"
 	E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/arm-none-eabi-gcc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/config.c.obj -MF CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/config.c.obj.d -o CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/config.c.obj -c E:/B306/2026/diansai/2026task/stm32/v1.0/modules/Sens-Decision/src/config.c
 
 CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/config.c.i: cmake_force
@@ -788,7 +802,7 @@ CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/config.c.s: cmake_force
 CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/interface.c.obj: CMakeFiles/v1.0_freeRTOS.dir/flags.make
 CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/interface.c.obj: E:/B306/2026/diansai/2026task/stm32/v1.0/modules/Sens-Decision/src/interface.c
 CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/interface.c.obj: CMakeFiles/v1.0_freeRTOS.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_52) "Building C object CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/interface.c.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_53) "Building C object CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/interface.c.obj"
 	E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/arm-none-eabi-gcc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/interface.c.obj -MF CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/interface.c.obj.d -o CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/interface.c.obj -c E:/B306/2026/diansai/2026task/stm32/v1.0/modules/Sens-Decision/src/interface.c
 
 CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/interface.c.i: cmake_force
@@ -802,7 +816,7 @@ CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/interface.c.s: cmake_forc
 CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/utils.c.obj: CMakeFiles/v1.0_freeRTOS.dir/flags.make
 CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/utils.c.obj: E:/B306/2026/diansai/2026task/stm32/v1.0/modules/Sens-Decision/src/utils.c
 CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/utils.c.obj: CMakeFiles/v1.0_freeRTOS.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_53) "Building C object CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/utils.c.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_54) "Building C object CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/utils.c.obj"
 	E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/arm-none-eabi-gcc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/utils.c.obj -MF CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/utils.c.obj.d -o CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/utils.c.obj -c E:/B306/2026/diansai/2026task/stm32/v1.0/modules/Sens-Decision/src/utils.c
 
 CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/utils.c.i: cmake_force
@@ -816,7 +830,7 @@ CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/utils.c.s: cmake_force
 CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/preprocess.c.obj: CMakeFiles/v1.0_freeRTOS.dir/flags.make
 CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/preprocess.c.obj: E:/B306/2026/diansai/2026task/stm32/v1.0/modules/Sens-Decision/src/preprocess.c
 CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/preprocess.c.obj: CMakeFiles/v1.0_freeRTOS.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_54) "Building C object CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/preprocess.c.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_55) "Building C object CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/preprocess.c.obj"
 	E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/arm-none-eabi-gcc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/preprocess.c.obj -MF CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/preprocess.c.obj.d -o CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/preprocess.c.obj -c E:/B306/2026/diansai/2026task/stm32/v1.0/modules/Sens-Decision/src/preprocess.c
 
 CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/preprocess.c.i: cmake_force
@@ -830,7 +844,7 @@ CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/preprocess.c.s: cmake_for
 CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/EKF.c.obj: CMakeFiles/v1.0_freeRTOS.dir/flags.make
 CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/EKF.c.obj: E:/B306/2026/diansai/2026task/stm32/v1.0/modules/Sens-Decision/src/EKF.c
 CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/EKF.c.obj: CMakeFiles/v1.0_freeRTOS.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_55) "Building C object CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/EKF.c.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_56) "Building C object CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/EKF.c.obj"
 	E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/arm-none-eabi-gcc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/EKF.c.obj -MF CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/EKF.c.obj.d -o CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/EKF.c.obj -c E:/B306/2026/diansai/2026task/stm32/v1.0/modules/Sens-Decision/src/EKF.c
 
 CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/EKF.c.i: cmake_force
@@ -844,7 +858,7 @@ CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/EKF.c.s: cmake_force
 CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/state_evaluate.c.obj: CMakeFiles/v1.0_freeRTOS.dir/flags.make
 CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/state_evaluate.c.obj: E:/B306/2026/diansai/2026task/stm32/v1.0/modules/Sens-Decision/src/state_evaluate.c
 CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/state_evaluate.c.obj: CMakeFiles/v1.0_freeRTOS.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_56) "Building C object CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/state_evaluate.c.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_57) "Building C object CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/state_evaluate.c.obj"
 	E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/arm-none-eabi-gcc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/state_evaluate.c.obj -MF CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/state_evaluate.c.obj.d -o CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/state_evaluate.c.obj -c E:/B306/2026/diansai/2026task/stm32/v1.0/modules/Sens-Decision/src/state_evaluate.c
 
 CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/state_evaluate.c.i: cmake_force
@@ -858,7 +872,7 @@ CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/state_evaluate.c.s: cmake
 CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/perception.c.obj: CMakeFiles/v1.0_freeRTOS.dir/flags.make
 CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/perception.c.obj: E:/B306/2026/diansai/2026task/stm32/v1.0/modules/Sens-Decision/src/perception.c
 CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/perception.c.obj: CMakeFiles/v1.0_freeRTOS.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_57) "Building C object CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/perception.c.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_58) "Building C object CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/perception.c.obj"
 	E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/arm-none-eabi-gcc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/perception.c.obj -MF CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/perception.c.obj.d -o CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/perception.c.obj -c E:/B306/2026/diansai/2026task/stm32/v1.0/modules/Sens-Decision/src/perception.c
 
 CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/perception.c.i: cmake_force
@@ -872,7 +886,7 @@ CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/perception.c.s: cmake_for
 CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/behavior_planner.c.obj: CMakeFiles/v1.0_freeRTOS.dir/flags.make
 CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/behavior_planner.c.obj: E:/B306/2026/diansai/2026task/stm32/v1.0/modules/Sens-Decision/src/behavior_planner.c
 CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/behavior_planner.c.obj: CMakeFiles/v1.0_freeRTOS.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_58) "Building C object CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/behavior_planner.c.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_59) "Building C object CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/behavior_planner.c.obj"
 	E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/arm-none-eabi-gcc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/behavior_planner.c.obj -MF CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/behavior_planner.c.obj.d -o CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/behavior_planner.c.obj -c E:/B306/2026/diansai/2026task/stm32/v1.0/modules/Sens-Decision/src/behavior_planner.c
 
 CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/behavior_planner.c.i: cmake_force
@@ -886,7 +900,7 @@ CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/behavior_planner.c.s: cma
 CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/trajectory_generate.c.obj: CMakeFiles/v1.0_freeRTOS.dir/flags.make
 CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/trajectory_generate.c.obj: E:/B306/2026/diansai/2026task/stm32/v1.0/modules/Sens-Decision/src/trajectory_generate.c
 CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/trajectory_generate.c.obj: CMakeFiles/v1.0_freeRTOS.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_59) "Building C object CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/trajectory_generate.c.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_60) "Building C object CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/trajectory_generate.c.obj"
 	E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/arm-none-eabi-gcc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/trajectory_generate.c.obj -MF CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/trajectory_generate.c.obj.d -o CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/trajectory_generate.c.obj -c E:/B306/2026/diansai/2026task/stm32/v1.0/modules/Sens-Decision/src/trajectory_generate.c
 
 CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/trajectory_generate.c.i: cmake_force
@@ -900,7 +914,7 @@ CMakeFiles/v1.0_freeRTOS.dir/modules/Sens-Decision/src/trajectory_generate.c.s: 
 CMakeFiles/v1.0_freeRTOS.dir/modules/ICM42688/src/icm42688_hal.c.obj: CMakeFiles/v1.0_freeRTOS.dir/flags.make
 CMakeFiles/v1.0_freeRTOS.dir/modules/ICM42688/src/icm42688_hal.c.obj: E:/B306/2026/diansai/2026task/stm32/v1.0/modules/ICM42688/src/icm42688_hal.c
 CMakeFiles/v1.0_freeRTOS.dir/modules/ICM42688/src/icm42688_hal.c.obj: CMakeFiles/v1.0_freeRTOS.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_60) "Building C object CMakeFiles/v1.0_freeRTOS.dir/modules/ICM42688/src/icm42688_hal.c.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_61) "Building C object CMakeFiles/v1.0_freeRTOS.dir/modules/ICM42688/src/icm42688_hal.c.obj"
 	E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/arm-none-eabi-gcc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/v1.0_freeRTOS.dir/modules/ICM42688/src/icm42688_hal.c.obj -MF CMakeFiles/v1.0_freeRTOS.dir/modules/ICM42688/src/icm42688_hal.c.obj.d -o CMakeFiles/v1.0_freeRTOS.dir/modules/ICM42688/src/icm42688_hal.c.obj -c E:/B306/2026/diansai/2026task/stm32/v1.0/modules/ICM42688/src/icm42688_hal.c
 
 CMakeFiles/v1.0_freeRTOS.dir/modules/ICM42688/src/icm42688_hal.c.i: cmake_force
@@ -914,7 +928,7 @@ CMakeFiles/v1.0_freeRTOS.dir/modules/ICM42688/src/icm42688_hal.c.s: cmake_force
 CMakeFiles/v1.0_freeRTOS.dir/modules/ICM42688/src/icm42688_stm32.c.obj: CMakeFiles/v1.0_freeRTOS.dir/flags.make
 CMakeFiles/v1.0_freeRTOS.dir/modules/ICM42688/src/icm42688_stm32.c.obj: E:/B306/2026/diansai/2026task/stm32/v1.0/modules/ICM42688/src/icm42688_stm32.c
 CMakeFiles/v1.0_freeRTOS.dir/modules/ICM42688/src/icm42688_stm32.c.obj: CMakeFiles/v1.0_freeRTOS.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_61) "Building C object CMakeFiles/v1.0_freeRTOS.dir/modules/ICM42688/src/icm42688_stm32.c.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_62) "Building C object CMakeFiles/v1.0_freeRTOS.dir/modules/ICM42688/src/icm42688_stm32.c.obj"
 	E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/arm-none-eabi-gcc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/v1.0_freeRTOS.dir/modules/ICM42688/src/icm42688_stm32.c.obj -MF CMakeFiles/v1.0_freeRTOS.dir/modules/ICM42688/src/icm42688_stm32.c.obj.d -o CMakeFiles/v1.0_freeRTOS.dir/modules/ICM42688/src/icm42688_stm32.c.obj -c E:/B306/2026/diansai/2026task/stm32/v1.0/modules/ICM42688/src/icm42688_stm32.c
 
 CMakeFiles/v1.0_freeRTOS.dir/modules/ICM42688/src/icm42688_stm32.c.i: cmake_force
@@ -928,7 +942,7 @@ CMakeFiles/v1.0_freeRTOS.dir/modules/ICM42688/src/icm42688_stm32.c.s: cmake_forc
 CMakeFiles/v1.0_freeRTOS.dir/modules/ICM42688/src/ahrs_hal.c.obj: CMakeFiles/v1.0_freeRTOS.dir/flags.make
 CMakeFiles/v1.0_freeRTOS.dir/modules/ICM42688/src/ahrs_hal.c.obj: E:/B306/2026/diansai/2026task/stm32/v1.0/modules/ICM42688/src/ahrs_hal.c
 CMakeFiles/v1.0_freeRTOS.dir/modules/ICM42688/src/ahrs_hal.c.obj: CMakeFiles/v1.0_freeRTOS.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_62) "Building C object CMakeFiles/v1.0_freeRTOS.dir/modules/ICM42688/src/ahrs_hal.c.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_63) "Building C object CMakeFiles/v1.0_freeRTOS.dir/modules/ICM42688/src/ahrs_hal.c.obj"
 	E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/arm-none-eabi-gcc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/v1.0_freeRTOS.dir/modules/ICM42688/src/ahrs_hal.c.obj -MF CMakeFiles/v1.0_freeRTOS.dir/modules/ICM42688/src/ahrs_hal.c.obj.d -o CMakeFiles/v1.0_freeRTOS.dir/modules/ICM42688/src/ahrs_hal.c.obj -c E:/B306/2026/diansai/2026task/stm32/v1.0/modules/ICM42688/src/ahrs_hal.c
 
 CMakeFiles/v1.0_freeRTOS.dir/modules/ICM42688/src/ahrs_hal.c.i: cmake_force
@@ -942,7 +956,7 @@ CMakeFiles/v1.0_freeRTOS.dir/modules/ICM42688/src/ahrs_hal.c.s: cmake_force
 CMakeFiles/v1.0_freeRTOS.dir/modules/IR-tracker/src/ir_uart_sensor.c.obj: CMakeFiles/v1.0_freeRTOS.dir/flags.make
 CMakeFiles/v1.0_freeRTOS.dir/modules/IR-tracker/src/ir_uart_sensor.c.obj: E:/B306/2026/diansai/2026task/stm32/v1.0/modules/IR-tracker/src/ir_uart_sensor.c
 CMakeFiles/v1.0_freeRTOS.dir/modules/IR-tracker/src/ir_uart_sensor.c.obj: CMakeFiles/v1.0_freeRTOS.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_63) "Building C object CMakeFiles/v1.0_freeRTOS.dir/modules/IR-tracker/src/ir_uart_sensor.c.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_64) "Building C object CMakeFiles/v1.0_freeRTOS.dir/modules/IR-tracker/src/ir_uart_sensor.c.obj"
 	E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/arm-none-eabi-gcc.exe $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/v1.0_freeRTOS.dir/modules/IR-tracker/src/ir_uart_sensor.c.obj -MF CMakeFiles/v1.0_freeRTOS.dir/modules/IR-tracker/src/ir_uart_sensor.c.obj.d -o CMakeFiles/v1.0_freeRTOS.dir/modules/IR-tracker/src/ir_uart_sensor.c.obj -c E:/B306/2026/diansai/2026task/stm32/v1.0/modules/IR-tracker/src/ir_uart_sensor.c
 
 CMakeFiles/v1.0_freeRTOS.dir/modules/IR-tracker/src/ir_uart_sensor.c.i: cmake_force
@@ -971,6 +985,7 @@ v1_0_freeRTOS_OBJECTS = \
 "CMakeFiles/v1.0_freeRTOS.dir/Core/Src/syscalls.c.obj" \
 "CMakeFiles/v1.0_freeRTOS.dir/startup_stm32f407xx.s.obj" \
 "CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor.c.obj" \
+"CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_static_friction_test.c.obj" \
 "CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/encoder.c.obj" \
 "CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/encoder_hw_bridge.c.obj" \
 "CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/encoder_adapter.c.obj" \
@@ -1068,6 +1083,7 @@ v1.0_freeRTOS.elf: CMakeFiles/v1.0_freeRTOS.dir/Core/Src/sysmem.c.obj
 v1.0_freeRTOS.elf: CMakeFiles/v1.0_freeRTOS.dir/Core/Src/syscalls.c.obj
 v1.0_freeRTOS.elf: CMakeFiles/v1.0_freeRTOS.dir/startup_stm32f407xx.s.obj
 v1.0_freeRTOS.elf: CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor.c.obj
+v1.0_freeRTOS.elf: CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_static_friction_test.c.obj
 v1.0_freeRTOS.elf: CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/encoder.c.obj
 v1.0_freeRTOS.elf: CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/encoder_hw_bridge.c.obj
 v1.0_freeRTOS.elf: CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/encoder_adapter.c.obj
@@ -1147,7 +1163,7 @@ v1.0_freeRTOS.elf: cmake/stm32cubemx/CMakeFiles/FreeRTOS.dir/__/__/Middlewares/T
 v1.0_freeRTOS.elf: cmake/stm32cubemx/CMakeFiles/FreeRTOS.dir/__/__/Middlewares/Third_Party/FreeRTOS/Source/portable/GCC/ARM_CM4F/port.c.obj
 v1.0_freeRTOS.elf: CMakeFiles/v1.0_freeRTOS.dir/build.make
 v1.0_freeRTOS.elf: CMakeFiles/v1.0_freeRTOS.dir/objects1.rsp
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_64) "Linking C executable v1.0_freeRTOS.elf"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_65) "Linking C executable v1.0_freeRTOS.elf"
 	E:/Softwares/ST/CLT/STM32CubeCLT_1.22.0/GNU-tools-for-STM32/bin/arm-none-eabi-gcc.exe  -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mfloat-abi=hard  -Wall -fdata-sections -ffunction-sections -O0 -g3 -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mfloat-abi=hard  -T "E:/B306/2026/diansai/2026task/stm32/v1.0/STM32F407VGTx_FLASH.ld" --specs=nano.specs -Wl,-Map=v1.0_freeRTOS.map -Wl,--gc-sections -Wl,--print-memory-usage -u _printf_float @CMakeFiles/v1.0_freeRTOS.dir/objects1.rsp -o v1.0_freeRTOS.elf  -lm
 
 # Rule to build all files generated by this target.

@@ -33,6 +33,7 @@
 #include "encoder.h"
 #include "config.h"
 #include "platform_time.h"
+#include "motor_static_friction_test.h"
 #include <stdio.h>
 /* USER CODE END Includes */
 
@@ -50,25 +51,30 @@
  *
  * 取消注释以下其中一个宏来选择运行模式：
  *
- * 1. TEST_MODE_IR_CALIBRATION     - IR传感器校准模式
+ * 1. TEST_MODE_IR_CALIBRATION        - IR传感器校准模式
  *    功能：白平衡校准 → 黑线阈值校准 → 实时监控验证
  *    适用场景：首次测试、光照变化后、更换传感器/赛道
  *    操作步骤：见下方详细说明
  *
- * 2. TEST_MODE_TRACK_CONTROL      - 完整循迹控制模式（Pure Pursuit）
+ * 2. TEST_MODE_TRACK_CONTROL         - 完整循迹控制模式（Pure Pursuit）
  *    功能：EKF状态估计 + 轨迹规划 + Pure Pursuit循迹
  *    前提条件：IR传感器已校准、PID参数已调优
  *
- * 3. TEST_MODE_PLAYGROUND_TRACK   - 操场型循迹（第2/4题比赛模式）
+ * 3. TEST_MODE_PLAYGROUND_TRACK      - 操场型循迹（第2/4题比赛模式）
  *    功能：分段自适应循迹，任务2（绕圈）或任务4（A→B直道）
  *    前提条件：IR传感器已校准
+ *
+ * 4. TEST_MODE_STATIC_FRICTION       - 静摩擦参数标定模式
+ *    功能：通过串口手动发送PWM值，标定FF_K_STATIC参数
+ *    适用场景：标定前馈控制的静摩擦补偿参数
  *
  * 注意：同时只能定义一个测试模式
  * ============================================================================ */
 
 // #define TEST_MODE_IR_CALIBRATION        /* ← IR校准模式 */
-// #define TEST_MODE_TRACK_CONTROL      /* ← Pure Pursuit循迹模式 */
-#define TEST_MODE_PLAYGROUND_TRACK   /* ← 当前激活：操场型循迹（第2/4题） */
+// #define TEST_MODE_TRACK_CONTROL         /* ← Pure Pursuit循迹模式 */
+// #define TEST_MODE_PLAYGROUND_TRACK      /* ← 操场型循迹（第2/4题） */
+#define TEST_MODE_STATIC_FRICTION          /* ← 当前激活：静摩擦标定 */
 
 #define TARGET_LAPS  3U   /* 比赛圈数，可按需修改 (1-5) */
 /* USER CODE END PD */
@@ -355,11 +361,31 @@ void StartDefaultTask(void *argument)
       }
   }
 
+#elif defined(TEST_MODE_STATIC_FRICTION)
+  /* ========================================================================
+   * 静摩擦补偿参数标定模式
+   * ======================================================================== */
+  printf("\r\n");
+  printf("╔════════════════════════════════════════════════════════════════╗\r\n");
+  printf("║   Static Friction Calibration - FF_K_STATIC Test Mode         ║\r\n");
+  printf("╚════════════════════════════════════════════════════════════════╝\r\n");
+  printf("\r\n");
+
+  /* 初始化硬件 */
+  printf("[Init] Initializing hardware...\r\n");
+  Motor_Init();
+  Encoder_Init();
+  printf("[OK] Hardware ready\r\n");
+  printf("\r\n");
+
+  /* 进入交互式测试模式（永不返回） */
+  Motor_StaticFriction_InteractiveTest();
+
 #else
   /* ========================================================================
    * 错误：未定义测试模式
    * ======================================================================== */
-  #error "Please define one of: TEST_MODE_IR_CALIBRATION, TEST_MODE_TRACK_CONTROL, or TEST_MODE_PLAYGROUND_TRACK in freertos.c"
+  #error "Please define one of: TEST_MODE_IR_CALIBRATION, TEST_MODE_TRACK_CONTROL, TEST_MODE_PLAYGROUND_TRACK, or TEST_MODE_STATIC_FRICTION in freertos.c"
 #endif
 
   /* USER CODE END StartDefaultTask */

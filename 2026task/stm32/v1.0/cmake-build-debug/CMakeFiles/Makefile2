@@ -111,12 +111,12 @@ CMakeFiles/v1.0_freeRTOS.dir/all: cmake/stm32cubemx/CMakeFiles/STM32_Drivers.dir
 CMakeFiles/v1.0_freeRTOS.dir/all: cmake/stm32cubemx/CMakeFiles/FreeRTOS.dir/all
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/v1.0_freeRTOS.dir/build.make CMakeFiles/v1.0_freeRTOS.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/v1.0_freeRTOS.dir/build.make CMakeFiles/v1.0_freeRTOS.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94 "Built target v1.0_freeRTOS"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95 "Built target v1.0_freeRTOS"
 .PHONY : CMakeFiles/v1.0_freeRTOS.dir/all
 
 # Build rule for subdir invocation for target.
 CMakeFiles/v1.0_freeRTOS.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles 94
+	$(CMAKE_COMMAND) -E cmake_progress_start E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles 95
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/v1.0_freeRTOS.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles 0
 .PHONY : CMakeFiles/v1.0_freeRTOS.dir/rule
@@ -128,7 +128,7 @@ v1.0_freeRTOS: CMakeFiles/v1.0_freeRTOS.dir/rule
 # codegen rule for target.
 CMakeFiles/v1.0_freeRTOS.dir/codegen:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/v1.0_freeRTOS.dir/build.make CMakeFiles/v1.0_freeRTOS.dir/codegen
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94 "Finished codegen for target v1.0_freeRTOS"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=E:/B306/2026/diansai/2026task/stm32/v1.0/cmake-build-debug/CMakeFiles --progress-num=31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95 "Finished codegen for target v1.0_freeRTOS"
 .PHONY : CMakeFiles/v1.0_freeRTOS.dir/codegen
 
 # clean rule for target.

@@ -5,6 +5,7 @@
  */
 
 #include "motor_interactive_test.h"
+#include "motor_static_friction_test.h"
 #include "motor.h"
 #include "usart.h"
 #include <stdio.h>
@@ -22,6 +23,10 @@ static volatile uint8_t rx_complete = 0;
  * @brief UART接收完成回调
  */
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
+    // 先调用静摩擦测试模块的回调（如果在该模式下）
+    Motor_StaticFriction_UART_RxCallback(huart);
+
+    // 原有的交互式测试回调逻辑
     if (huart->Instance == UART5) {
         // 收到一个字符
         if (rx_byte == '\r' || rx_byte == '\n') {

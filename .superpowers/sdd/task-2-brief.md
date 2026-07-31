@@ -1,99 +1,124 @@
-### Task 2: Add a Monotonic Timebase and Complete ICM Raw Samples
+### Task 2: Ramped Position Target
 
 **Files:**
-- Create: `inc/platform_time.h`
-- Create: `src/platform_time.c`
-- Create: `tests/test_platform_time.c`
-- Modify: `modules/ICM42688/inc/icm42688_hal.h`
-- Modify: `modules/ICM42688/src/icm42688_hal.c`
-- Modify: `modules/ICM42688/src/icm42688_mspm0.c`
-- Modify: `tests/run_tests.ps1`
+- Create: `App/Inc/balance_target.h`
+- Create: `App/Src/balance_target.c`
+- Modify: `tests/CMakeLists.txt`
+- Modify: `tests/test_balance.c`
 
 **Interfaces:**
-- Consumes: dedicated 1 MHz timer count after Task 7 generates `ICM42688_TIMER_INST`.
-- Produces: `void PlatformTime_Init(void)`, `uint32_t PlatformTime_GetUs32(void)`, `uint64_t PlatformTime_GetUs64(void)`, and `icm42688_data_t.temperature_raw`.
+- Consumes: requested target in `cm` and frame `dt` in seconds.
+- Produces: `balance_target_select` and `balance_target_step`; only `-5.0f`, `0.0f`, and `+5.0f` selections are accepted.
 
-- [ ] **Step 1: Write failing wrap and timer-direction tests**
+- [ ] **Step 1: Add failing ramp and target-validation tests**
 
-Create `tests/test_platform_time.c` that injects fake down-counter samples and asserts:
-
-```c
-assert(PlatformTime_UpCountFromDownCount(UINT32_MAX) == 0U);
-assert(PlatformTime_UpCountFromDownCount(UINT32_MAX - 25U) == 25U);
-assert(PlatformTime_Extend32(0xFFFFFFF0U) == UINT64_C(0xFFFFFFF0));
-assert(PlatformTime_Extend32(0x00000010U) == UINT64_C(0x100000010));
-assert(PlatformTime_Extend32(0x00000020U) == UINT64_C(0x100000020));
-```
-
-Declare the tested pure helpers in `platform_time.h` so they are testable without DriverLib.
-
-- [ ] **Step 2: Run the test and verify it fails**
-
-Add a GCC invocation for `test_platform_time.c` and `src/platform_time.c` to `tests/run_tests.ps1`, then run:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File ".\tests\run_tests.ps1"
-```
-
-Expected: compile failure because `platform_time.h` and its functions do not exist.
-
-- [ ] **Step 3: Implement the pure monotonic extension and target wrapper**
-
-Use these exact public signatures:
+Add `../App/Src/balance_target.c` to `test_balance` in `tests/CMakeLists.txt`. Add the include and tests to `tests/test_balance.c`:
 
 ```c
-void PlatformTime_Init(void);
-uint32_t PlatformTime_UpCountFromDownCount(uint32_t down_count);
-uint64_t PlatformTime_Extend32(uint32_t now32);
-uint32_t PlatformTime_GetUs32(void);
-uint64_t PlatformTime_GetUs64(void);
-```
+#include "balance_target.h"
 
-Implement down-count inversion as `UINT32_MAX - down_count`. Implement wrap extension by retaining the previous 32-bit sample and a 64-bit high word; when `now32 < previous32`, add `UINT64_C(1) << 32`. Protect the shared extension state with a short critical section in target code. `PlatformTime_Init()` starts the dedicated timer and resets extension state.
-
-- [ ] **Step 4: Run the platform-time test**
-
-Run `powershell -ExecutionPolicy Bypass -File ".\tests\run_tests.ps1"`.
-
-Expected: platform-time test passes, including one 32-bit wrap.
-
-- [ ] **Step 5: Write a failing ICM temperature test**
-
-Extend the migrated ICM host test so a 14-byte burst beginning at temperature registers produces:
-
-```c
-assert(data.temperature_raw == expected_temperature_raw);
-assert(data.acc_raw.x == expected_accel_x);
-assert(data.gyro_raw.z == expected_gyro_z);
-```
-
-Expected before implementation: compile failure because `temperature_raw` is absent.
-
-- [ ] **Step 6: Read temperature and expose raw samples without changing units**
-
-Add this field to `icm42688_data_t`:
-
-```c
-int16_t temperature_raw;
-```
-
-Change `icm42688_read()` to burst-read temperature plus accelerometer and gyro bytes from `TEMP_DATA1`, decode all signed big-endian fields, and keep the existing `acc_g` and calibrated `gyro_dps` outputs for AHRS users. The Sens-Decision adapter will consume only `temperature_raw`, `acc_raw`, and `gyro_raw`.
-
-- [ ] **Step 7: Bind AHRS to the platform clock**
-
-Replace the adapter's direct `DL_TimerG_getTimerCount(ICM42688_TIMER_INST)` callback with:
-
-```c
-static uint32_t timer_get_time_us(void)
+static void test_target_rejects_non_competition_position(void)
 {
-    return PlatformTime_GetUs32();
+    BalanceTarget target;
+    balance_target_init(&target, 2.0f);
+    CHECK_TRUE(!balance_target_select(&target, 3.0f));
+    CHECK_NEAR(target.requested_cm, 0.0f, 0.0001f);
+}
+
+static void test_target_ramps_without_overshoot(void)
+{
+    BalanceTarget target;
+    balance_target_init(&target, 2.0f);
+    CHECK_TRUE(balance_target_select(&target, 5.0f));
+    CHECK_NEAR(balance_target_step(&target, 0.5f), 1.0f, 0.0001f);
+    CHECK_NEAR(balance_target_step(&target, 2.0f), 5.0f, 0.0001f);
+    CHECK_NEAR(balance_target_step(&target, 0.5f), 5.0f, 0.0001f);
 }
 ```
 
-Do not let `icm42688_mspm0.c` configure or start TIMG0.
+Call both tests from `main`.
 
-- [ ] **Step 8: Run ICM and platform-time tests**
+- [ ] **Step 2: Run the tests and verify they fail for the missing target API**
 
-Run the target-local test runner and the original ICM suite.
+Run `cmake --build build/host-tests`.
 
-Expected: all tests pass; a raw temperature sample is available; the AHRS callback sees increasing microseconds.
+Expected: compile fails because `balance_target.h` does not exist.
+
+- [ ] **Step 3: Implement target validation and slew**
+
+Create `App/Inc/balance_target.h`:
+
+```c
+#ifndef BALANCE_TARGET_H
+#define BALANCE_TARGET_H
+
+#include <stdbool.h>
+
+typedef struct {
+    float requested_cm;
+    float ramped_cm;
+    float max_rate_cm_s;
+} BalanceTarget;
+
+void balance_target_init(BalanceTarget *target, float max_rate_cm_s);
+bool balance_target_select(BalanceTarget *target, float requested_cm);
+float balance_target_step(BalanceTarget *target, float dt_s);
+void balance_target_reset(BalanceTarget *target);
+
+#endif
+```
+
+Create `App/Src/balance_target.c`:
+
+```c
+#include "balance_target.h"
+
+static float absf(float value) { return value < 0.0f ? -value : value; }
+
+void balance_target_init(BalanceTarget *target, float max_rate_cm_s)
+{
+    target->max_rate_cm_s = max_rate_cm_s;
+    balance_target_reset(target);
+}
+
+void balance_target_reset(BalanceTarget *target)
+{
+    target->requested_cm = 0.0f;
+    target->ramped_cm = 0.0f;
+}
+
+bool balance_target_select(BalanceTarget *target, float requested_cm)
+{
+    if (requested_cm != -5.0f && requested_cm != 0.0f && requested_cm != 5.0f) {
+        return false;
+    }
+    target->requested_cm = requested_cm;
+    return true;
+}
+
+float balance_target_step(BalanceTarget *target, float dt_s)
+{
+    const float delta = target->requested_cm - target->ramped_cm;
+    const float max_delta = target->max_rate_cm_s * dt_s;
+    if (absf(delta) <= max_delta) {
+        target->ramped_cm = target->requested_cm;
+    } else {
+        target->ramped_cm += delta > 0.0f ? max_delta : -max_delta;
+    }
+    return target->ramped_cm;
+}
+```
+
+- [ ] **Step 4: Run all host tests**
+
+Run `cmake --build build/host-tests; ctest --test-dir build/host-tests --output-on-failure`.
+
+Expected: `100% tests passed, 0 tests failed`.
+
+- [ ] **Step 5: Commit the target generator**
+
+```powershell
+git add App/Inc/balance_target.h App/Src/balance_target.c tests/CMakeLists.txt tests/test_balance.c
+git commit -m "feat: add ramped balance targets"
+```
+

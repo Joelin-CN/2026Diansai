@@ -1,130 +1,88 @@
-# Task 1 Report: Establish the Migrated Source Baseline and Host Test Runner
+# Task 1 Report: Alpha-Beta Ball-State Observer
 
-**Status:** DONE
+## Implementation Summary
 
-**Commit:** bd072f8 - Task 1: Establish migrated source baseline and host test runner
+Implemented a protocol-independent alpha-beta observer for signed camera ball position measurements in centimeters and STM32-style `uint32_t` receive timestamps in milliseconds. The observer initializes from the first sample, uses the measured frame interval for alpha-beta correction, rejects samples below the configured minimum interval, and resets position/velocity after gaps above the configured maximum interval.
 
-## Summary
+Added a native C11 CMake/CTest harness compiled with `-Wall -Wextra -Werror` and three focused behavior tests.
 
-Successfully copied 35 production source files from the shared modules directory (`E:/B306/2026/电赛/modules`) to the target project (`E:\B306\2026\电赛\2025e\m0_controller\modules`), created the PowerShell test runner skeleton, and verified all copied modules pass their original tests.
+## Files Changed
 
-## Files Created
+- `App/Inc/balance_observer.h`: observer configuration, estimate, result, state, and function declarations.
+- `App/Src/balance_observer.c`: initialization, reset, timestamp filtering, gap reset, and alpha-beta update implementation.
+- `tests/CMakeLists.txt`: MinGW-compatible native test target and CTest registration.
+- `tests/test_balance.c`: minimal runner and observer behavior tests.
 
-### ICM42688 Module (6 files)
-- `modules/ICM42688/inc/ahrs_hal.h` (78 lines)
-- `modules/ICM42688/inc/icm42688_hal.h` (195 lines)
-- `modules/ICM42688/inc/icm42688_mspm0.h` (60 lines)
-- `modules/ICM42688/src/ahrs_hal.c` (267 lines)
-- `modules/ICM42688/src/icm42688_hal.c` (279 lines)
-- `modules/ICM42688/src/icm42688_mspm0.c` (148 lines)
+No unrelated files were modified, staged, reverted, or committed. The SDD ledger was not modified.
 
-### MCP23017 Module (2 files)
-- `modules/MCP23017/inc/mcp23017.h` (12 lines)
-- `modules/MCP23017/src/mcp23017.c` (69 lines)
+## RED
 
-### Motion Control Module (9 files)
-- `modules/Motion Control/inc/motion_config.h` (170 lines)
-- `modules/Motion Control/inc/motion_control.h` (262 lines)
-- `modules/Motion Control/inc/motion_feedback.h` (185 lines)
-- `modules/Motion Control/inc/motion_feedforward.h` (95 lines)
-- `modules/Motion Control/inc/motion_kinematics.h` (100 lines)
-- `modules/Motion Control/src/motion_control.c` (344 lines)
-- `modules/Motion Control/src/motion_feedback.c` (180 lines)
-- `modules/Motion Control/src/motion_feedforward.c` (68 lines)
-- `modules/Motion Control/src/motion_kinematics.c` (64 lines)
+### Command
 
-**Note:** Excluded `src/example_usage.c` as per task requirements.
-
-### Sens-Decision Module (18 files)
-- `modules/Sens-Decision/inc/behavior_planner.h` (64 lines)
-- `modules/Sens-Decision/inc/config.h` (109 lines)
-- `modules/Sens-Decision/inc/EKF.h` (25 lines)
-- `modules/Sens-Decision/inc/interface.h` (73 lines)
-- `modules/Sens-Decision/inc/perception.h` (48 lines)
-- `modules/Sens-Decision/inc/preprocess.h` (21 lines)
-- `modules/Sens-Decision/inc/state_evaluate.h` (42 lines)
-- `modules/Sens-Decision/inc/trajectory_generate.h` (57 lines)
-- `modules/Sens-Decision/inc/utils.h` (23 lines)
-- `modules/Sens-Decision/src/behavior_planner.c` (173 lines)
-- `modules/Sens-Decision/src/config.c` (197 lines)
-- `modules/Sens-Decision/src/EKF.c` (248 lines)
-- `modules/Sens-Decision/src/interface.c` (302 lines)
-- `modules/Sens-Decision/src/perception.c` (114 lines)
-- `modules/Sens-Decision/src/preprocess.c` (40 lines)
-- `modules/Sens-Decision/src/state_evaluate.c` (146 lines)
-- `modules/Sens-Decision/src/trajectory_generate.c` (248 lines)
-- `modules/Sens-Decision/src/utils.c` (61 lines)
-
-### Test Runner
-- `tests/run_tests.ps1` (23 lines) - PowerShell test runner skeleton with `Invoke-TestBuild` function
-
-## Verification Results
-
-All original module tests executed successfully against the copied files:
-
-### ICM42688 Module Tests
-```
-ICM42688 host tests: PASS
-  - test_icm42688: PASS (10 assertions)
-  - test_ahrs: PASS (16 assertions)
-  - test_mspm0_adapter: PASS (9 assertions)
+```powershell
+cmake -S tests -B build/host-tests -G "MinGW Makefiles"
+cmake --build build/host-tests
 ```
 
-### Sens-Decision Module Tests
-```
-Sens-Decision tests: passed=65, failed=0
-  - Configuration tests: 5 passed
-  - Interface/sensor tests: 10 passed
-  - EKF tests: 9 passed
-  - Perception tests: 10 passed
-  - Behavior planner tests: 11 passed
-  - Trajectory generation tests: 16 passed
-  - Integration tests: 4 passed
-```
+### Output
 
-### Motion Control Module Tests
-```
-GCC syntax check: PASS
-  - Compiled with: -std=c99 -Wall -Wextra -Werror -pedantic -fsyntax-only
-  - All 4 source files pass strict C99 syntax validation
+```text
+-- The C compiler identification is GNU 8.1.0
+-- Configuring done (0.8s)
+-- Generating done (0.0s)
+-- Build files have been written to: E:/B306/2026/diansai/2026task/stm32/balanceBall/balanceBall/build/host-tests
+[ 33%] Building C object CMakeFiles/test_balance.dir/test_balance.c.obj
+E:\B306\2026\diansai\2026task\stm32\balanceBall\balanceBall\tests\test_balance.c:3:10: fatal error: balance_observer.h: No such file or directory
+ #include "balance_observer.h"
+          ^~~~~~~~~~~~~~~~~~~~
+compilation terminated.
+mingw32-make.exe[2]: *** [CMakeFiles\test_balance.dir\build.make:79: CMakeFiles/test_balance.dir/test_balance.c.obj] Error 1
+mingw32-make.exe[1]: *** [CMakeFiles\Makefile2:86: CMakeFiles/test_balance.dir/all] Error 2
+mingw32-make.exe: *** [Makefile:100: all] Error 2
 ```
 
-## Baseline Integrity
+### Reason
 
-The copied files are byte-for-byte identical to the source files at `E:/B306/2026/电赛/modules` (aside from line-ending normalization warnings from Git, which is expected on Windows). No modifications were made during the copy process.
+The host tests included the wished-for observer API before it existed. Compilation failed at the expected missing `balance_observer.h` include, proving the tests could not pass without adding the observer interface and implementation.
 
-Git diff shows:
-- 36 files changed
-- 4,590 insertions
-- 0 deletions (pure addition)
-- All files marked as new (mode 100644)
+## GREEN
 
-## Exclusions (as specified)
+### Command
 
-The following were correctly excluded from the copy:
-- `temp/` directories (containing tests, build artifacts, and documentation)
-- `example_usage.c` (demonstration code)
-- README.md files
-- `documents/` directories
-- `.vscode/` configuration
-- OLED, motor, and servo modules (not in scope)
+```powershell
+cmake --build build/host-tests
+ctest --test-dir build/host-tests --output-on-failure
+```
 
-## Notes
+### Output
 
-1. **Line Endings:** Git warned about LF→CRLF conversion for 23 files. This is expected on Windows and does not affect functionality.
+```text
+[ 33%] Building C object CMakeFiles/test_balance.dir/test_balance.c.obj
+[ 66%] Building C object CMakeFiles/test_balance.dir/E_/B306/2026/diansai/2026task/stm32/balanceBall/balanceBall/App/Src/balance_observer.c.obj
+[100%] Linking C executable test_balance.exe
+[100%] Built target test_balance
+Test project E:/B306/2026/diansai/2026task/stm32/balanceBall/balanceBall/build/host-tests
+    Start 1: balance_core
+1/1 Test #1: balance_core .....................   Passed    0.02 sec
 
-2. **Module Structure:** All four modules maintain their original directory structure (`inc/` and `src/` subdirectories).
+100% tests passed, 0 tests failed out of 1
 
-3. **Test Runner:** The `tests/run_tests.ps1` skeleton is functional but currently only prints "Host tests: PASS". Future tasks will populate it with actual test invocations.
+Total Test time (real) =   0.02 sec
+```
 
-4. **Portability Verified:** The Motion Control syntax check confirms the code is portable C99 with no platform-specific dependencies in the copied production sources.
+## Self-Review
 
-## Next Steps (for subsequent tasks)
+- Compared all four task files with the task brief; interfaces, constants, test cases, CMake settings, and implementation match the specified content.
+- Verified first-sample behavior returns `BALANCE_OBSERVER_RESET`, adopts measured position, and clears velocity.
+- Verified accepted updates derive `dt_s` from actual unsigned timestamp difference and apply the required alpha-beta equations.
+- Verified too-fast samples return the unchanged estimate without advancing the accepted timestamp.
+- Verified long gaps adopt the new position, clear velocity, advance timestamp, and return reset.
+- Confirmed unsigned timestamp subtraction preserves normal STM32 `uint32_t` tick-wrap behavior.
+- Confirmed the focused host target compiles cleanly under `-Wall -Wextra -Werror` and links `libm`.
+- Reviewed repository status and ensured only the four named task files are selected for the task commit.
 
-- Task 2: Implement hardware abstraction interfaces
-- Task 3: Create FreeRTOS task wrappers
-- Task 4: Integrate modules with the main controller application
+## Concerns
 
-## Conclusion
-
-Task 1 completed successfully. The migrated source baseline is established with all production code copied intact, the test runner skeleton is in place, and all original module tests pass, confirming the baseline is clean and ready for target-specific integration work.
+- The API assumes non-null pointers and valid configuration ranges, exactly as specified; it does not defensively validate caller input.
+- Verification is limited to the requested native host tests. The task does not integrate this module into or rebuild the ARM firmware.
+- The broader repository contains unrelated pre-existing modified, deleted, and untracked files; they were left untouched.

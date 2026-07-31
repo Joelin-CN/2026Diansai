@@ -659,6 +659,30 @@ Core/Src/app/motor_speed_test.c.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/v1.0_freeRTOS.dir/build.make CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_speed_test.c.s
 .PHONY : Core/Src/app/motor_speed_test.c.s
 
+Core/Src/app/motor_static_friction_test.obj: Core/Src/app/motor_static_friction_test.c.obj
+.PHONY : Core/Src/app/motor_static_friction_test.obj
+
+# target to build an object file
+Core/Src/app/motor_static_friction_test.c.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/v1.0_freeRTOS.dir/build.make CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_static_friction_test.c.obj
+.PHONY : Core/Src/app/motor_static_friction_test.c.obj
+
+Core/Src/app/motor_static_friction_test.i: Core/Src/app/motor_static_friction_test.c.i
+.PHONY : Core/Src/app/motor_static_friction_test.i
+
+# target to preprocess a source file
+Core/Src/app/motor_static_friction_test.c.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/v1.0_freeRTOS.dir/build.make CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_static_friction_test.c.i
+.PHONY : Core/Src/app/motor_static_friction_test.c.i
+
+Core/Src/app/motor_static_friction_test.s: Core/Src/app/motor_static_friction_test.c.s
+.PHONY : Core/Src/app/motor_static_friction_test.s
+
+# target to generate assembly for a file
+Core/Src/app/motor_static_friction_test.c.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/v1.0_freeRTOS.dir/build.make CMakeFiles/v1.0_freeRTOS.dir/Core/Src/app/motor_static_friction_test.c.s
+.PHONY : Core/Src/app/motor_static_friction_test.c.s
+
 Core/Src/app/platform_time.obj: Core/Src/app/platform_time.c.obj
 .PHONY : Core/Src/app/platform_time.obj
 
@@ -1725,6 +1749,9 @@ help:
 	@echo "... Core/Src/app/motor_speed_test.obj"
 	@echo "... Core/Src/app/motor_speed_test.i"
 	@echo "... Core/Src/app/motor_speed_test.s"
+	@echo "... Core/Src/app/motor_static_friction_test.obj"
+	@echo "... Core/Src/app/motor_static_friction_test.i"
+	@echo "... Core/Src/app/motor_static_friction_test.s"
 	@echo "... Core/Src/app/platform_time.obj"
 	@echo "... Core/Src/app/platform_time.i"
 	@echo "... Core/Src/app/platform_time.s"
