@@ -115,6 +115,31 @@ int main(void)
   debug_cli_init(&g_debug_cli, &huart3);
   HAL_UARTEx_ReceiveToIdle_DMA(&huart3, g_debug_cli.rx_buf, DEBUG_CLI_RX_BUF);
   __HAL_DMA_DISABLE_IT(&hdma_usart3_rx, DMA_IT_HT); /* disable half-transfer, not needed */
+  
+  /* === 简单测试序列：使能 -> 移动1000脉冲 === */
+  HAL_Delay(500); // 等待初始化稳定
+  
+  // 1. 使能电机
+  uint8_t enable_frame[EMM_V5_MAX_FRAME_SIZE];
+  EmmV5Frame enable = {enable_frame, sizeof(enable_frame), 0};
+  emm_v5_encode_enable(motor_config.address, true, false, &enable);
+  emm_v5_uart_send(&g_emm_uart, enable.data, enable.length, 0xF3U, 3U);
+  HAL_Delay(200); // 等待使能完成
+  
+  // 2. 直接发送位置命令：1000脉冲，100rpm，加速度10
+  EmmV5PositionCommand pos_cmd = {
+    .direction = EMM_V5_DIRECTION_CW,
+    .speed_rpm = 100,
+    .acceleration = 10,
+    .pulse_count = 1000,
+    .absolute = true,
+    .synchronized = false
+  };
+  uint8_t pos_frame[EMM_V5_MAX_FRAME_SIZE];
+  EmmV5Frame pos = {pos_frame, sizeof(pos_frame), 0};
+  emm_v5_encode_position(motor_config.address, &pos_cmd, &pos);
+  emm_v5_uart_send(&g_emm_uart, pos.data, pos.length, 0xFDU, 3U);
+  
   /* USER CODE END 2 */
 
   /* Infinite loop */
