@@ -29,11 +29,18 @@ typedef struct {
     EmmV5UartState state;
     uint8_t tx_storage[EMM_V5_MAX_FRAME_SIZE];
     uint8_t rx_storage[EMM_V5_MAX_FRAME_SIZE];
+    uint8_t result_storage[EMM_V5_MAX_FRAME_SIZE];
     size_t expected_length;
+    size_t terminal_response_length;
     uint32_t timeout_ms;
     uint32_t deadline_ms;
     uint8_t expected_function;
+    EmmV5UartState terminal_state;
+    bool terminal_latched;
+    bool tx_owned;
+    bool rx_owned;
     volatile size_t event_rx_length;
+    volatile uint8_t callbacks_armed;
     volatile uint8_t tx_complete_event;
     volatile uint8_t rx_event;
     volatile uint8_t error_event;

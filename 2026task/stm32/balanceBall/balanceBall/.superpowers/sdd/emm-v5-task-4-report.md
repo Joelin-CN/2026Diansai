@@ -103,3 +103,89 @@ Output:
 ## Concerns
 
 - Host tests validate state transitions and HAL call ordering, but target integration still needs USART2 callback routing to these per-instance callbacks in a later task.
+
+## Review Fixes - 2026-07-31
+
+### Changes
+
+- Early RX now latches its terminal result internally but remains `ACTIVE`; `take_result()` and a replacement send stay unavailable until TX completion releases `tx_storage`.
+- Terminal timeout/error processing checks `HAL_UART_AbortReceive()`. Abort failure escalates to `HAL_ERROR`, quarantines the transaction, and retries recovery from later polls before allowing reuse.
+- Completed response bytes are copied into `result_storage`, so the pointer returned by the unchanged `emm_v5_uart_take_result(EmmV5Uart *, EmmV5UartResult *)` API is not aliased by the next RX DMA transfer.
+- Callback ownership is armed only for an active HAL transaction, disarmed at terminal publication, and atomically cleared before reuse. Terminal latching is monotonic, with only escalation to `HAL_ERROR`, so stale callback data cannot replace an established terminal cause.
+- Public compatibility is unchanged: `emm_v5_uart_send()` still exactly matches Task 3's `BalanceMotorSendFn`, and no Task 5 API change is required.
+
+### RED: Review Regressions
+
+Command:
+
+```powershell
+cmake --build build/host-tests --target test_emm_v5_uart
+& "build/host-tests/test_emm_v5_uart.exe"
+```
+
+Output before the transaction ownership fix:
+
+```text
+[100%] Built target test_emm_v5_uart
+FAIL tests/test_emm_v5_uart.c:150: uart.state == EMM_V5_UART_ACTIVE
+FAIL tests/test_emm_v5_uart.c:151: !emm_v5_uart_take_result(&uart, &result)
+FAIL tests/test_emm_v5_uart.c:153: emm_v5_uart_send(&uart, next_frame, sizeof(next_frame), 0x36U, sizeof(response)) == BALANCE_MOTOR_TX_BUSY
+FAIL tests/test_emm_v5_uart.c:154: fake.tx_data[0] == 0x01U
+FAIL tests/test_emm_v5_uart.c:167: false
+FAIL tests/test_emm_v5_uart.c:169: uart.state == EMM_V5_UART_IDLE
+FAIL tests/test_emm_v5_uart.c:251: !emm_v5_uart_take_result(&uart, &result)
+FAIL tests/test_emm_v5_uart.c:253: emm_v5_uart_send(&uart, frame, sizeof(frame), 0x36U, 8U) == BALANCE_MOTOR_TX_BUSY
+FAIL tests/test_emm_v5_uart.c:258: result.state == EMM_V5_UART_HAL_ERROR
+FAIL tests/test_emm_v5_uart.c:277: memcmp(first.response, response, sizeof(response)) == 0
+FAIL
+```
+
+Output after adding stale RX during abort recovery:
+
+```text
+[100%] Built target test_emm_v5_uart
+FAIL tests/test_emm_v5_uart.c:260: result.state == EMM_V5_UART_HAL_ERROR
+FAIL
+```
+
+### GREEN: Focused UART Test
+
+Command:
+
+```powershell
+cmake --build build/host-tests --target test_emm_v5_uart
+ctest --test-dir build/host-tests -R "^emm_v5_uart$" --output-on-failure
+```
+
+Output:
+
+```text
+[100%] Built target test_emm_v5_uart
+1/1 Test #4: emm_v5_uart ......................   Passed    0.01 sec
+100% tests passed, 0 tests failed out of 1
+Total Test time (real) =   0.01 sec
+```
+
+### GREEN: Full Host Suite
+
+Command:
+
+```powershell
+cmake --build build/host-tests
+ctest --test-dir build/host-tests --output-on-failure
+```
+
+Output:
+
+```text
+[ 47%] Built target test_balance
+[ 63%] Built target test_emm_v5_protocol
+[ 84%] Built target test_balance_motor
+[100%] Built target test_emm_v5_uart
+1/4 Test #1: balance_core .....................   Passed    0.01 sec
+2/4 Test #2: emm_v5_protocol ..................   Passed    0.01 sec
+3/4 Test #3: balance_motor ....................   Passed    0.01 sec
+4/4 Test #4: emm_v5_uart ......................   Passed    0.01 sec
+100% tests passed, 0 tests failed out of 4
+Total Test time (real) =   0.05 sec
+```

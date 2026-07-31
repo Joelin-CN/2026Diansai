@@ -23,6 +23,7 @@ typedef struct {
     size_t call_count;
     HAL_StatusTypeDef receive_status;
     HAL_StatusTypeDef transmit_status;
+    HAL_StatusTypeDef abort_receive_status;
     uint8_t *rx_data;
     uint16_t rx_size;
     const uint8_t *tx_data;
@@ -59,7 +60,7 @@ HAL_StatusTypeDef HAL_UART_AbortReceive(UART_HandleTypeDef *uart_handle)
 {
     CHECK_TRUE(uart_handle == &handle);
     fake.calls[fake.call_count++] = FAKE_CALL_ABORT_RECEIVE;
-    return HAL_OK;
+    return fake.abort_receive_status;
 }
 
 uint32_t HAL_GetTick(void)
@@ -88,6 +89,7 @@ static void setup(uint32_t timeout_ms)
     handle.hdmarx = &rx_dma;
     fake.receive_status = HAL_OK;
     fake.transmit_status = HAL_OK;
+    fake.abort_receive_status = HAL_OK;
     emm_v5_uart_init(&uart, &handle, timeout_ms);
 }
 
@@ -134,24 +136,36 @@ static void test_send_copies_frame_and_arms_rx_first(void)
                                 0x36U, 8U) == BALANCE_MOTOR_TX_BUSY);
 }
 
-static void test_tx_complete_waits_for_early_response(void)
+static void test_early_response_cannot_release_tx_storage(void)
 {
     EmmV5UartResult result;
+    const uint8_t next_frame[] = {0x02U, 0x36U, 0x6BU};
     const uint8_t response[] = {0x01U, 0x36U, 0U, 0U, 0U, 1U, 2U, 0x6BU};
 
     setup(20U);
     start_request(sizeof(response));
     memcpy(fake.rx_data, response, sizeof(response));
     emm_v5_uart_on_rx_event(&uart, sizeof(response));
-    emm_v5_uart_on_tx_complete(&uart);
+    emm_v5_uart_poll(&uart, 0U);
     CHECK_TRUE(uart.state == EMM_V5_UART_ACTIVE);
     CHECK_TRUE(!emm_v5_uart_take_result(&uart, &result));
+    CHECK_TRUE(emm_v5_uart_send(&uart, next_frame, sizeof(next_frame), 0x36U,
+                                sizeof(response)) == BALANCE_MOTOR_TX_BUSY);
+    CHECK_TRUE(fake.tx_data[0] == 0x01U);
+
+    emm_v5_uart_on_tx_complete(&uart);
     emm_v5_uart_poll(&uart, 0U);
-    result = take_result();
-    CHECK_TRUE(result.state == EMM_V5_UART_COMPLETE);
-    CHECK_TRUE(result.response_length == sizeof(response));
-    CHECK_TRUE(result.expected_function == 0x36U);
-    CHECK_TRUE(memcmp(result.response, response, sizeof(response)) == 0);
+    if (emm_v5_uart_take_result(&uart, &result)) {
+        CHECK_TRUE(result.state == EMM_V5_UART_COMPLETE);
+        CHECK_TRUE(result.response_length == sizeof(response));
+        CHECK_TRUE(result.expected_function == 0x36U);
+        CHECK_TRUE(result.response != NULL);
+        if (result.response != NULL) {
+            CHECK_TRUE(memcmp(result.response, response, sizeof(response)) == 0);
+        }
+    } else {
+        CHECK_TRUE(false);
+    }
     CHECK_TRUE(uart.state == EMM_V5_UART_IDLE);
 }
 
@@ -163,6 +177,7 @@ static void test_short_and_wrong_function_are_protocol_errors(void)
     start_request(8U);
     fake.rx_data[0] = 0x01U;
     emm_v5_uart_on_rx_event(&uart, 1U);
+    emm_v5_uart_on_tx_complete(&uart);
     emm_v5_uart_poll(&uart, 0U);
     result = take_result();
     CHECK_TRUE(result.state == EMM_V5_UART_PROTOCOL_ERROR);
@@ -171,6 +186,7 @@ static void test_short_and_wrong_function_are_protocol_errors(void)
     start_request(4U);
     memcpy(fake.rx_data, (const uint8_t[]){0x01U, 0xFDU, 0x02U, 0x6BU}, 4U);
     emm_v5_uart_on_rx_event(&uart, 4U);
+    emm_v5_uart_on_tx_complete(&uart);
     emm_v5_uart_poll(&uart, 0U);
     result = take_result();
     CHECK_TRUE(result.state == EMM_V5_UART_PROTOCOL_ERROR);
@@ -184,6 +200,7 @@ static void test_oversized_rx_event_never_exposes_length_beyond_storage(void)
     setup(20U);
     start_request(8U);
     emm_v5_uart_on_rx_event(&uart, EMM_V5_MAX_FRAME_SIZE + 1U);
+    emm_v5_uart_on_tx_complete(&uart);
     emm_v5_uart_poll(&uart, 0U);
     result = take_result();
     CHECK_TRUE(result.state == EMM_V5_UART_PROTOCOL_ERROR);
@@ -197,6 +214,7 @@ static void test_timeout_handles_tick_wrap(void)
     setup(20U);
     fake.tick = UINT32_MAX - 9U;
     start_request(8U);
+    emm_v5_uart_on_tx_complete(&uart);
     emm_v5_uart_poll(&uart, 5U);
     CHECK_TRUE(!emm_v5_uart_take_result(&uart, &result));
     emm_v5_uart_poll(&uart, 10U);
@@ -211,12 +229,81 @@ static void test_uart_error_is_published_from_poll(void)
 
     setup(20U);
     start_request(8U);
+    emm_v5_uart_on_tx_complete(&uart);
     emm_v5_uart_on_error(&uart);
     CHECK_TRUE(uart.state == EMM_V5_UART_ACTIVE);
     emm_v5_uart_poll(&uart, 0U);
     result = take_result();
     CHECK_TRUE(result.state == EMM_V5_UART_HAL_ERROR);
     CHECK_TRUE(uart.state == EMM_V5_UART_IDLE);
+}
+
+static void test_failed_abort_quarantines_until_recovery(void)
+{
+    EmmV5UartResult result;
+    const uint8_t frame[] = {0x01U, 0x36U, 0x6BU};
+
+    setup(20U);
+    start_request(8U);
+    emm_v5_uart_on_tx_complete(&uart);
+    fake.abort_receive_status = HAL_ERROR;
+    emm_v5_uart_poll(&uart, 20U);
+    CHECK_TRUE(!emm_v5_uart_take_result(&uart, &result));
+    CHECK_TRUE(emm_v5_uart_send(&uart, frame, sizeof(frame), 0x36U, 8U) ==
+               BALANCE_MOTOR_TX_BUSY);
+
+    fake.rx_data[0] = 0x01U;
+    emm_v5_uart_on_rx_event(&uart, 1U);
+    fake.abort_receive_status = HAL_OK;
+    emm_v5_uart_poll(&uart, 21U);
+    result = take_result();
+    CHECK_TRUE(result.state == EMM_V5_UART_HAL_ERROR);
+    CHECK_TRUE(uart.state == EMM_V5_UART_IDLE);
+}
+
+static void test_result_bytes_survive_next_receive(void)
+{
+    EmmV5UartResult first;
+    const uint8_t response[] = {0x01U, 0x36U, 0U, 0U, 0U, 1U, 2U, 0x6BU};
+
+    setup(20U);
+    start_request(sizeof(response));
+    memcpy(fake.rx_data, response, sizeof(response));
+    emm_v5_uart_on_rx_event(&uart, sizeof(response));
+    emm_v5_uart_on_tx_complete(&uart);
+    emm_v5_uart_poll(&uart, 0U);
+    first = take_result();
+
+    start_request(sizeof(response));
+    memset(fake.rx_data, 0xA5, sizeof(response));
+    CHECK_TRUE(memcmp(first.response, response, sizeof(response)) == 0);
+}
+
+static void test_stale_callbacks_after_terminal_do_not_affect_next_request(void)
+{
+    EmmV5UartResult result;
+    const uint8_t response[] = {0x01U, 0x36U, 0U, 0U, 0U, 1U, 2U, 0x6BU};
+
+    setup(20U);
+    start_request(sizeof(response));
+    emm_v5_uart_on_tx_complete(&uart);
+    emm_v5_uart_poll(&uart, 20U);
+    result = take_result();
+    CHECK_TRUE(result.state == EMM_V5_UART_TIMEOUT);
+
+    emm_v5_uart_on_rx_event(&uart, 1U);
+    emm_v5_uart_on_error(&uart);
+    fake.tick = 21U;
+    start_request(sizeof(response));
+    emm_v5_uart_poll(&uart, 21U);
+    CHECK_TRUE(!emm_v5_uart_take_result(&uart, &result));
+
+    memcpy(fake.rx_data, response, sizeof(response));
+    emm_v5_uart_on_rx_event(&uart, sizeof(response));
+    emm_v5_uart_on_tx_complete(&uart);
+    emm_v5_uart_poll(&uart, 21U);
+    result = take_result();
+    CHECK_TRUE(result.state == EMM_V5_UART_COMPLETE);
 }
 
 static void test_hal_start_failures_publish_errors(void)
@@ -261,11 +348,14 @@ int main(void)
 {
     test_initialization_is_idle();
     test_send_copies_frame_and_arms_rx_first();
-    test_tx_complete_waits_for_early_response();
+    test_early_response_cannot_release_tx_storage();
     test_short_and_wrong_function_are_protocol_errors();
     test_oversized_rx_event_never_exposes_length_beyond_storage();
     test_timeout_handles_tick_wrap();
     test_uart_error_is_published_from_poll();
+    test_failed_abort_quarantines_until_recovery();
+    test_result_bytes_survive_next_receive();
+    test_stale_callbacks_after_terminal_do_not_affect_next_request();
     test_hal_start_failures_publish_errors();
     test_invalid_lengths_are_rejected_without_hal();
     printf("%s\n", failures == 0 ? "PASS" : "FAIL");
