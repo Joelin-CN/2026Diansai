@@ -27,3 +27,15 @@ Task 3: complete (commits 311fa2b..1c8be50, Critical stale-zero and Important pr
 Task 4: complete (commits 1c8be50..a7404b6, Critical DMA ownership and Important abort/error lifecycle findings fixed, final review clean, 4/4 tests passed)
 Task 5: complete (commits a7404b6..6f598df, review clean, 4/4 host tests + ARM clean build, SM hashes confirmed)
 Final whole-branch review: complete (bb4d77a..6f598df, no Critical/Important, 4 Minor recorded)
+Minor fixes: complete (commit 715ea43, 4/4 tests + ARM build passed)
+
+# Debug UART CLI SDD Progress
+
+Plan: `docs/superpowers/plans/2026-07-31-debug-uart-cli.md`
+Start commit: `5fa23e9`
+Execution mode: current worktree
+
+Task 1: complete (commits 5fa23e9..714d667, review clean)
+Task 2: complete (commits 714d667..ed98400, review approved; 3 Minor noted)
+Task 3: complete (commits ed98400..d22e067, review approved; Minor: hdma extern could consolidate)
+Final review: complete (5fa23e9..504337b, I1+I2 fixed, all Minors accepted, review clean)

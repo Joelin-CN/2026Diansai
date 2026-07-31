@@ -1,0 +1,13 @@
+E:\B306\2026\diansai\2026task\stm32\balanceBall\balanceBall\App\Src\balance_motor.c:24:13:record_failure	0	static
+E:\B306\2026\diansai\2026task\stm32\balanceBall\balanceBall\App\Src\balance_motor.c:35:27:send_frame	32	static
+E:\B306\2026\diansai\2026task\stm32\balanceBall\balanceBall\App\Src\balance_motor.c:71:27:encode_priority	32	static
+E:\B306\2026\diansai\2026task\stm32\balanceBall\balanceBall\App\Src\balance_motor.c:106:6:balance_motor_init	32	static
+E:\B306\2026\diansai\2026task\stm32\balanceBall\balanceBall\App\Src\balance_motor.c:127:20:balance_motor_request_zero	88	static
+E:\B306\2026\diansai\2026task\stm32\balanceBall\balanceBall\App\Src\balance_motor.c:151:20:balance_motor_submit	64	static
+E:\B306\2026\diansai\2026task\stm32\balanceBall\balanceBall\App\Src\balance_motor.c:227:20:balance_motor_stop	0	static
+E:\B306\2026\diansai\2026task\stm32\balanceBall\balanceBall\App\Src\balance_motor.c:232:20:balance_motor_disable	0	static
+E:\B306\2026\diansai\2026task\stm32\balanceBall\balanceBall\App\Src\balance_motor.c:237:6:balance_motor_on_response	40	static
+E:\B306\2026\diansai\2026task\stm32\balanceBall\balanceBall\App\Src\balance_motor.c:275:6:balance_motor_on_transport_error	8	static
+E:\B306\2026\diansai\2026task\stm32\balanceBall\balanceBall\App\Src\balance_motor.c:290:6:balance_motor_process	0	static
+E:\B306\2026\diansai\2026task\stm32\balanceBall\balanceBall\App\Src\balance_motor.c:302:6:balance_motor_clear_fault	0	static
+E:\B306\2026\diansai\2026task\stm32\balanceBall\balanceBall\App\Src\balance_motor.c:316:6:balance_motor_has_zero	0	static

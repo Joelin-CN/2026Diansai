@@ -220,7 +220,7 @@ Phase 4: 会话总结
 ### 构建系统
 - **平台**: STM32CubeMX + Keil MDK / CMake
 - **编译器**: ARM Compiler 5.06 update 5
-- **目标芯片**: STM32F407VGT6
+- **目标芯片**: STM32F103C8T6
 
 ### 代码编辑器集成
 - VSCode / JetBrains IDEs均支持

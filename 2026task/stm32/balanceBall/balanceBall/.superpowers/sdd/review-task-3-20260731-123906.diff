@@ -1,0 +1,119 @@
+﻿d22e067 feat: integrate debug_cli into main.c with UART3 DMA RX
+ 2026task/stm32/balanceBall/balanceBall/Core/Src/main.c | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
+diff --git a/2026task/stm32/balanceBall/balanceBall/Core/Src/main.c b/2026task/stm32/balanceBall/balanceBall/Core/Src/main.c
+index ce776b3..231cec1 100644
+--- a/2026task/stm32/balanceBall/balanceBall/Core/Src/main.c
++++ b/2026task/stm32/balanceBall/balanceBall/Core/Src/main.c
+@@ -19,20 +19,21 @@
+ /* Includes ------------------------------------------------------------------*/
+ #include "main.h"
+ #include "dma.h"
+ #include "usart.h"
+ #include "gpio.h"
+ 
+ /* Private includes ----------------------------------------------------------*/
+ /* USER CODE BEGIN Includes */
+ #include "balance_motor.h"
+ #include "emm_v5_uart.h"
++#include "debug_cli.h"
+ /* USER CODE END Includes */
+ 
+ /* Private typedef -----------------------------------------------------------*/
+ /* USER CODE BEGIN PTD */
+ 
+ /* USER CODE END PTD */
+ 
+ /* Private define ------------------------------------------------------------*/
+ /* USER CODE BEGIN PD */
+ #define EMM_V5_RESPONSE_TIMEOUT_MS 100U  /* Emm V5 typical response < 50ms at 115200 baud */
+@@ -41,20 +42,21 @@
+ /* Private macro -------------------------------------------------------------*/
+ /* USER CODE BEGIN PM */
+ 
+ /* USER CODE END PM */
+ 
+ /* Private variables ---------------------------------------------------------*/
+ 
+ /* USER CODE BEGIN PV */
+ EmmV5Uart g_emm_uart;
+ BalanceMotor g_balance_motor;
++DebugCli g_debug_cli;
+ /* USER CODE END PV */
+ 
+ /* Private function prototypes -----------------------------------------------*/
+ void SystemClock_Config(void);
+ /* USER CODE BEGIN PFP */
+ 
+ /* USER CODE END PFP */
+ 
+ /* Private user code ---------------------------------------------------------*/
+ /* USER CODE BEGIN 0 */
+@@ -88,32 +90,38 @@ int main(void)
+ 
+   /* USER CODE END SysInit */
+ 
+   /* Initialize all configured peripherals */
+   MX_GPIO_Init();
+   MX_DMA_Init();
+   MX_USART1_UART_Init();
+   MX_USART2_UART_Init();
+   MX_USART3_UART_Init();
+   /* USER CODE BEGIN 2 */
++  extern DMA_HandleTypeDef hdma_usart3_rx;
++  
+   const BalanceMotorConfig motor_config = {
+     .address = 0x01U,
+     .pulses_per_position_unit = 1.0f,
+     .max_consecutive_failures = 3U,
+   };
+   const BalanceMotorTransport motor_transport = {
+     .send = emm_v5_uart_send,
+     .context = &g_emm_uart,
+   };
+ 
+   emm_v5_uart_init(&g_emm_uart, &huart2, EMM_V5_RESPONSE_TIMEOUT_MS);
+   balance_motor_init(&g_balance_motor, &motor_config, motor_transport);
++  
++  debug_cli_init(&g_debug_cli, &huart3);
++  HAL_UARTEx_ReceiveToIdle_DMA(&huart3, g_debug_cli.rx_buf, DEBUG_CLI_RX_BUF);
++  __HAL_DMA_DISABLE_IT(&hdma_usart3_rx, DMA_IT_HT); /* disable half-transfer, not needed */
+   /* USER CODE END 2 */
+ 
+   /* Infinite loop */
+   /* USER CODE BEGIN WHILE */
+   while (1)
+   {
+     /* USER CODE END WHILE */
+ 
+     /* USER CODE BEGIN 3 */
+     EmmV5UartResult uart_result;
+@@ -185,20 +193,28 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
+     emm_v5_uart_on_tx_complete(&g_emm_uart);
+   }
+ }
+ 
+ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t size)
+ {
+   if (huart->Instance == USART2)
+   {
+     emm_v5_uart_on_rx_event(&g_emm_uart, size);
+   }
++  else if (huart->Instance == USART3)
++  {
++    extern DMA_HandleTypeDef hdma_usart3_rx;
++    debug_cli_process_line(&g_debug_cli, (const char *)g_debug_cli.rx_buf, size);
++    /* Restart DMA reception for the next command */
++    HAL_UARTEx_ReceiveToIdle_DMA(&huart3, g_debug_cli.rx_buf, DEBUG_CLI_RX_BUF);
++    __HAL_DMA_DISABLE_IT(&hdma_usart3_rx, DMA_IT_HT);
++  }
+ }
+ 
+ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
+ {
+   if (huart->Instance == USART2)
+   {
+     emm_v5_uart_on_error(&g_emm_uart);
+   }
+ }
+ 

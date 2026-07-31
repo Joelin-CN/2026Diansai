@@ -1,0 +1,9 @@
+E:\B306\2026\diansai\2026task\stm32\balanceBall\balanceBall\App\Src\emm_v5_uart.c:23:13:latch_terminal	16	static
+E:\B306\2026\diansai\2026task\stm32\balanceBall\balanceBall\App\Src\emm_v5_uart.c:43:13:abort_receive	8	static
+E:\B306\2026\diansai\2026task\stm32\balanceBall\balanceBall\App\Src\emm_v5_uart.c:68:6:emm_v5_uart_init	16	static
+E:\B306\2026\diansai\2026task\stm32\balanceBall\balanceBall\App\Src\emm_v5_uart.c:77:22:emm_v5_uart_send	32	static,ignoring_inline_asm
+E:\B306\2026\diansai\2026task\stm32\balanceBall\balanceBall\App\Src\emm_v5_uart.c:133:6:emm_v5_uart_poll	24	static,ignoring_inline_asm
+E:\B306\2026\diansai\2026task\stm32\balanceBall\balanceBall\App\Src\emm_v5_uart.c:192:6:emm_v5_uart_take_result	16	static
+E:\B306\2026\diansai\2026task\stm32\balanceBall\balanceBall\App\Src\emm_v5_uart.c:204:6:emm_v5_uart_on_tx_complete	0	static
+E:\B306\2026\diansai\2026task\stm32\balanceBall\balanceBall\App\Src\emm_v5_uart.c:211:6:emm_v5_uart_on_rx_event	0	static
+E:\B306\2026\diansai\2026task\stm32\balanceBall\balanceBall\App\Src\emm_v5_uart.c:219:6:emm_v5_uart_on_error	0	static

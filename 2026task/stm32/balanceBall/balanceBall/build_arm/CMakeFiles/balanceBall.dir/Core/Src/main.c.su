@@ -1,0 +1,6 @@
+E:\B306\2026\diansai\2026task\stm32\balanceBall\balanceBall\Core\Src\main.c:178:6:SystemClock_Config	72	static,ignoring_inline_asm
+E:\B306\2026\diansai\2026task\stm32\balanceBall\balanceBall\Core\Src\main.c:70:5:main	128	static
+E:\B306\2026\diansai\2026task\stm32\balanceBall\balanceBall\Core\Src\main.c:214:6:HAL_UART_TxCpltCallback	0	static
+E:\B306\2026\diansai\2026task\stm32\balanceBall\balanceBall\Core\Src\main.c:222:6:HAL_UARTEx_RxEventCallback	8	static
+E:\B306\2026\diansai\2026task\stm32\balanceBall\balanceBall\Core\Src\main.c:238:6:HAL_UART_ErrorCallback	8	static
+E:\B306\2026\diansai\2026task\stm32\balanceBall\balanceBall\Core\Src\main.c:259:6:Error_Handler	0	static,ignoring_inline_asm

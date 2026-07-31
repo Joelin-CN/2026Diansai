@@ -1,0 +1,14 @@
+E:\B306\2026\diansai\2026task\stm32\balanceBall\balanceBall\App\Src\balance_loop.c:17:13:reset_logical_state	8	static
+E:\B306\2026\diansai\2026task\stm32\balanceBall\balanceBall\App\Src\balance_loop.c:96:13:raise_fault	8	static
+E:\B306\2026\diansai\2026task\stm32\balanceBall\balanceBall\App\Src\balance_loop.c:102:6:balance_loop_init	112	static
+E:\B306\2026\diansai\2026task\stm32\balanceBall\balanceBall\App\Src\balance_loop.c:121:6:balance_loop_confirm_manual_zero	8	static
+E:\B306\2026\diansai\2026task\stm32\balanceBall\balanceBall\App\Src\balance_loop.c:128:6:balance_loop_complete_open_loop	0	static
+E:\B306\2026\diansai\2026task\stm32\balanceBall\balanceBall\App\Src\balance_loop.c:133:6:balance_loop_start	0	static
+E:\B306\2026\diansai\2026task\stm32\balanceBall\balanceBall\App\Src\balance_loop.c:141:6:balance_loop_stop	8	static
+E:\B306\2026\diansai\2026task\stm32\balanceBall\balanceBall\App\Src\balance_loop.c:151:6:balance_loop_select_target	16	static
+E:\B306\2026\diansai\2026task\stm32\balanceBall\balanceBall\App\Src\balance_loop.c:165:6:balance_loop_process_measurement	144	static
+E:\B306\2026\diansai\2026task\stm32\balanceBall\balanceBall\App\Src\balance_loop.c:280:6:balance_loop_poll	8	static
+E:\B306\2026\diansai\2026task\stm32\balanceBall\balanceBall\App\Src\balance_loop.c:294:6:balance_loop_raise_motor_fault	0	static
+E:\B306\2026\diansai\2026task\stm32\balanceBall\balanceBall\App\Src\balance_loop.c:299:6:balance_loop_emergency_stop	0	static
+E:\B306\2026\diansai\2026task\stm32\balanceBall\balanceBall\App\Src\balance_loop.c:304:6:balance_loop_acknowledge_fault	8	static
+E:\B306\2026\diansai\2026task\stm32\balanceBall\balanceBall\App\Src\balance_loop.c:313:6:balance_loop_get_telemetry	20	static

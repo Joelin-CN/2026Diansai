@@ -1,0 +1,3 @@
+E:\B306\2026\diansai\2026task\stm32\balanceBall\balanceBall\App\Src\balance_controller.c:12:6:balance_controller_init	16	static
+E:\B306\2026\diansai\2026task\stm32\balanceBall\balanceBall\App\Src\balance_controller.c:19:6:balance_controller_reset	0	static
+E:\B306\2026\diansai\2026task\stm32\balanceBall\balanceBall\App\Src\balance_controller.c:24:22:balance_controller_step	56	static

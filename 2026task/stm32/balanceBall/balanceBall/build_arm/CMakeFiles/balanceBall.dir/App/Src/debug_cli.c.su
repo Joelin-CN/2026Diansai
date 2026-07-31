@@ -1,0 +1,12 @@
+E:\B306\2026\diansai\2026task\stm32\balanceBall\balanceBall\App\Src\debug_cli.c:17:6:debug_cli_init	0	static
+E:\B306\2026\diansai\2026task\stm32\balanceBall\balanceBall\App\Src\debug_cli.c:22:6:debug_cli_printf	276	static
+E:\B306\2026\diansai\2026task\stm32\balanceBall\balanceBall\App\Src\debug_cli.c:236:13:cmd_help	0	static
+E:\B306\2026\diansai\2026task\stm32\balanceBall\balanceBall\App\Src\debug_cli.c:212:13:cmd_status	32	static
+E:\B306\2026\diansai\2026task\stm32\balanceBall\balanceBall\App\Src\debug_cli.c:97:13:cmd_zero	8	static
+E:\B306\2026\diansai\2026task\stm32\balanceBall\balanceBall\App\Src\debug_cli.c:191:13:cmd_query	48	static
+E:\B306\2026\diansai\2026task\stm32\balanceBall\balanceBall\App\Src\debug_cli.c:85:13:cmd_stop	8	static
+E:\B306\2026\diansai\2026task\stm32\balanceBall\balanceBall\App\Src\debug_cli.c:154:13:cmd_vel	64	static
+E:\B306\2026\diansai\2026task\stm32\balanceBall\balanceBall\App\Src\debug_cli.c:109:13:cmd_pos	48	static
+E:\B306\2026\diansai\2026task\stm32\balanceBall\balanceBall\App\Src\debug_cli.c:73:13:cmd_disable	8	static
+E:\B306\2026\diansai\2026task\stm32\balanceBall\balanceBall\App\Src\debug_cli.c:53:13:cmd_enable	48	static
+E:\B306\2026\diansai\2026task\stm32\balanceBall\balanceBall\App\Src\debug_cli.c:270:6:debug_cli_process_line	184	static
